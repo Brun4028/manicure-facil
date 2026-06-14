@@ -14,7 +14,174 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agendamentos: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          custo: number
+          data_hora: string
+          duracao_min: number
+          id: string
+          observacoes: string | null
+          pagamento: Database["public"]["Enums"]["pagamento_metodo"]
+          servico_id: string | null
+          status: Database["public"]["Enums"]["agendamento_status"]
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          custo?: number
+          data_hora: string
+          duracao_min?: number
+          id?: string
+          observacoes?: string | null
+          pagamento?: Database["public"]["Enums"]["pagamento_metodo"]
+          servico_id?: string | null
+          status?: Database["public"]["Enums"]["agendamento_status"]
+          updated_at?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          custo?: number
+          data_hora?: string
+          duracao_min?: number
+          id?: string
+          observacoes?: string | null
+          pagamento?: Database["public"]["Enums"]["pagamento_metodo"]
+          servico_id?: string | null
+          status?: Database["public"]["Enums"]["agendamento_status"]
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_servico_id_fkey"
+            columns: ["servico_id"]
+            isOneToOne: false
+            referencedRelation: "servicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clientes: {
+        Row: {
+          alergias: string | null
+          created_at: string
+          data_nascimento: string | null
+          email: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          servico_favorito: string | null
+          telefone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alergias?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          servico_favorito?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alergias?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          servico_favorito?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      servicos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          custo: number
+          duracao_min: number
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          custo?: number
+          duracao_min?: number
+          id?: string
+          nome: string
+          updated_at?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          custo?: number
+          duracao_min?: number
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +190,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      agendamento_status: "agendado" | "confirmado" | "concluido" | "cancelado"
+      pagamento_metodo: "pix" | "dinheiro" | "debito" | "credito" | "pendente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +318,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      agendamento_status: ["agendado", "confirmado", "concluido", "cancelado"],
+      pagamento_metodo: ["pix", "dinheiro", "debito", "credito", "pendente"],
+    },
   },
 } as const
