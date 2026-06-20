@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import {
   LayoutDashboard, Users, CalendarDays, Scissors, Wallet,
   Moon, Sun, LogOut, ChevronLeft, Plus, Sparkles,
+  Package, Percent, Image as ImageIcon, FileSpreadsheet, Link as LinkIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
@@ -15,11 +16,16 @@ const nav = [
   { to: "/agendamentos", label: "Agendamentos", icon: CalendarDays },
   { to: "/servicos", label: "Serviços", icon: Scissors },
   { to: "/financeiro", label: "Financeiro", icon: Wallet },
+  { to: "/estoque", label: "Estoque & Vendas", icon: Package },
+  { to: "/marketing", label: "Marketing", icon: Percent },
+  { to: "/portfolio", label: "Galeria & Feedbacks", icon: ImageIcon },
+  { to: "/relatorios", label: "Relatórios & Backup", icon: FileSpreadsheet },
 ] as const;
 
 const labels: Record<string, string> = {
   dashboard: "Dashboard", clientes: "Clientes", agendamentos: "Agendamentos",
-  servicos: "Serviços", financeiro: "Financeiro",
+  servicos: "Serviços", financeiro: "Financeiro", estoque: "Estoque & Vendas",
+  marketing: "Marketing", portfolio: "Galeria & Feedbacks", relatorios: "Relatórios & Backup",
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -61,8 +67,21 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-sidebar-border/60">
-          <div className="text-xs text-muted-foreground truncate mb-2">{user?.email}</div>
+        <div className="p-4 border-t border-sidebar-border/60 space-y-2">
+          {user && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start glass border-0 hover:bg-accent/40 text-[10px] text-muted-foreground truncate"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/agendar/${user.id}`);
+                toast.success("Link de agendamento copiado com sucesso!");
+              }}
+            >
+              <LinkIcon className="size-3.5 mr-2 shrink-0 text-primary" /> Copiar Link Público
+            </Button>
+          )}
+          <div className="text-[10px] text-muted-foreground truncate">{user?.email}</div>
           <Button
             variant="ghost"
             size="sm"
