@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fallbackDb } from "@/lib/fallback-db";
 import {
   CalendarDays, Scissors, User, Phone, Mail, Clock, Sparkles, CheckCircle2, Star, Award, Heart, Cake, ChevronLeft, ChevronRight
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/agendar/$userId")({
 
 type Serv = { id: string; nome: string; valor: number; custo: number; duracao_min: number; ativo: boolean };
 type Photo = { id: string; titulo: string; imagem_url: string; tags: string[] | null; publico: boolean };
-type Review = { id: string; cliente_nome: string; nota: number; comentario: string | null; data: string; publico: boolean };
+type Review = { id: string; user_id?: string; cliente_nome: string; nota: number; comentario: string | null; data: string; publico: boolean; created_at?: string };
 
 const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -268,7 +269,7 @@ function PublicAgendamentoPage() {
         // 2. Insert Appointment
         const { error: appErr } = await supabase.from("agendamentos").insert({
           user_id: userId,
-          cliente_id,
+          cliente_id: client_id,
           servico_id: selectedService.id,
           data_hora: appointmentDate.toISOString(),
           duracao_min: selectedService.duracao_min,

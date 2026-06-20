@@ -186,7 +186,7 @@ function PortfolioPage() {
         subtitle="Gerencie seu portfólio de trabalhos e acompanhe os feedbacks das clientes"
       />
 
-      <Tabs value={activeTab} onThemeChange={setActiveTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="glass p-1 rounded-xl">
           <TabsTrigger value="portfolio" className="rounded-lg flex items-center gap-1.5"><Image className="size-4" /> Galeria Portfólio</TabsTrigger>
           <TabsTrigger value="avaliacoes" className="rounded-lg flex items-center gap-1.5"><Star className="size-4" /> Avaliações ({stats.total})</TabsTrigger>
@@ -400,7 +400,7 @@ function PhotoDialog({ onSaved }: { onSaved: () => void }) {
       fallbackDb.insert<Photo>("portfolio", {
         user_id: "local",
         ...payload,
-      }, defaultPhotos);
+      } as any, defaultPhotos);
     }
 
     toast.success("Foto adicionada com sucesso!");

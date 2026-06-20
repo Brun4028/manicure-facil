@@ -33,6 +33,7 @@ type Prod = {
   quantidade: number;
   quantidade_minima: number;
   created_at: string;
+  user_id?: string;
 };
 
 type Mov = {
@@ -44,6 +45,7 @@ type Mov = {
   data: string;
   created_at: string;
   produto_nome?: string;
+  user_id?: string;
 };
 
 type Client = {
@@ -154,7 +156,7 @@ function EstoquePage() {
         subtitle="Gerencie seus produtos, estoque e realize vendas rápidas"
       />
 
-      <Tabs value={activeTab} onThemeChange={setActiveTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="glass p-1 rounded-xl">
           <TabsTrigger value="estoque" className="rounded-lg flex items-center gap-1.5"><Package className="size-4" /> Estoque</TabsTrigger>
           <TabsTrigger value="movimentacoes" className="rounded-lg flex items-center gap-1.5"><ArrowUpDown className="size-4" /> Movimentações</TabsTrigger>
@@ -275,7 +277,7 @@ function EstoquePage() {
                     <TableRow key={m.id}>
                       <TableCell className="font-medium">{m.produto_nome}</TableCell>
                       <TableCell>
-                        <Badge variant={m.tipo === "entrada" ? "success" : "destructive"} className="rounded-full">
+                        <Badge variant={m.tipo === "entrada" ? "secondary" : "destructive"} className={`rounded-full ${m.tipo === "entrada" ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-transparent" : ""}`}>
                           {m.tipo === "entrada" ? "Entrada" : "Saída"}
                         </Badge>
                       </TableCell>
@@ -377,14 +379,14 @@ function ProductDialog({ serv, onSaved, products, trigger }: { serv?: Prod; onSa
               quantidade: Math.abs(diff),
               motivo: "Ajuste manual de saldo",
               data: new Date().toISOString(),
-            }, defaultMovs);
+            } as any, defaultMovs);
           }
           fallbackDb.update<Prod>("produtos", serv.id, payload, defaultProds);
         } else {
           const inserted = fallbackDb.insert<Prod>("produtos", {
             user_id: "local",
             ...payload,
-          }, defaultProds);
+          } as any, defaultProds);
 
           if (payload.quantidade > 0) {
             fallbackDb.insert<Mov>("movimentacoes_estoque", {
@@ -394,7 +396,7 @@ function ProductDialog({ serv, onSaved, products, trigger }: { serv?: Prod; onSa
               quantidade: payload.quantidade,
               motivo: "Estoque Inicial",
               data: new Date().toISOString(),
-            }, defaultMovs);
+            } as any, defaultMovs);
           }
         }
       }
@@ -511,7 +513,7 @@ function MovementDialog({ products, onSaved }: { products: Prod[]; onSaved: () =
           quantidade: form.quantidade,
           motivo: form.motivo.trim(),
           data: new Date().toISOString(),
-        }, defaultMovs);
+        } as any, defaultMovs);
 
         fallbackDb.update<Prod>("produtos", form.produto_id, {
           quantidade: newQty
@@ -754,7 +756,7 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
           quantidade: item.qty,
           motivo: "Venda Frente de Caixa",
           data: new Date().toISOString()
-        }, defaultMovs);
+        } as any, defaultMovs);
       }
 
       // Check loyalty config on local

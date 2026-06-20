@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { fallbackDb } from "@/lib/fallback-db";
 import {
   FileText, FileSpreadsheet, Download, Upload, TrendingUp, Target, BarChart2, Award, Users, AlertCircle, RefreshCw
@@ -134,10 +135,10 @@ function RelatoriosPage() {
 
     // Real values
     const conclAgs = monthAgs.filter((a: any) => a.status === "concluido");
-    
+
     const fatAgs = conclAgs.reduce((sum: number, a: any) => sum + Number(a.valor), 0);
     const costAgs = conclAgs.reduce((sum: number, a: any) => sum + Number(a.custo), 0);
-    
+
     const fatSales = monthSales.reduce((sum: number, s: any) => sum + Number(s.total), 0);
     // Let's assume cost of sold products is roughly 40% as a fallback, or calculate if we had detailed products
     const costSales = fatSales * 0.4;
@@ -159,7 +160,7 @@ function RelatoriosPage() {
   // Ranking of Services
   const serviceRanking = useMemo(() => {
     const rankMap: Record<string, { nome: string; count: number; receita: number }> = {};
-    
+
     currentMonthData.conclAgs.forEach((a: any) => {
       const servName = services.find((s: any) => s.id === a.servico_id)?.nome ?? "Serviço deletado / Avulso";
       if (!rankMap[servName]) {
@@ -191,7 +192,7 @@ function RelatoriosPage() {
     const inactiveClients = clients.filter((c: any) => {
       const clientAgs = allAgendamentos.filter((a: any) => a.cliente_id === c.id && a.status === "concluido");
       if (clientAgs.length === 0) return true; // never booked
-      
+
       const lastAg = clientAgs.reduce((latest: Date, a: any) => {
         const d = new Date(a.data_hora);
         return d > latest ? d : latest;
@@ -328,7 +329,6 @@ function RelatoriosPage() {
           }
         });
         toast.success("Backup JSON restaurado com sucesso! Recarregando dados.");
-        invalidate();
         qc.invalidateQueries();
       } catch (err) {
         toast.error("Formato de arquivo inválido. Selecione um arquivo de backup correto.");
@@ -439,7 +439,7 @@ function RelatoriosPage() {
                 {/* Insights values */}
                 <Card className="glass border-0 rounded-2xl p-5 space-y-4">
                   <h3 className="font-display text-base">Métricas Operacionais</h3>
-                  
+
                   <div className="space-y-3">
                     <div className="flex justify-between items-center border-b border-border/40 pb-2">
                       <span className="text-xs text-muted-foreground">Ticket Médio por Atendimento:</span>
@@ -464,7 +464,7 @@ function RelatoriosPage() {
                     <h3 className="font-display text-base">Clientes Sumidos (&gt;30 dias)</h3>
                     <Badge variant="destructive" className="rounded-full text-[10px]">{insights.inactiveCount} Clientes</Badge>
                   </div>
-                  
+
                   {insights.inactiveList.length === 0 ? (
                     <p className="text-xs text-muted-foreground py-4 text-center">Todos os clientes ativos recentemente!</p>
                   ) : (
@@ -556,7 +556,7 @@ function RelatoriosPage() {
                     </label>
                   </Button>
                 </div>
-                
+
                 <span className="text-[9px] text-muted-foreground block text-center leading-relaxed">
                   Atenção: Ao restaurar um backup JSON local, os dados locais atuais serão substituídos pelos dados do arquivo.
                 </span>
@@ -570,7 +570,7 @@ function RelatoriosPage() {
 }
 
 // Dialog: Meta Goal configure
-function MetaGoalDialog({ current, onSaved }: { current: MetaMensal | null; onSaved: () => void }) {
+function MetaGoalDialog({ current, onSaved }: { current: MetaMensal | null | undefined; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     faturamento_alvo: current?.faturamento_alvo ?? 3000,

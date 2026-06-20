@@ -49,7 +49,7 @@ export const fallbackDb = {
       fallbackDb.set(key, list);
       return updated;
     }
-    const updated = { id, ...updates } as T;
+    const updated = { id, ...updates } as unknown as T;
     list.push(updated);
     fallbackDb.set(key, list);
     return updated;

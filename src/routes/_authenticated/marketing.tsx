@@ -51,6 +51,7 @@ type Promo = {
   data_inicio: string | null;
   data_fim: string | null;
   servicos_elegiveis: any;
+  user_id?: string;
 };
 
 type Client = {
@@ -241,7 +242,7 @@ function MarketingPage() {
         subtitle="Configure fidelidade, crie promoções e atraia mais clientes"
       />
 
-      <Tabs value={activeTab} onThemeChange={setActiveTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="glass p-1 rounded-xl">
           <TabsTrigger value="fidelidade" className="rounded-lg flex items-center gap-1.5"><Award className="size-4" /> Cartão Fidelidade</TabsTrigger>
           <TabsTrigger value="promocoes" className="rounded-lg flex items-center gap-1.5"><Percent className="size-4" /> Cupons & Promoções</TabsTrigger>
@@ -338,7 +339,7 @@ function MarketingPage() {
                             <TableCell className="text-right font-display font-bold text-lg">{pts.saldo_pontos} pts</TableCell>
                             <TableCell className="text-center">
                               {canRedeem ? (
-                                <Badge variant="success" className="animate-pulse rounded-full text-[10px]">Apto a Resgatar</Badge>
+                                <Badge variant="secondary" className="animate-pulse rounded-full text-[10px] bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-transparent">Apto a Resgatar</Badge>
                               ) : (
                                 <Badge variant="secondary" className="rounded-full text-[10px] opacity-60">Falta {config.pontos_resgate - pts.saldo_pontos} pts</Badge>
                               )}
@@ -673,7 +674,7 @@ function PromoDialog({ services, onSaved }: { services: Serv[]; onSaved: () => v
       fallbackDb.insert<Promo>("promocoes", {
         user_id: "local",
         ...payload,
-      }, defaultPromos);
+      } as any, defaultPromos);
     }
 
     toast.success("Promoção cadastrada com sucesso!");
