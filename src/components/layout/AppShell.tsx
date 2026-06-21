@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/dashboard", label: "Menu Geral", icon: LayoutDashboard },
   { to: "/clientes", label: "Clientes", icon: Users },
   { to: "/agendamentos", label: "Agendamentos", icon: CalendarDays },
   { to: "/servicos", label: "Serviços", icon: Scissors },
@@ -23,7 +23,7 @@ const nav = [
 ] as const;
 
 const labels: Record<string, string> = {
-  dashboard: "Dashboard", clientes: "Clientes", agendamentos: "Agendamentos",
+  dashboard: "Menu Geral", clientes: "Clientes", agendamentos: "Agendamentos",
   servicos: "Serviços", financeiro: "Financeiro", estoque: "Estoque & Vendas",
   marketing: "Marketing", portfolio: "Galeria & Feedbacks", relatorios: "Relatórios & Backup",
 };

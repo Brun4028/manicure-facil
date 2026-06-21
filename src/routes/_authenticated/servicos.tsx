@@ -47,34 +47,34 @@ function ServicosPage() {
       <PageHeader title="Serviços" subtitle="Catálogo de serviços" actions={<ServicoDialog onSaved={() => qc.invalidateQueries({ queryKey: ["servicos"] })} />} />
 
       {isLoading ? (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">{[1,2,3].map(i => <Skeleton key={i} className="h-40 rounded-2xl" />)}</div>
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{[1,2,3].map(i => <Skeleton key={i} className="h-40 rounded-2xl" />)}</div>
       ) : !data?.length ? (
         <Card className="glass border-0 rounded-2xl p-10 text-center"><p className="text-muted-foreground">Nenhum serviço cadastrado.</p></Card>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
           {data.map(s => {
             const lucro = Number(s.valor) - Number(s.custo);
             return (
               <Card key={s.id} className={`glass border-0 rounded-2xl p-5 ${!s.ativo ? "opacity-60" : ""}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-xl gradient-primary grid place-items-center"><Scissors className="size-4 text-primary-foreground" /></div>
-                    <div>
-                      <h3 className="font-medium">{s.nome}</h3>
-                      <p className="text-xs text-muted-foreground">{s.duracao_min} min</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="size-10 rounded-xl gradient-primary grid place-items-center shrink-0"><Scissors className="size-4 text-primary-foreground" /></div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium leading-tight break-words">{s.nome}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">{s.duracao_min} min</p>
                     </div>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 shrink-0">
                     <ServicoDialog serv={s} onSaved={() => qc.invalidateQueries({ queryKey: ["servicos"] })} trigger={<Button size="icon" variant="ghost"><Pencil className="size-4" /></Button>} />
                     <DeleteServ id={s.id} onDone={() => qc.invalidateQueries({ queryKey: ["servicos"] })} />
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                  <div><div className="text-xs text-muted-foreground">Valor</div><div className="font-display text-lg">{brl(s.valor)}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Custo</div><div className="font-display text-lg">{brl(s.custo)}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Lucro</div><div className="font-display text-lg text-primary">{brl(lucro)}</div></div>
+                <div className="mt-4 grid grid-cols-3 gap-x-4 gap-y-1">
+                  <div className="min-w-0"><div className="text-xs text-muted-foreground">Valor</div><div className="font-display text-lg mt-0.5 truncate">{brl(s.valor)}</div></div>
+                  <div className="min-w-0"><div className="text-xs text-muted-foreground">Custo</div><div className="font-display text-lg mt-0.5 truncate">{brl(s.custo)}</div></div>
+                  <div className="min-w-0"><div className="text-xs text-muted-foreground">Lucro</div><div className="font-display text-lg mt-0.5 text-primary truncate">{brl(lucro)}</div></div>
                 </div>
-                <div className="mt-4 flex items-center justify-between">
+                <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between">
                   <Label className="text-xs">Ativo</Label>
                   <Switch checked={s.ativo} onCheckedChange={async (v) => {
                     const { error } = await supabase.from("servicos").update({ ativo: v }).eq("id", s.id);

@@ -30,7 +30,7 @@ function Financeiro() {
   });
 
   if (q.isLoading) {
-    return <><PageHeader title="Financeiro" /><div className="grid md:grid-cols-4 gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div></>;
+    return <><PageHeader title="Financeiro" /><div className="grid md:grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div></>;
   }
 
   const ags = (q.data ?? []) as any[];

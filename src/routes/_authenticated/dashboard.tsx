@@ -12,7 +12,7 @@ import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays, isSame
 import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — Manicure Fácil" }] }),
+  head: () => ({ meta: [{ title: "Menu Geral — Manicure Fácil" }] }),
   component: Dashboard,
 });
 
@@ -35,7 +35,7 @@ function Dashboard() {
   if (q.isLoading) {
     return (
       <>
-        <PageHeader title="Dashboard" subtitle="Visão geral do seu negócio" />
+        <PageHeader title="Menu Geral" subtitle="Visão geral do seu negócio" />
         <div className="grid md:grid-cols-4 gap-4">
           {[1,2,3,4].map((i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
         </div>
@@ -83,7 +83,7 @@ function Dashboard() {
 
   return (
     <>
-      <PageHeader title="Dashboard" subtitle={`Olá! Hoje é ${format(now, "EEEE, dd 'de' MMMM", { locale: ptBR })}`} />
+      <PageHeader title="Menu Geral" subtitle={`Olá! Hoje é ${format(now, "EEEE, dd 'de' MMMM", { locale: ptBR })}`} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {stats.map((s) => (
