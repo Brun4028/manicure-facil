@@ -1,0 +1,80 @@
+# =============================================================================
+# docker-compose.yml — Manicure Fácil
+# Configuração para deploy no Easypanel ou VPS Linux Ubuntu
+# =============================================================================
+#
+# Instruções de uso no Easypanel:
+#   1. Acesse o painel Easypanel
+#   2. Clique em "New Service" → "Import from Git"
+#   3. Conecte seu repositório Git
+#   4. O Easypanel detectará automaticamente o docker-compose.yml
+#   5. Configure as variáveis de ambiente abaixo (seção environment)
+#   6. Faça o deploy
+#
+# Uso manual via CLI:
+#   cp .env.example .env
+#   # Preencha as variáveis no .env
+#   docker compose up -d --build
+# =============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: manicure-facil
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # ── Node ──────────────────────────────────────────────────
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+
+      # ── Supabase (obrigatório) ────────────────────────────────
+      # Crie um projeto em https://supabase.com e copie as credenciais
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+
+      # ── Lovable Cloud Auth (se aplicável) ─────────────────────
+      # Configure no painel Lovable Cloud se usar login social
+    env_file:
+      - .env
+    volumes:
+      # Persiste dados efêmeros, se necessário
+      - app_data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "bun -e \"fetch('http://localhost:3000/').then(r => { process.exit(r.ok ? 0 : 1) }).catch(() => process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - manicure-network
+
+  # ── (Opcional) Nginx reverso para produção ───────────────────
+  # Descomente se precisar de SSL/TLS ou domínio personalizado
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: manicure-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - app
+  #   networks:
+  #     - manicure-network
+
+networks:
+  manicure-network:
+    driver: bridge
+
+volumes:
+  app_data:
+    driver: local

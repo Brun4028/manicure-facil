@@ -1,0 +1,68 @@
+# =============================================================================
+# .dockerignore — Manicure Fácil
+# Arquivos e diretórios excluídos do contexto de build Docker
+# =============================================================================
+
+# ---- Dependências ----
+node_modules
+.bun-cache
+
+# ---- Build output ----
+dist
+dist-ssr
+.output
+.vinxi
+.nitro
+.tanstack
+
+# ---- Git ----
+.git
+.gitignore
+.gitattributes
+.gitmodules
+
+# ---- Ambiente e config local ----
+.env
+.env.local
+.env.*.local
+.dev.vars
+*.local
+
+# ---- Logs ----
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ---- Editor / IDE ----
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ---- Cloudflare (Wrangler) ----
+.wrangler
+
+# ---- Config de lint/format ----
+.eslintcache
+.prettierignore
+
+# ---- Documentação e assets não essenciais ----
+README.md
+LICENSE
+docs
+*.md
+
+# ---- Artefatos de teste ----
+coverage
+.nyc_output
+
+# ---- Docker ----
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
