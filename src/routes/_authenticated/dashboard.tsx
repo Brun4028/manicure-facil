@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Users, CalendarDays, Wallet, TrendingUp, CheckCircle2, Clock, Cake,
 } from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from "recharts";
-import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays, isSameMonth } from "date-fns";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell } from "recharts";
+import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -19,6 +20,24 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function Dashboard() {
+  const { user } = useAuth();
+  const nome = user?.user_metadata?.nome || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+
+  // Determine greeting based on time of day
+  const hour = new Date().getHours();
+  let greeting: string;
+  let greetingSubtitle: string;
+  if (hour < 12) {
+    greeting = "Bom dia";
+    greetingSubtitle = "Bem-vinda ao Manicure Fácil.";
+  } else if (hour < 18) {
+    greeting = "Boa tarde";
+    greetingSubtitle = "Tenha um excelente dia de trabalho.";
+  } else {
+    greeting = "Boa noite";
+    greetingSubtitle = "Acompanhe seus resultados e agendamentos.";
+  }
+
   const q = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
@@ -37,7 +56,7 @@ function Dashboard() {
       <>
         <PageHeader title="Menu Geral" subtitle="Visão geral do seu negócio" />
         <div className="grid md:grid-cols-4 gap-4">
-          {[1,2,3,4].map((i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
+          {[1,2,3,4].map((i) => <Skeleton key={i} className="h-32 rounded-2xl bg-muted" />)}
         </div>
       </>
     );
@@ -67,12 +86,16 @@ function Dashboard() {
     return { dia: format(d, "dd/MM"), faturamento: Number(fat.toFixed(2)) };
   });
 
-  // birthdays this month
-  const aniversariantes = clientes.filter(c => c.data_nascimento && isSameMonth(new Date(c.data_nascimento + "T00:00:00"), now));
+  // birthdays this month (compare only month, ignore year)
+  const aniversariantes = clientes.filter(c => {
+    if (!c.data_nascimento) return false;
+    const birth = new Date(c.data_nascimento + "T00:00:00");
+    return !isNaN(birth.getTime()) && birth.getMonth() === now.getMonth();
+  });
 
   const stats = [
-    { icon: Users, label: "Clientes", value: clientes.length.toString(), color: "from-pink-400 to-rose-500" },
-    { icon: CalendarDays, label: "Agendamentos", value: ags.length.toString(), color: "from-amber-400 to-rose-400" },
+    { icon: Users, label: "Clientes", value: clientes.length.toString() },
+    { icon: CalendarDays, label: "Agendamentos", value: ags.length.toString() },
     { icon: Wallet, label: "Faturamento total", value: brl(faturamento) },
     { icon: TrendingUp, label: "Lucro total", value: brl(lucroTotal) },
     { icon: TrendingUp, label: "Lucro do mês", value: brl(lucroMes) },
@@ -83,57 +106,97 @@ function Dashboard() {
 
   return (
     <>
-      <PageHeader title="Menu Geral" subtitle={`Olá! Hoje é ${format(now, "EEEE, dd 'de' MMMM", { locale: ptBR })}`} />
+      <PageHeader title="Menu Geral" subtitle={format(now, "EEEE, dd 'de' MMMM", { locale: ptBR })} />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      {/* Welcome greeting */}
+      {nome && (
+        <div className="mb-10 animate-fade-up">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
+              {greeting}, {nome}
+            </h2>
+            <span className="text-2xl md:text-3xl">✨</span>
+          </div>
+          <p className="text-muted-foreground mt-1.5 text-base">{greetingSubtitle}</p>
+          {(pend.length > 0 || aniversariantes.length > 0) && (
+            <p className="text-sm text-muted-foreground/70 mt-3">
+              {pend.length > 0 && aniversariantes.length > 0
+                ? `Você possui ${pend.length} agendamento${pend.length > 1 ? 's' : ''} pendente${pend.length > 1 ? 's' : ''} e ${aniversariantes.length} aniversariante${aniversariantes.length > 1 ? 's' : ''} neste mês.`
+                : pend.length > 0
+                  ? `Você possui ${pend.length} agendamento${pend.length > 1 ? 's' : ''} pendente${pend.length > 1 ? 's' : ''}.`
+                  : `Você possui ${aniversariantes.length} aniversariante${aniversariantes.length > 1 ? 's' : ''} neste mês.`
+              }
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map((s) => (
-          <Card key={s.label} className="glass border-0 p-4 rounded-2xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">{s.label}</p>
-                <p className="font-display text-2xl mt-1.5">{s.value}</p>
-              </div>
-              <div className="size-9 rounded-xl gradient-primary grid place-items-center shadow-glow">
-                <s.icon className="size-4 text-primary-foreground" />
-              </div>
+          <Card key={s.label} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300 relative">
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{s.label}</p>
+              <p className="text-[28px] font-semibold tracking-tight text-card-foreground">{s.value}</p>
+            </div>
+            <div className="absolute top-4 right-4 size-10 rounded-xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center group-hover:bg-[#D946EF]/20 transition-all duration-300">
+              <s.icon className="size-[18px] text-[#D946EF]" />
             </div>
           </Card>
         ))}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4 mt-6">
-        <Card className="glass border-0 rounded-2xl p-5 md:col-span-2">
-          <h3 className="font-display text-lg mb-4">Faturamento — últimos 14 dias</h3>
-          <div className="h-64">
+      <div className="grid md:grid-cols-3 gap-6 mt-8">
+        <Card className="bg-card border border-border p-6 rounded-[20px] md:col-span-2 shadow-card">
+          <h3 className="text-base font-semibold text-card-foreground mb-6">Faturamento — últimos 14 dias</h3>
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#D946EF" stopOpacity={0.2} />
+                    <stop offset="100%" stopColor="#D946EF" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="dia" tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }} />
-                <YAxis tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }} />
-                <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} formatter={(v) => brl(Number(v))} />
-                <Area type="monotone" dataKey="faturamento" stroke="var(--color-primary)" strokeWidth={2} fill="url(#g1)" />
+                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="dia" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  contentStyle={{ 
+                    background: "var(--card)", 
+                    border: "1px solid var(--border)", 
+                    borderRadius: 16,
+                    boxShadow: "var(--shadow-card)",
+                    padding: "12px 16px"
+                  }} 
+                  formatter={(v) => brl(Number(v))} 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="faturamento" 
+                  stroke="#D946EF" 
+                  strokeWidth={2} 
+                  fill="url(#g1)" 
+                  dot={false}
+                  activeDot={{ r: 4, fill: "#D946EF", strokeWidth: 2, stroke: "var(--card)" }}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        <Card className="glass border-0 rounded-2xl p-5">
-          <h3 className="font-display text-lg mb-2 flex items-center gap-2"><Cake className="size-5 text-primary" /> Aniversariantes</h3>
-          <p className="text-xs text-muted-foreground mb-3">Clientes que fazem aniversário neste mês</p>
+        <Card className="bg-card border border-border p-6 rounded-[20px] shadow-card">
+          <h3 className="text-base font-semibold text-card-foreground mb-2">Aniversariantes</h3>
+          <p className="text-xs text-muted-foreground mb-4">Clientes que fazem aniversário neste mês</p>
           {aniversariantes.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">Nenhum aniversariante este mês</p>
+            <p className="text-sm text-[#A1A1AA] py-8 text-center">Nenhum aniversariante este mês</p>
           ) : (
             <ul className="space-y-2">
               {aniversariantes.map(c => (
-                <li key={c.id} className="flex items-center justify-between p-2 rounded-xl bg-accent/40">
-                  <span className="text-sm font-medium">{c.nome}</span>
-                  <span className="text-xs text-muted-foreground">{format(new Date(c.data_nascimento! + "T00:00:00"), "dd/MM")}</span>
+                <li key={c.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted border border-border">
+                  <span className="text-sm font-medium text-card-foreground">{c.nome}</span>
+                  <span className="text-xs text-muted-foreground bg-card px-2.5 py-1 rounded-lg">
+                    🎂 {format(new Date(c.data_nascimento! + "T00:00:00"), "dd/MM")}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -141,9 +204,9 @@ function Dashboard() {
         </Card>
       </div>
 
-      <Card className="glass border-0 rounded-2xl p-5 mt-6">
-        <h3 className="font-display text-lg mb-4">Status de agendamentos</h3>
-        <div className="h-56">
+      <Card className="bg-card border border-border p-6 rounded-[20px] mt-8 shadow-card">
+        <h3 className="text-base font-semibold text-card-foreground mb-6">Status de agendamentos</h3>
+        <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={[
               { s: "Agendado", n: ags.filter(a => a.status === "agendado").length },
@@ -151,11 +214,23 @@ function Dashboard() {
               { s: "Concluído", n: ags.filter(a => a.status === "concluido").length },
               { s: "Cancelado", n: ags.filter(a => a.status === "cancelado").length },
             ]}>
-              <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="s" tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }} />
-              <YAxis tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }} />
-              <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} />
-              <Bar dataKey="n" fill="var(--color-primary)" radius={[8, 8, 0, 0]} />
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="s" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <Tooltip 
+                contentStyle={{ 
+                  background: "var(--card)", 
+                  border: "1px solid var(--border)", 
+                  borderRadius: 16,
+                  boxShadow: "var(--shadow-card)",
+                  padding: "12px 16px"
+                }} 
+              />
+              <Bar dataKey="n" radius={[8, 8, 0, 0]} maxBarSize={50}>
+                {["#D946EF", "#A855F7", "#22C55E", "#EF4444"].map((color, i) => (
+                  <Cell key={`cell-${i}`} fill={color} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>

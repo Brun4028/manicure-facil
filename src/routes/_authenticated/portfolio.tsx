@@ -187,9 +187,9 @@ function PortfolioPage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="glass p-1 rounded-xl">
-          <TabsTrigger value="portfolio" className="rounded-lg flex items-center gap-1.5"><Image className="size-4" /> Galeria Portfólio</TabsTrigger>
-          <TabsTrigger value="avaliacoes" className="rounded-lg flex items-center gap-1.5"><Star className="size-4" /> Avaliações ({stats.total})</TabsTrigger>
+        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+          <TabsTrigger value="portfolio" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Image className="size-4" /> Galeria Portfólio</TabsTrigger>
+          <TabsTrigger value="avaliacoes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Star className="size-4" /> Avaliações ({stats.total})</TabsTrigger>
         </TabsList>
 
         {/* TAB 1: GALERIA DE PORTFÓLIO */}
@@ -262,23 +262,23 @@ function PortfolioPage() {
         <TabsContent value="avaliacoes" className="space-y-6">
           {/* Rating Summary Header */}
           <div className="grid md:grid-cols-4 gap-4">
-            <Card className="glass border-0 rounded-2xl p-5 flex items-center gap-4">
-              <div className="size-12 rounded-xl gradient-primary grid place-items-center shadow-glow">
-                <Star className="size-6 text-primary-foreground fill-primary-foreground" />
+            <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+              <div className="size-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 grid place-items-center shadow-lg shadow-purple-500/20">
+                <Star className="size-6 text-white fill-white" />
               </div>
               <div>
-                <span className="text-2xl font-display font-bold block">{stats.avg} / 5.0</span>
-                <span className="text-[10px] text-muted-foreground block uppercase">Nota Média</span>
+                <span className="text-3xl font-display font-bold block">{stats.avg} / 5.0</span>
+                <span className="text-[10px] text-muted-foreground block uppercase mt-0.5">Nota Média</span>
               </div>
             </Card>
 
-            <Card className="glass border-0 rounded-2xl p-5 flex items-center gap-4">
-              <div className="size-12 rounded-xl bg-accent grid place-items-center">
-                <Heart className="size-6 text-primary" />
+            <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 flex items-center gap-4 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+              <div className="size-14 rounded-2xl bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-500/20 dark:to-purple-500/20 grid place-items-center">
+                <Heart className="size-6 text-pink-500" />
               </div>
               <div>
-                <span className="text-2xl font-display font-bold block">{stats.total}</span>
-                <span className="text-[10px] text-muted-foreground block uppercase">Feedbacks Recebidos</span>
+                <span className="text-3xl font-display font-bold block">{stats.total}</span>
+                <span className="text-[10px] text-muted-foreground block uppercase mt-0.5">Feedbacks Recebidos</span>
               </div>
             </Card>
           </div>
@@ -297,7 +297,7 @@ function PortfolioPage() {
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
                 {reviews.map(r => (
-                  <Card key={r.id} className="glass border-0 rounded-2xl p-5 relative flex flex-col justify-between">
+                  <Card key={r.id} className="bg-white dark:bg-card border-0 rounded-2xl p-5 relative flex flex-col justify-between shadow-[0_2px_16px_rgba(91,30,140,0.04)] hover:shadow-[0_8px_30px_rgba(122,44,191,0.08)] transition-all duration-300">
                     <div>
                       <div className="flex items-start justify-between">
                         <div>

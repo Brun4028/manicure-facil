@@ -390,45 +390,45 @@ function RelatoriosPage() {
 
             <div className="grid md:grid-cols-3 gap-4">
               {/* Goal 1: Revenue */}
-              <Card className="glass border-0 rounded-2xl p-5 space-y-3">
+              <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
                 <div className="flex justify-between items-start">
-                  <div className="size-9 rounded-xl bg-primary/10 grid place-items-center"><TrendingUp className="size-4 text-primary" /></div>
-                  <Badge variant="secondary" className="text-[10px]">Faturamento</Badge>
+                  <div className="size-10 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-500/20 dark:to-purple-500/10 grid place-items-center"><TrendingUp className="size-5 text-purple-600 dark:text-purple-400" /></div>
+                  <Badge variant="secondary" className="text-[10px] rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-transparent">Faturamento</Badge>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground block uppercase">Faturamento Realizado</span>
-                  <span className="font-display text-2xl font-bold text-primary">{brl(currentMonthData.faturamentoReal)}</span>
+                  <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">Faturamento Realizado</span>
+                  <span className="font-display text-2xl font-bold bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">{brl(currentMonthData.faturamentoReal)}</span>
                   <span className="text-xs text-muted-foreground mt-0.5 block">Meta: {brl(metaQuery.data?.faturamento_alvo ?? 0)}</span>
                 </div>
-                <Progress value={metaQuery.data?.faturamento_alvo ? (currentMonthData.faturamentoReal / metaQuery.data.faturamento_alvo) * 100 : 0} className="h-1.5" />
+                <Progress value={metaQuery.data?.faturamento_alvo ? (currentMonthData.faturamentoReal / metaQuery.data.faturamento_alvo) * 100 : 0} className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-purple-500 [&>div]:to-pink-500" />
               </Card>
 
               {/* Goal 2: Profit */}
-              <Card className="glass border-0 rounded-2xl p-5 space-y-3">
+              <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
                 <div className="flex justify-between items-start">
-                  <div className="size-9 rounded-xl bg-emerald-500/10 grid place-items-center"><Target className="size-4 text-emerald-500" /></div>
-                  <Badge variant="secondary" className="text-[10px]">Lucro Líquido</Badge>
+                  <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-500/20 dark:to-emerald-500/10 grid place-items-center"><Target className="size-5 text-emerald-600 dark:text-emerald-400" /></div>
+                  <Badge variant="secondary" className="text-[10px] rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-transparent">Lucro Líquido</Badge>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground block uppercase">Lucro Realizado</span>
-                  <span className="font-display text-2xl font-bold text-emerald-500">{brl(currentMonthData.lucroReal)}</span>
+                  <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">Lucro Realizado</span>
+                  <span className="font-display text-2xl font-bold text-emerald-600 dark:text-emerald-400">{brl(currentMonthData.lucroReal)}</span>
                   <span className="text-xs text-muted-foreground mt-0.5 block">Meta: {brl(metaQuery.data?.lucro_alvo ?? 0)}</span>
                 </div>
-                <Progress value={metaQuery.data?.lucro_alvo ? (currentMonthData.lucroReal / metaQuery.data.lucro_alvo) * 100 : 0} className="h-1.5" />
+                <Progress value={metaQuery.data?.lucro_alvo ? (currentMonthData.lucroReal / metaQuery.data.lucro_alvo) * 100 : 0} className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:to-emerald-500" />
               </Card>
 
               {/* Goal 3: Services count */}
-              <Card className="glass border-0 rounded-2xl p-5 space-y-3">
+              <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
                 <div className="flex justify-between items-start">
-                  <div className="size-9 rounded-xl bg-amber-500/10 grid place-items-center"><Award className="size-4 text-amber-500" /></div>
-                  <Badge variant="secondary" className="text-[10px]">Serviços</Badge>
+                  <div className="size-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-500/20 dark:to-amber-500/10 grid place-items-center"><Award className="size-5 text-amber-600 dark:text-amber-400" /></div>
+                  <Badge variant="secondary" className="text-[10px] rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-transparent">Serviços</Badge>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground block uppercase">Serviços Concluídos</span>
-                  <span className="font-display text-2xl font-bold text-amber-500">{currentMonthData.servicosQtd}</span>
+                  <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">Serviços Concluídos</span>
+                  <span className="font-display text-2xl font-bold text-amber-600 dark:text-amber-400">{currentMonthData.servicosQtd}</span>
                   <span className="text-xs text-muted-foreground mt-0.5 block">Meta: {metaQuery.data?.servicos_alvo ?? 0} un</span>
                 </div>
-                <Progress value={metaQuery.data?.servicos_alvo ? (currentMonthData.servicosQtd / metaQuery.data.servicos_alvo) * 100 : 0} className="h-1.5" />
+                <Progress value={metaQuery.data?.servicos_alvo ? (currentMonthData.servicosQtd / metaQuery.data.servicos_alvo) * 100 : 0} className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-amber-400 [&>div]:to-amber-500" />
               </Card>
             </div>
 
@@ -437,17 +437,20 @@ function RelatoriosPage() {
               <h2 className="font-display text-xl">Análises Inteligentes</h2>
               <div className="grid md:grid-cols-2 gap-4">
                 {/* Insights values */}
-                <Card className="glass border-0 rounded-2xl p-5 space-y-4">
-                  <h3 className="font-display text-base">Métricas Operacionais</h3>
+                <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+                  <h3 className="font-display text-base flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
+                    Métricas Operacionais
+                  </h3>
 
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                    <div className="flex justify-between items-center border-b border-purple-100/50 dark:border-purple-400/10 pb-2">
                       <span className="text-xs text-muted-foreground">Ticket Médio por Atendimento:</span>
                       <span className="font-display font-bold text-sm">{brl(insights.ticketMedio)}</span>
                     </div>
-                    <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                    <div className="flex justify-between items-center border-b border-purple-100/50 dark:border-purple-400/10 pb-2">
                       <span className="text-xs text-muted-foreground">Projeção Faturamento Fim de Mês:</span>
-                      <span className="font-display font-bold text-sm text-primary">{brl(insights.projetado)}</span>
+                      <span className="font-display font-bold text-sm bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">{brl(insights.projetado)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">Faturamento com Vendas:</span>
@@ -459,10 +462,13 @@ function RelatoriosPage() {
                 </Card>
 
                 {/* Inactive clients alerts */}
-                <Card className="glass border-0 rounded-2xl p-5 space-y-4">
+                <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-display text-base">Clientes Sumidos (&gt;30 dias)</h3>
-                    <Badge variant="destructive" className="rounded-full text-[10px]">{insights.inactiveCount} Clientes</Badge>
+                    <h3 className="font-display text-base flex items-center gap-2">
+                      <span className="size-2 rounded-full bg-gradient-to-br from-rose-400 to-red-500" />
+                      Clientes Sumidos (&gt;30 dias)
+                    </h3>
+                    <Badge variant="destructive" className="rounded-full text-[10px] bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-transparent">{insights.inactiveCount} Clientes</Badge>
                   </div>
 
                   {insights.inactiveList.length === 0 ? (
@@ -470,7 +476,7 @@ function RelatoriosPage() {
                   ) : (
                     <div className="space-y-2">
                       {insights.inactiveList.map((c: any) => (
-                        <div key={c.id} className="flex justify-between items-center bg-accent/40 px-3 py-1.5 rounded-xl text-xs">
+                        <div key={c.id} className="flex justify-between items-center bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 px-3 py-2 rounded-xl text-xs border border-purple-100/30 dark:border-purple-400/10">
                           <span className="font-medium">{c.nome}</span>
                           <span className="text-[10px] text-muted-foreground">{c.telefone || "Sem telefone"}</span>
                         </div>
@@ -484,10 +490,10 @@ function RelatoriosPage() {
             {/* Ranking of Services */}
             <div className="space-y-4">
               <h2 className="font-display text-xl">Ranking de Serviços</h2>
-              <Card className="glass border-0 rounded-2xl overflow-hidden">
+              <Card className="bg-white dark:bg-card border-0 rounded-2xl overflow-hidden shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="border-b border-purple-100/50 dark:border-purple-400/10">
                       <TableHead>Posição</TableHead>
                       <TableHead>Serviço</TableHead>
                       <TableHead className="text-center">Quantidade Realizada</TableHead>
@@ -522,43 +528,49 @@ function RelatoriosPage() {
             <h2 className="font-display text-xl">Relatórios & Backups</h2>
 
             {/* Exports */}
-            <Card className="glass border-0 rounded-2xl p-5 space-y-4">
+            <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
               <div>
-                <h3 className="font-display text-base">Exportar Dados</h3>
-                <p className="text-[10px] text-muted-foreground">Gere arquivos de auditoria para impressão ou planilhas</p>
+                <h3 className="font-display text-base flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
+                  Exportar Dados
+                </h3>
+                <p className="text-[10px] text-muted-foreground mt-1">Gere arquivos de auditoria para impressão ou planilhas</p>
               </div>
               <div className="space-y-2">
-                <Button className="w-full justify-start glass border-0 hover:bg-accent/40" variant="outline" onClick={exportPDF}>
-                  <FileText className="size-4 mr-2 text-primary" /> Imprimir Relatório (PDF)
+                <Button className="w-full justify-start bg-white/60 dark:bg-white/5 border border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all" variant="outline" onClick={exportPDF}>
+                  <FileText className="size-4 mr-2 text-purple-600 dark:text-purple-400" /> Imprimir Relatório (PDF)
                 </Button>
-                <Button className="w-full justify-start glass border-0 hover:bg-accent/40" variant="outline" onClick={exportExcel}>
-                  <FileSpreadsheet className="size-4 mr-2 text-emerald-500" /> Exportar para Excel (CSV)
+                <Button className="w-full justify-start bg-white/60 dark:bg-white/5 border border-purple-200/30 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 hover:border-emerald-300 transition-all" variant="outline" onClick={exportExcel}>
+                  <FileSpreadsheet className="size-4 mr-2 text-emerald-600 dark:text-emerald-400" /> Exportar para Excel (CSV)
                 </Button>
               </div>
             </Card>
 
             {/* System Backups */}
-            <Card className="glass border-0 rounded-2xl p-5 space-y-4">
+            <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
               <div>
-                <h3 className="font-display text-base">Backup Geral do Sistema</h3>
-                <p className="text-[10px] text-muted-foreground">Exporta ou restaura clientes, produtos, vendas, agendamentos e metas</p>
+                <h3 className="font-display text-base flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-500" />
+                  Backup Geral do Sistema
+                </h3>
+                <p className="text-[10px] text-muted-foreground mt-1">Exporta ou restaura todos os dados do sistema</p>
               </div>
               <div className="space-y-3">
-                <Button className="w-full gradient-primary text-primary-foreground shadow-glow justify-center" onClick={exportJSONBackup}>
+                <Button className="w-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all justify-center" onClick={exportJSONBackup}>
                   <Download className="size-4 mr-2" /> Exportar Backup JSON
                 </Button>
 
                 <div className="relative">
                   <input type="file" accept=".json" id="import-backup-file" className="hidden" onChange={importJSONBackup} />
-                  <Button className="w-full glass border-0 hover:bg-accent/40 justify-center" variant="outline" asChild>
+                  <Button className="w-full bg-white/60 dark:bg-white/5 border border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all justify-center" variant="outline" asChild>
                     <label htmlFor="import-backup-file" className="cursor-pointer flex items-center justify-center">
-                      <Upload className="size-4 mr-2 text-primary" /> Importar Backup JSON
+                      <Upload className="size-4 mr-2 text-purple-600 dark:text-purple-400" /> Importar Backup JSON
                     </label>
                   </Button>
                 </div>
 
                 <span className="text-[9px] text-muted-foreground block text-center leading-relaxed">
-                  Atenção: Ao restaurar um backup JSON local, os dados locais atuais serão substituídos pelos dados do arquivo.
+                  Atenção: Ao restaurar um backup JSON local, os dados atuais serão substituídos.
                 </span>
               </div>
             </Card>

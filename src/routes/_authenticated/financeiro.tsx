@@ -30,7 +30,7 @@ function Financeiro() {
   });
 
   if (q.isLoading) {
-    return <><PageHeader title="Financeiro" /><div className="grid md:grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div></>;
+    return <><PageHeader title="Financeiro" subtitle="Acompanhe faturamento, lucro e recebimentos" /><div className="grid md:grid-cols-4 gap-4">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 rounded-2xl" />)}</div></>;
   }
 
   const ags = (q.data ?? []) as any[];
@@ -64,53 +64,51 @@ function Financeiro() {
     <>
       <PageHeader title="Financeiro" subtitle="Acompanhe faturamento, lucro e recebimentos" />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map(s => (
-          <Card key={s.label} className="glass border-0 rounded-2xl p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">{s.label}</p>
-                <p className="font-display text-2xl mt-1.5">{s.value}</p>
-              </div>
-              <div className="size-9 rounded-xl gradient-primary grid place-items-center shadow-glow">
-                <s.icon className="size-4 text-primary-foreground" />
-              </div>
+          <Card key={s.label} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300 relative">
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{s.label}</p>
+              <p className="text-[28px] font-semibold tracking-tight text-card-foreground">{s.value}</p>
+            </div>
+            <div className="absolute top-4 right-4 size-10 rounded-xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center group-hover:bg-[#D946EF]/20 transition-all duration-300">
+              <s.icon className="size-[18px] text-[#D946EF]" />
             </div>
           </Card>
         ))}
       </div>
 
-      <Card className="glass border-0 rounded-2xl p-5 mt-6">
-        <h3 className="font-display text-lg mb-4">Evolução financeira — 6 meses</h3>
+      <Card className="bg-card border border-border p-6 rounded-[20px] mt-8 shadow-card">
+        <h3 className="text-base font-semibold text-card-foreground mb-6">Evolução financeira — 6 meses</h3>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chart}>
-              <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }} />
-              <YAxis tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }} />
-              <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} formatter={(v) => brl(Number(v))} />
-              <Bar dataKey="faturamento" fill="var(--color-chart-2)" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="lucro" fill="var(--color-primary)" radius={[8, 8, 0, 0]} />
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "var(--shadow-card)", padding: "12px 16px" }} formatter={(v) => brl(Number(v))} />
+              <Bar dataKey="faturamento" fill="#D946EF" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="lucro" fill="#A855F7" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </Card>
 
-      <Card className="glass border-0 rounded-2xl p-5 mt-6">
-        <h3 className="font-display text-lg mb-4">Contas a receber</h3>
+      <Card className="bg-card border border-border p-6 rounded-[20px] mt-8 shadow-card">
+        <h3 className="text-base font-semibold text-card-foreground mb-6">Contas a receber</h3>
         {pendentes.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">Nenhum pagamento pendente 🎉</p>
+          <p className="text-sm text-muted-foreground text-center py-8">Nenhum pagamento pendente 🎉</p>
         ) : (
           <ul className="divide-y divide-border">
             {pendentes.map(a => (
-              <li key={a.id} className="flex items-center justify-between py-3">
+              <li key={a.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
                 <div>
-                  <p className="font-medium text-sm">{a.clientes?.nome ?? "Cliente"}</p>
-                  <p className="text-xs text-muted-foreground">{a.servicos?.nome} • {format(new Date(a.data_hora), "dd/MM/yyyy")}</p>
+                  <p className="font-medium text-sm text-card-foreground">{a.clientes?.nome ?? "Cliente"}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{a.servicos?.nome} <span className="mx-1.5 text-muted-foreground">•</span> {format(new Date(a.data_hora), "dd/MM/yyyy")}</p>
                 </div>
                 <div className="text-right">
-                  <div className="font-display">{brl(Number(a.valor))}</div>
-                  <Badge variant="outline" className="text-xs">{a.pagamento}</Badge>
+                  <div className="text-lg font-semibold text-card-foreground">{brl(Number(a.valor))}</div>
+                  <Badge variant="outline" className="text-[10px] mt-0.5 bg-[#D946EF]/10 text-[#D946EF] border-[#D946EF]/20">{a.pagamento}</Badge>
                 </div>
               </li>
             ))}

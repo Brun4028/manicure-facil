@@ -243,20 +243,20 @@ function MarketingPage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="glass p-1 rounded-xl">
-          <TabsTrigger value="fidelidade" className="rounded-lg flex items-center gap-1.5"><Award className="size-4" /> Cartão Fidelidade</TabsTrigger>
-          <TabsTrigger value="promocoes" className="rounded-lg flex items-center gap-1.5"><Percent className="size-4" /> Cupons & Promoções</TabsTrigger>
-          <TabsTrigger value="aniversariantes" className="rounded-lg flex items-center gap-1.5"><Gift className="size-4" /> Promoções de Aniversário</TabsTrigger>
+        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+          <TabsTrigger value="fidelidade" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Award className="size-4" /> Cartão Fidelidade</TabsTrigger>
+          <TabsTrigger value="promocoes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Percent className="size-4" /> Cupons & Promoções</TabsTrigger>
+          <TabsTrigger value="aniversariantes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Gift className="size-4" /> Promoções de Aniversário</TabsTrigger>
         </TabsList>
 
         {/* TAB 1: CARTÃO FIDELIDADE */}
         <TabsContent value="fidelidade" className="space-y-6">
           <div className="grid md:grid-cols-3 gap-6">
             {/* Form settings */}
-            <Card className="glass border-0 rounded-2xl p-5 md:col-span-1 flex flex-col justify-between">
+            <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 md:col-span-1 flex flex-col justify-between shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <div className="size-10 rounded-xl gradient-primary grid place-items-center"><Award className="size-5 text-primary-foreground" /></div>
+                  <div className="size-11 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 grid place-items-center shadow-lg shadow-purple-500/20"><Award className="size-5 text-white" /></div>
                   <div className="flex items-center gap-2">
                     <Label className="text-xs uppercase font-bold text-muted-foreground">Programa Ativo</Label>
                     <Switch checked={config.ativo} onCheckedChange={(val) => updateConfigMut.mutate({ ativo: val })} />
@@ -284,8 +284,8 @@ function MarketingPage() {
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-border/60 pt-4 bg-primary/5 p-4 rounded-xl">
-                <p className="text-xs text-primary leading-relaxed font-medium">
+              <div className="mt-6 border-t border-purple-100/50 dark:border-purple-400/10 pt-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 p-4 rounded-xl">
+                <p className="text-xs text-purple-600 dark:text-purple-400 leading-relaxed font-medium">
                   {config.ativo
                     ? `Ativo: A cada serviço concluído, o cliente acumulará pontos. Ao atingir ${config.pontos_resgate} pontos, poderá resgatar: "${config.premio_resgate}".`
                     : "Programa de fidelidade desativado. Ative para começar a pontuar seus clientes nas visitas ou vendas de produtos."}
@@ -294,7 +294,7 @@ function MarketingPage() {
             </Card>
 
             {/* List clients points balances */}
-            <Card className="glass border-0 rounded-2xl p-5 md:col-span-2 space-y-4">
+            <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 md:col-span-2 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-display text-lg">Pontuação dos Clientes</h3>
@@ -370,17 +370,17 @@ function MarketingPage() {
               {[1, 2].map(i => <Skeleton key={i} className="h-32 rounded-2xl" />)}
             </div>
           ) : promotions.length === 0 ? (
-            <Card className="glass border-0 rounded-2xl p-10 text-center text-muted-foreground">
+            <Card className="bg-white dark:bg-card border-0 rounded-2xl p-10 text-center text-muted-foreground shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
               Nenhuma promoção ou cupom cadastrado.
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {promotions.map(promo => {
                 return (
-                  <Card key={promo.id} className={`glass border-0 rounded-2xl p-5 flex flex-col justify-between ${!promo.ativo ? "opacity-60" : ""}`}>
+                  <Card key={promo.id} className={`bg-white dark:bg-card border-0 rounded-2xl p-5 flex flex-col justify-between shadow-[0_2px_16px_rgba(91,30,140,0.04)] hover:shadow-[0_8px_30px_rgba(122,44,191,0.08)] transition-all duration-300 ${!promo.ativo ? "opacity-60" : ""}`}>
                     <div>
                       <div className="flex items-center justify-between">
-                        <Badge className="gradient-primary text-primary-foreground shadow-glow font-mono font-bold tracking-wider">{promo.nome}</Badge>
+                        <Badge className="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20 font-mono font-bold tracking-wider">{promo.nome}</Badge>
                         <div className="flex gap-1">
                           <Switch checked={promo.ativo} onCheckedChange={async (val) => {
                             try {
@@ -420,10 +420,10 @@ function MarketingPage() {
 
         {/* TAB 3: PROMOÇÕES DE ANIVERSÁRIO */}
         <TabsContent value="aniversariantes">
-          <Card className="glass border-0 rounded-2xl p-6 max-w-xl mx-auto space-y-6">
+          <Card className="bg-white dark:bg-card border-0 rounded-2xl p-6 max-w-xl mx-auto space-y-6 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
             <div className="flex items-center gap-3">
-              <div className="size-11 rounded-xl gradient-primary grid place-items-center shadow-glow">
-                <Gift className="size-5 text-primary-foreground" />
+              <div className="size-11 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 grid place-items-center shadow-lg shadow-purple-500/20">
+                <Gift className="size-5 text-white" />
               </div>
               <div>
                 <h3 className="font-display text-xl">Desconto para Aniversariantes</h3>
@@ -450,10 +450,8 @@ function MarketingPage() {
                 <Input type="number" min="1" value={config.niver_dias_validade} onChange={e => updateConfigMut.mutate({ niver_dias_validade: Number(e.target.value) })} disabled={!config.niver_promo_ativa} />
                 <span className="text-[10px] text-muted-foreground mt-1 block">Número de dias em torno do aniversário do cliente para aplicar o cupom (ex: 7 dias = 3 dias antes, no dia, e 3 dias depois)</span>
               </div>
-            </div>
-
-            <div className="bg-primary/5 p-4 rounded-xl flex items-start gap-2.5 text-xs text-primary leading-relaxed font-medium">
-              <Sparkles className="size-4 shrink-0 text-primary mt-0.5" />
+            </div>              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 p-4 rounded-xl flex items-start gap-2.5 text-xs text-purple-600 dark:text-purple-400 leading-relaxed font-medium">
+              <Sparkles className="size-4 shrink-0 text-purple-500 mt-0.5" />
               <span>
                 {config.niver_promo_ativa 
                   ? `Configurado: Clientes aniversariantes do mês receberão automaticamente ${config.niver_desconto_porcentagem}% de desconto no agendamento público se agendarem dentro de uma janela de ${config.niver_dias_validade} dias do seu aniversário.`

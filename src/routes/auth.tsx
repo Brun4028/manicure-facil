@@ -57,46 +57,61 @@ function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center px-4">
-      <div className="w-full max-w-md">
-        <Link to="/" className="flex items-center gap-2 justify-center mb-6">
-          <div className="size-10 rounded-xl gradient-primary grid place-items-center shadow-glow">
-            <Sparkles className="size-5 text-primary-foreground" />
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 bg-[#0F0F14]">
+      {/* Fundo decorativo */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-48 -right-48 w-[600px] h-[600px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(217,70,239,0.06),transparent)] blur-3xl" />
+        <div className="absolute -bottom-48 -left-48 w-[500px] h-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(168,85,247,0.04),transparent)] blur-3xl" />
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        <Link to="/" className="flex items-center gap-2 justify-center mb-8">
+          <div className="size-11 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)]">
+            <Sparkles className="size-5 text-white" />
           </div>
-          <span className="font-display text-2xl">Manicure Fácil</span>
+          <span className="text-2xl font-semibold text-white">Manicure Fácil</span>
         </Link>
 
-        <div className="glass rounded-3xl p-7">
-          <h1 className="font-display text-2xl text-center">Entrar na sua conta</h1>
-          <p className="text-sm text-muted-foreground text-center mt-1">Acesse sua agenda em segundos</p>
+        <div className="bg-[#171923]/80 backdrop-blur-2xl rounded-3xl p-8 shadow-[0_8px_40px_rgba(0,0,0,0.3)] border border-[#252836]">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-semibold text-white">Entrar na sua conta</h1>
+            <p className="text-sm text-[#A1A1AA] mt-2">Acesse sua agenda em segundos</p>
+          </div>
 
-          <form onSubmit={handleLogin} className="mt-6 space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-sm font-medium text-[#A1A1AA]">Email</Label>
+              <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-11 rounded-xl bg-[#1F2128] border-[#252836] text-white focus:border-[#D946EF] focus:ring-2 focus:ring-[#D946EF]/20 transition-all" />
             </div>
-            <div>
-              <Label htmlFor="password">Senha</Label>
-              <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-sm font-medium text-[#A1A1AA]">Senha</Label>
+              <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required className="h-11 rounded-xl bg-[#1F2128] border-[#252836] text-white focus:border-[#D946EF] focus:ring-2 focus:ring-[#D946EF]/20 transition-all" />
             </div>
-            <Button type="submit" disabled={loading} className="w-full gradient-primary text-primary-foreground shadow-glow">
+            <Button type="submit" disabled={loading} className="w-full h-11 rounded-xl bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white shadow-[0_4px_24px_rgba(217,70,239,0.15)] hover:shadow-[0_8px_32px_rgba(217,70,239,0.25)] transition-all text-base">
               {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
 
-          <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="h-px flex-1 bg-border" /> ou <div className="h-px flex-1 bg-border" />
+          <div className="my-6 flex items-center gap-3 text-xs text-[#A1A1AA]">
+            <div className="h-px flex-1 bg-[#252836]" />
+            <span className="font-medium">ou</span>
+            <div className="h-px flex-1 bg-[#252836]" />
           </div>
 
-          <Button variant="outline" className="w-full" onClick={handleGoogle}>
+          <Button variant="outline" className="w-full h-11 rounded-xl border-[#252836] bg-[#1F2128] text-white hover:bg-[#D946EF]/10 hover:border-[#D946EF]/30 transition-all" onClick={handleGoogle}>
             <GoogleIcon /> Continuar com Google
           </Button>
 
-          <p className="text-sm text-muted-foreground text-center mt-6">
+          <p className="text-sm text-center mt-8 text-[#A1A1AA]">
             Ainda não tem conta?{" "}
             <SignupDialog onDone={() => navigate({ to: "/dashboard" })} />
           </p>
         </div>
+
+        {/* Decorative bottom text */}
+        <p className="text-[10px] text-center text-[#A1A1AA]/50 mt-8">
+          SaaS Premium para Manicures & Salões de Beleza
+        </p>
       </div>
     </div>
   );

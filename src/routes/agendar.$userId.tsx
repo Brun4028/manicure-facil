@@ -15,7 +15,7 @@ import {
   CalendarDays, Scissors, User, Phone, Mail, Clock, Sparkles, CheckCircle2, Star, Award, Heart, Cake, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
-import { format, addDays, isSameDay, parse, differenceInYears, isSameMonth } from "date-fns";
+import { format, addDays, isSameDay, parse, differenceInYears } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/agendar/$userId")({
@@ -193,13 +193,14 @@ function PublicAgendamentoPage() {
     });
   }, [selectedService, selectedDate, bookings]);
 
-  // Birthday discount checker
+  // Birthday discount checker (compare only month, ignore year)
   const birthdayDiscount = useMemo(() => {
     if (!clientForm.data_nascimento || !loyaltyConfig || !loyaltyConfig.niver_promo_ativa) return null;
     try {
       const birthDate = new Date(`${clientForm.data_nascimento}T00:00:00`);
+      if (isNaN(birthDate.getTime())) return null;
       const today = new Date();
-      if (isSameMonth(birthDate, today)) {
+      if (birthDate.getMonth() === today.getMonth()) {
         return loyaltyConfig.niver_desconto_porcentagem;
       }
       return null;
@@ -376,8 +377,8 @@ function PublicAgendamentoPage() {
           
           {/* STEP 1: SELECT SERVICE */}
           {step === 1 && (
-            <Card className="glass border-0 rounded-3xl p-5 md:p-6 space-y-4">
-              <h2 className="font-display text-2xl flex items-center gap-2"><Scissors className="size-5 text-primary" /> Escolha o Serviço</h2>
+            <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-3xl p-5 md:p-6 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
+              <h2 className="font-display text-2xl flex items-center gap-2"><Scissors className="size-5 text-purple-500" /> Escolha o Serviço</h2>
               <p className="text-xs text-muted-foreground">Selecione o procedimento desejado para continuar</p>
 
               {servicesQuery.isLoading ? (
@@ -395,14 +396,14 @@ function PublicAgendamentoPage() {
                         setSelectedService(s);
                         setStep(2);
                       }}
-                      className="w-full text-left p-4 rounded-2xl glass hover:border-primary/40 hover:bg-accent/40 transition-all flex justify-between items-center group"
+                      className="w-full text-left p-4 rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-purple-100/30 dark:border-purple-400/10 hover:border-purple-300/50 dark:hover:border-purple-400/30 hover:bg-purple-50/50 dark:hover:bg-purple-500/10 transition-all flex justify-between items-center group"
                     >
                       <div>
                         <h4 className="font-medium text-sm text-foreground">{s.nome}</h4>
                         <span className="text-xs text-muted-foreground block mt-0.5">{s.duracao_min} minutos</span>
                       </div>
                       <div className="text-right">
-                        <span className="font-display font-bold text-primary text-base group-hover:scale-105 transition-transform block">{brl(s.valor)}</span>
+                        <span className="font-display font-bold bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent text-base group-hover:scale-105 transition-transform block">{brl(s.valor)}</span>
                       </div>
                     </button>
                   ))}
@@ -413,8 +414,8 @@ function PublicAgendamentoPage() {
 
           {/* STEP 2: DATE & TIME SLOTS */}
           {step === 2 && selectedService && (
-            <Card className="glass border-0 rounded-3xl p-5 md:p-6 space-y-4">
-              <h2 className="font-display text-2xl flex items-center gap-2"><CalendarDays className="size-5 text-primary" /> Data & Horário</h2>
+            <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-3xl p-5 md:p-6 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
+              <h2 className="font-display text-2xl flex items-center gap-2"><CalendarDays className="size-5 text-purple-500" /> Data & Horário</h2>
               <p className="text-xs text-muted-foreground">Procedimento: <span className="font-semibold">{selectedService.nome}</span> ({selectedService.duracao_min} min)</p>
 
               {/* Date slider */}
@@ -484,8 +485,8 @@ function PublicAgendamentoPage() {
 
           {/* STEP 3: CLIENT FORM */}
           {step === 3 && selectedService && (
-            <Card className="glass border-0 rounded-3xl p-5 md:p-6 space-y-4">
-              <h2 className="font-display text-2xl flex items-center gap-2"><User className="size-5 text-primary" /> Suas Informações</h2>
+            <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-3xl p-5 md:p-6 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
+              <h2 className="font-display text-2xl flex items-center gap-2"><User className="size-5 text-purple-500" /> Suas Informações</h2>
               <p className="text-xs text-muted-foreground">Confirme seus dados para garantir a reserva</p>
 
               <form onSubmit={(e) => { e.preventDefault(); bookingMut.mutate(); }} className="space-y-4">
@@ -535,8 +536,8 @@ function PublicAgendamentoPage() {
 
           {/* STEP 4: SUCCESS CONFIRMATION */}
           {step === 4 && selectedService && (
-            <Card className="glass border-0 rounded-3xl p-6 text-center space-y-6">
-              <div className="size-16 rounded-full gradient-primary text-primary-foreground grid place-items-center mx-auto shadow-glow">
+            <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-3xl p-6 text-center space-y-6 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
+              <div className="size-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white grid place-items-center mx-auto shadow-lg shadow-purple-500/20">
                 <CheckCircle2 className="size-9" />
               </div>
 
@@ -545,7 +546,7 @@ function PublicAgendamentoPage() {
                 <p className="text-sm text-muted-foreground">Obrigada, {clientForm.nome}. Seu horário foi reservado com sucesso.</p>
               </div>
 
-              <div className="bg-accent/40 rounded-2xl p-4 max-w-sm mx-auto space-y-2 text-sm text-left">
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 rounded-2xl p-4 max-w-sm mx-auto space-y-2 text-sm text-left border border-purple-100/50 dark:border-purple-400/10">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Procedimento:</span>
                   <span className="font-medium">{selectedService.nome}</span>
@@ -582,7 +583,7 @@ function PublicAgendamentoPage() {
         <div className="space-y-6">
           {/* Summary Box */}
           {step < 4 && selectedService && (
-            <Card className="glass border-0 rounded-2xl p-5 space-y-4">
+            <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-2xl p-5 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
               <h3 className="font-display text-base border-b border-border/40 pb-2">Resumo da Reserva</h3>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between">
@@ -617,7 +618,7 @@ function PublicAgendamentoPage() {
 
           {/* Portfolio carousel view */}
           {portfolio.length > 0 && (
-            <Card className="glass border-0 rounded-2xl p-5 space-y-3">
+            <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
               <h3 className="font-display text-base flex items-center gap-1.5"><Heart className="size-4 text-rose-500" /> Meu Portfólio</h3>
               <div className="grid grid-cols-2 gap-2">
                 {portfolio.slice(0, 4).map(p => (
@@ -630,7 +631,7 @@ function PublicAgendamentoPage() {
           )}
 
           {/* Testimonials/Reviews display */}
-          <Card className="glass border-0 rounded-2xl p-5 space-y-4">
+          <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-2xl p-5 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
             <div className="flex items-center justify-between">
               <h3 className="font-display text-base flex items-center gap-1.5"><Star className="size-4 text-amber-400 fill-amber-400" /> Avaliações</h3>
               

@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Calendar, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Clock, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -86,38 +86,49 @@ function AgendamentosPage() {
       />
 
       {isLoading ? (
-        <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>
+        <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-28 rounded-[20px] bg-muted" />)}</div>
       ) : !ags?.length ? (
-        <Card className="glass border-0 rounded-2xl p-10 text-center">
-          <p className="text-muted-foreground">Nenhum agendamento ainda. Clique em <strong>Novo</strong> para começar.</p>
+        <Card className="bg-card border border-border rounded-[20px] p-12 text-center shadow-card">
+          <div className="size-16 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center mx-auto mb-4">
+            <CalendarDays className="size-7 text-[#D946EF]" />
+          </div>
+          <p className="text-muted-foreground">Nenhum agendamento ainda. Clique em <strong className="text-[#D946EF]">Novo</strong> para começar.</p>
         </Card>
       ) : (
         <div className="space-y-3">
           {ags.map((a: any) => (
-            <Card key={a.id} className="glass border-0 rounded-2xl p-5">
+            <Card key={a.id} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300">
               <div className="flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="size-12 rounded-2xl gradient-primary text-primary-foreground grid place-items-center shrink-0 text-center font-display leading-none">
+                  <div className="size-14 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 text-[#D946EF] grid place-items-center shrink-0 text-center leading-none">
                     <div>
-                      <div className="text-xs opacity-80">{format(new Date(a.data_hora), "MMM", { locale: ptBR }).toUpperCase()}</div>
-                      <div className="text-xl">{format(new Date(a.data_hora), "dd")}</div>
+                      <div className="text-[10px] font-medium opacity-70">{format(new Date(a.data_hora), "MMM", { locale: ptBR }).toUpperCase()}</div>
+                      <div className="text-xl font-bold">{format(new Date(a.data_hora), "dd")}</div>
                     </div>
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-medium truncate">{a.clientes?.nome ?? "Cliente"}</h3>
+                    <h3 className="font-medium truncate text-base text-card-foreground">{a.clientes?.nome ?? "Cliente"}</h3>
                     <p className="text-sm text-muted-foreground truncate">{a.servicos?.nome ?? "Serviço"}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Calendar className="size-3" />{format(new Date(a.data_hora), "dd/MM/yyyy")}</span>
-                      <span className="flex items-center gap-1"><Clock className="size-3" />{format(new Date(a.data_hora), "HH:mm")}</span>
+                    <div className="flex items-center gap-4 mt-1.5 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="size-3.5" />
+                        {format(new Date(a.data_hora), "dd/MM/yyyy")}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="size-3.5" />
+                        {format(new Date(a.data_hora), "HH:mm")}
+                      </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="font-display text-lg">{Number(a.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
-                    <Badge variant="outline" className={statusColor[a.status as Status]}>{a.status}</Badge>
+                    <div className="text-xl font-semibold text-card-foreground">
+                      {Number(a.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </div>
+                    <Badge variant="outline" className={statusColor[a.status as Status] + " mt-1"}>{a.status}</Badge>
                   </div>
-                  <AgendamentoDialog ag={a} onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} trigger={<Button size="icon" variant="ghost"><Pencil className="size-4" /></Button>} />
+                  <AgendamentoDialog ag={a} onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10 opacity-0 group-hover:opacity-100 transition-opacity"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
                   <DeleteAg id={a.id} onDone={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} />
                 </div>
               </div>

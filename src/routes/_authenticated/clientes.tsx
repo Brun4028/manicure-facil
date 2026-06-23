@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, Search, Phone, Mail, Cake } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Phone, Mail, Cake, Users } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -63,35 +63,40 @@ function ClientesPage() {
 
       {isLoading ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-40 rounded-2xl" />)}
+          {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-40 rounded-[20px] bg-muted" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <Card className="glass border-0 rounded-2xl p-10 text-center">
+        <Card className="bg-card border border-border rounded-[20px] p-12 text-center shadow-card">
+          <div className="size-16 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center mx-auto mb-4">
+            <Users className="size-7 text-[#D946EF]" />
+          </div>
           <p className="text-muted-foreground">Nenhuma cliente cadastrada ainda.</p>
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(c => (
-            <Card key={c.id} className="glass border-0 rounded-2xl p-5">
+            <Card key={c.id} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-11 rounded-full gradient-primary grid place-items-center text-primary-foreground font-display text-lg shrink-0">
+                  <div className="size-12 rounded-xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center text-[#D946EF] font-semibold text-lg shrink-0">
                     {c.nome.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-medium truncate">{c.nome}</h3>
-                    {c.servico_favorito && <p className="text-xs text-muted-foreground truncate">Prefere: {c.servico_favorito}</p>}
+                    <h3 className="font-medium truncate text-base text-card-foreground">{c.nome}</h3>
+                    {c.servico_favorito && <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      Prefere: {c.servico_favorito}
+                    </p>}
                   </div>
                 </div>
-                <div className="flex gap-1">
-                  <ClienteDialog cliente={c} onSaved={() => qc.invalidateQueries({ queryKey: ["clientes"] })} trigger={<Button size="icon" variant="ghost"><Pencil className="size-4" /></Button>} />
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ClienteDialog cliente={c} onSaved={() => qc.invalidateQueries({ queryKey: ["clientes"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
                   <DeleteBtn id={c.id} onDone={() => qc.invalidateQueries({ queryKey: ["clientes"] })} />
                 </div>
               </div>
-              <div className="mt-4 space-y-1.5 text-sm">
-                {c.telefone && <p className="flex items-center gap-2 text-muted-foreground"><Phone className="size-3.5" />{c.telefone}</p>}
-                {c.email && <p className="flex items-center gap-2 text-muted-foreground truncate"><Mail className="size-3.5 shrink-0" /><span className="truncate">{c.email}</span></p>}
-                {c.data_nascimento && <p className="flex items-center gap-2 text-muted-foreground"><Cake className="size-3.5" />{new Date(c.data_nascimento + "T00:00:00").toLocaleDateString("pt-BR")}</p>}
+              <div className="mt-4 pt-4 border-t border-border space-y-2.5 text-sm">
+                {c.telefone && <p className="flex items-center gap-2.5 text-muted-foreground"><Phone className="size-3.5 text-muted-foreground shrink-0" />{c.telefone}</p>}
+                {c.email && <p className="flex items-center gap-2.5 text-muted-foreground truncate"><Mail className="size-3.5 text-muted-foreground shrink-0" /><span className="truncate">{c.email}</span></p>}
+                {c.data_nascimento && <p className="flex items-center gap-2.5 text-muted-foreground"><Cake className="size-3.5 text-muted-foreground shrink-0" />{new Date(c.data_nascimento + "T00:00:00").toLocaleDateString("pt-BR")}</p>}
               </div>
             </Card>
           ))}
