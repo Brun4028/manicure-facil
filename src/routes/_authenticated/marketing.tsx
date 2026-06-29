@@ -453,7 +453,7 @@ function MarketingPage() {
             </div>              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 p-4 rounded-xl flex items-start gap-2.5 text-xs text-purple-600 dark:text-purple-400 leading-relaxed font-medium">
               <Sparkles className="size-4 shrink-0 text-purple-500 mt-0.5" />
               <span>
-                {config.niver_promo_ativa 
+                {config.niver_promo_ativa
                   ? `Configurado: Clientes aniversariantes do mês receberão automaticamente ${config.niver_desconto_porcentagem}% de desconto no agendamento público se agendarem dentro de uma janela de ${config.niver_dias_validade} dias do seu aniversário.`
                   : "Promoção de aniversário inativa. Ative para presentear suas clientes e incentivar visitas recorrentes no mês de aniversário."}
               </span>
@@ -490,7 +490,7 @@ function PointsAdjustmentDialog({ clients, onSaved }: { clients: Client[]; onSav
       // Fetch current balance
       const { data: pts } = await supabase.from("fidelidade_pontos").select("*").eq("user_id", user!.id).eq("cliente_id", form.cliente_id).maybeSingle();
       const currentPts = pts ? pts.saldo_pontos : 0;
-      
+
       let newPts = currentPts;
       if (form.tipo === "ganho") {
         newPts += form.pontos;
