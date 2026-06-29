@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Calendar, Clock, CalendarDays } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Clock, CalendarDays, ArrowRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -183,17 +183,100 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
     if (error) throw error; return data;
   }, enabled: open });
 
+  // F3: Find nearby available slots
+  const { data: allBookingsData } = useQuery({
+    queryKey: ["agendamentos-all"],
+    queryFn: async () => {
+      const u = (await supabase.auth.getUser()).data.user;
+      if (!u) return [];
+      const { data } = await supabase.from("agendamentos")
+        .select("id, data_hora, duracao_min, status")
+        .neq("status", "cancelado");
+      return data ?? [];
+    },
+    enabled: open,
+  });
+
+  const nearbySlots = useMemo(() => {
+    if (!form.data || !form.duracao_min || !allBookingsData) return [];
+    const baseDate = new Date(`${form.data}T00:00:00`);
+    const today = new Date();
+    const isToday = form.data === format(today, "yyyy-MM-dd");
+
+    const allSlots: { hora: string }[] = [];
+    const startHour = 8;
+    const endHour = 18;
+    const interval = 30;
+
+    for (let h = startHour; h < endHour; h++) {
+      for (let m = 0; m < 60; m += interval) {
+        const hh = String(h).padStart(2, "0");
+        const mm = String(m).padStart(2, "0");
+        const timeStr = `${hh}:${mm}`;
+        
+        const slotStart = new Date(baseDate);
+        slotStart.setHours(h, m, 0, 0);
+        if (isToday && slotStart.getTime() <= Date.now()) continue;
+
+        const slotEnd = slotStart.getTime() + form.duracao_min * 60 * 1000;
+        const hasConflict = allBookingsData.some((slot) => {
+          if (ag && slot.id === ag.id) return false;
+          const sStart = new Date(slot.data_hora).getTime();
+          const sEnd = sStart + (slot.duracao_min || 60) * 60 * 1000;
+          return slotStart.getTime() < sEnd && sStart < slotEnd;
+        });
+
+        if (!hasConflict) allSlots.push({ hora: timeStr });
+      }
+    }
+
+    // If current selected hour conflicts, suggest nearby
+    if (form.hora) {
+      const currentSlotStart = new Date(baseDate);
+      const [ch, cm] = form.hora.split(":").map(Number);
+      currentSlotStart.setHours(ch, cm, 0, 0);
+      const currentSlotEnd = currentSlotStart.getTime() + form.duracao_min * 60 * 1000;
+      const currentConflict = allBookingsData.some((slot) => {
+        if (ag && slot.id === ag.id) return false;
+        const sStart = new Date(slot.data_hora).getTime();
+        const sEnd = sStart + (slot.duracao_min || 60) * 60 * 1000;
+        return currentSlotStart.getTime() < sEnd && sStart < currentSlotEnd;
+      });
+
+      if (currentConflict) {
+        // Find the 3 nearest free slots around the requested time
+        return allSlots
+          .map(s => ({ hora: s.hora, diff: Math.abs(Number(s.hora.replace(":", "")) - Number(form.hora.replace(":", ""))) }))
+          .sort((a, b) => a.diff - b.diff)
+          .slice(0, 3)
+          .map(s => s.hora);
+      }
+    }
+    return [];
+  }, [form.data, form.duracao_min, form.hora, open, allBookingsData, ag?.id]);
+
   const mut = useMutation({
     mutationFn: async () => {
       const parsed = schema.safeParse(form);
       if (!parsed.success) throw new Error(parsed.error.issues[0].message);
       const data_hora = new Date(`${parsed.data.data}T${parsed.data.hora}:00`).toISOString();
 
-      // Conflict check
+      // Conflict check - also check overlapping times based on duration
       const { data: u } = await supabase.auth.getUser();
-      const { data: conflict } = await supabase.from("agendamentos")
-        .select("id").eq("user_id", u.user!.id).eq("data_hora", data_hora).neq("status", "cancelado");
-      if (conflict?.some(c => c.id !== ag?.id)) throw new Error("Já existe um agendamento neste horário");
+      const { data: allSlots } = await supabase.from("agendamentos")
+        .select("id, data_hora, duracao_min").eq("user_id", u.user!.id).neq("status", "cancelado");
+
+      const requestedStart = new Date(data_hora).getTime();
+      const requestedEnd = requestedStart + parsed.data.duracao_min * 60 * 1000;
+
+      const hasConflict = (allSlots ?? []).some((slot) => {
+        if (ag && slot.id === ag.id) return false;
+        const slotStart = new Date(slot.data_hora).getTime();
+        const slotEnd = slotStart + (slot.duracao_min || 60) * 60 * 1000;
+        return requestedStart < slotEnd && slotStart < requestedEnd;
+      });
+
+      if (hasConflict) throw new Error("Conflito de horário! Já existe um agendamento neste período.");
 
       const payload = {
         cliente_id: parsed.data.cliente_id,
@@ -248,6 +331,29 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
             <div><Label>Hora</Label><Input type="time" value={form.hora} onChange={(e) => setForm({ ...form, hora: e.target.value })} /></div>
             <div><Label>Duração (min)</Label><Input type="number" value={form.duracao_min} onChange={(e) => setForm({ ...form, duracao_min: Number(e.target.value) })} /></div>
           </div>
+
+          {/* F3: Nearby slot suggestions */}
+          {nearbySlots.length > 0 && (
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                <Sparkles className="size-3.5" />
+                Horário solicitado indisponível. Sugestões próximas:
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {nearbySlots.map(time => (
+                  <button
+                    key={time}
+                    type="button"
+                    onClick={() => setForm({ ...form, hora: time })}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-xs font-medium text-card-foreground transition-all flex items-center gap-1"
+                  >
+                    <ArrowRight className="size-3" />
+                    {time}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} /></div>
             <div><Label>Custo (R$)</Label><Input type="number" step="0.01" value={form.custo} onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })} /></div>

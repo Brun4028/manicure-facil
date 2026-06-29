@@ -1,14 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Wallet, TrendingUp, Receipt, BarChart3 } from "lucide-react";
+import { Wallet, TrendingUp, Receipt, BarChart3, Calculator } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   head: () => ({ meta: [{ title: "Financeiro — Manicure Fácil" }] }),
@@ -53,6 +55,31 @@ function Financeiro() {
     };
   });
 
+  // F6: Profit calculator per service
+  const profitByService = useMemo(() => {
+    const serviceMap = new Map<string, { nome: string; qtd: number; receita: number; custo: number; totalMin: number }>();
+    ags.forEach((a: any) => {
+      const servName = a.servicos?.nome ?? "Avulso";
+      const existing = serviceMap.get(servName) ?? { nome: servName, qtd: 0, receita: 0, custo: 0, totalMin: 0 };
+      existing.qtd++;
+      existing.receita += Number(a.valor);
+      existing.custo += a.status === "concluido" ? Number(a.custo) : 0;
+      existing.totalMin += Number(a.duracao_min ?? 60);
+      serviceMap.set(servName, existing);
+    });
+    return Array.from(serviceMap.values())
+      .map(s => ({
+        ...s,
+        lucroBruto: s.receita - s.custo,
+        margemPorcentagem: s.receita > 0 ? ((s.receita - s.custo) / s.receita * 100) : 0,
+        lucroPorHora: s.totalMin > 0 ? ((s.receita - s.custo) / (s.totalMin / 60)) : 0,
+      }))
+      .sort((a, b) => b.lucroBruto - a.lucroBruto);
+  }, [ags]);
+
+  // Overall margin
+  const margemGeral = faturamento > 0 ? ((faturamento - concl.reduce((s, a) => s + Number(a.custo), 0)) / faturamento * 100) : 0;
+
   const stats = [
     { icon: Wallet, label: "Faturamento total", value: brl(faturamento) },
     { icon: TrendingUp, label: "Lucro total", value: brl(lucro) },
@@ -77,6 +104,75 @@ function Financeiro() {
           </Card>
         ))}
       </div>
+
+      {/* F6: Profit Calculator */}
+      {profitByService.length > 0 && (
+        <Card className="bg-card border border-border p-6 rounded-[20px] mt-8 shadow-card">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 grid place-items-center">
+              <Calculator className="size-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-card-foreground">Calculadora de Lucro por Serviço</h3>
+              <p className="text-xs text-muted-foreground">Detalhamento real com margem e lucro por hora</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-4 mb-6">
+            <Card className="bg-muted/50 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">Margem Média</p>
+              <p className={`text-lg font-bold mt-1 ${margemGeral >= 50 ? "text-emerald-500" : margemGeral >= 30 ? "text-amber-500" : "text-red-500"}`}>
+                {margemGeral.toFixed(1)}%
+              </p>
+            </Card>
+            <Card className="bg-muted/50 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">Lucro Total</p>
+              <p className="text-lg font-bold mt-1 text-card-foreground">{brl(lucro)}</p>
+            </Card>
+            <Card className="bg-muted/50 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">Custo Total</p>
+              <p className="text-lg font-bold mt-1 text-card-foreground">{brl(concl.reduce((s, a) => s + Number(a.custo), 0))}</p>
+            </Card>
+            <Card className="bg-muted/50 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase">Lucro/Hora Médio</p>
+              <p className="text-lg font-bold mt-1 text-card-foreground">{brl(profitByService[0]?.lucroPorHora ?? 0)}</p>
+            </Card>
+          </div>
+
+          <div className="overflow-hidden border border-border/40 rounded-xl">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-[11px]">Serviço</TableHead>
+                  <TableHead className="text-[11px] text-right">Qtd</TableHead>
+                  <TableHead className="text-[11px] text-right">Receita</TableHead>
+                  <TableHead className="text-[11px] text-right">Custo</TableHead>
+                  <TableHead className="text-[11px] text-right">Lucro Bruto</TableHead>
+                  <TableHead className="text-[11px] text-right">Margem</TableHead>
+                  <TableHead className="text-[11px] text-right">Lucro/h</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {profitByService.map(s => (
+                  <TableRow key={s.nome}>
+                    <TableCell className="font-medium text-sm">{s.nome}</TableCell>
+                    <TableCell className="text-right">{s.qtd}x</TableCell>
+                    <TableCell className="text-right">{brl(s.receita)}</TableCell>
+                    <TableCell className="text-right text-red-500">{brl(s.custo)}</TableCell>
+                    <TableCell className="text-right font-semibold text-emerald-500">{brl(s.lucroBruto)}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="secondary" className={`text-[10px] ${s.margemPorcentagem >= 50 ? "bg-emerald-500/10 text-emerald-500" : s.margemPorcentagem >= 30 ? "bg-amber-500/10 text-amber-500" : "bg-red-500/10 text-red-500"}`}>
+                        {s.margemPorcentagem.toFixed(0)}%
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">{brl(s.lucroPorHora)}/h</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
 
       <Card className="bg-card border border-border p-6 rounded-[20px] mt-8 shadow-card">
         <h3 className="text-base font-semibold text-card-foreground mb-6">Evolução financeira — 6 meses</h3>

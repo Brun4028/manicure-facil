@@ -150,7 +150,7 @@ function MarketingPage() {
 
   // Query Clients (for loyalty names matching)
   const clientsQuery = useQuery({
-    queryKey: ["clientes"],
+    queryKey: ["clientes-marketing"],
     queryFn: async () => {
       try {
         const { data, error } = await supabase.from("clientes").select("id, nome, telefone");
@@ -164,7 +164,7 @@ function MarketingPage() {
 
   // Query Services (for promo filtering)
   const servicesQuery = useQuery({
-    queryKey: ["servicos"],
+    queryKey: ["servicos-marketing"],
     queryFn: async () => {
       try {
         const { data, error } = await supabase.from("servicos").select("id, nome");

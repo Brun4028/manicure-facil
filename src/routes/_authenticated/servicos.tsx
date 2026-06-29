@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/servicos")({
   component: ServicosPage,
 });
 
-type Serv = { id: string; nome: string; valor: number; custo: number; duracao_min: number; ativo: boolean };
+type Serv = { id: string; nome: string; valor: number; custo: number; duracao_min: number; ativo: boolean; intervalo_recomendado?: number; dias_manutencao?: number };
 
 const schema = z.object({
   nome: z.string().trim().min(2).max(80),
@@ -27,6 +27,8 @@ const schema = z.object({
   custo: z.number().min(0),
   duracao_min: z.number().min(15).max(600),
   ativo: z.boolean(),
+  intervalo_recomendado: z.number().min(1).max(365).default(15),
+  dias_manutencao: z.number().min(1).max(90).default(7),
 });
 
 const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -90,7 +92,17 @@ function ServicosPage() {
                     <div className="text-xl mt-1 truncate text-[#22C55E] font-semibold">{brl(lucro)}</div>
                   </div>
                 </div>
-                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                {(s.intervalo_recomendado || s.dias_manutencao) && (
+                <div className="mt-4 flex items-center gap-3 text-[10px] text-muted-foreground border-t border-border pt-4">
+                  {s.intervalo_recomendado && (
+                    <span className="bg-muted rounded-lg px-2 py-1">Retorno: {s.intervalo_recomendado}d</span>
+                  )}
+                  {s.dias_manutencao && (
+                    <span className="bg-muted rounded-lg px-2 py-1">Manutenção: {s.dias_manutencao}d</span>
+                  )}
+                </div>
+              )}
+              <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
                   <Label className="text-xs text-[#A1A1AA]">Serviço ativo</Label>
                   <Switch checked={s.ativo} onCheckedChange={async (v) => {
                     const { error } = await supabase.from("servicos").update({ ativo: v }).eq("id", s.id);
@@ -121,6 +133,8 @@ function ServicoDialog({ serv, onSaved, trigger }: { serv?: Serv; onSaved: () =>
   const [form, setForm] = useState({
     nome: serv?.nome ?? "", valor: Number(serv?.valor ?? 0), custo: Number(serv?.custo ?? 0),
     duracao_min: serv?.duracao_min ?? 60, ativo: serv?.ativo ?? true,
+    intervalo_recomendado: serv?.intervalo_recomendado ?? 15,
+    dias_manutencao: serv?.dias_manutencao ?? 7,
   });
   const mut = useMutation({
     mutationFn: async () => {
@@ -143,6 +157,18 @@ function ServicoDialog({ serv, onSaved, trigger }: { serv?: Serv; onSaved: () =>
             <div><Label>Valor</Label><Input type="number" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} /></div>
             <div><Label>Custo</Label><Input type="number" step="0.01" value={form.custo} onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })} /></div>
             <div><Label>Duração</Label><Input type="number" value={form.duracao_min} onChange={(e) => setForm({ ...form, duracao_min: Number(e.target.value) })} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
+            <div>
+              <Label className="text-xs">Retorno (dias)</Label>
+              <Input type="number" min="1" max="365" value={form.intervalo_recomendado} onChange={(e) => setForm({ ...form, intervalo_recomendado: Number(e.target.value) })} className="text-xs" />
+              <span className="text-[9px] text-muted-foreground mt-0.5 block">Intervalo recomendado p/ retorno</span>
+            </div>
+            <div>
+              <Label className="text-xs">Manutenção (dias)</Label>
+              <Input type="number" min="1" max="90" value={form.dias_manutencao} onChange={(e) => setForm({ ...form, dias_manutencao: Number(e.target.value) })} className="text-xs" />
+              <span className="text-[9px] text-muted-foreground mt-0.5 block">Janela p/ lembrete de manutenção</span>
+            </div>
           </div>
           <div className="flex items-center justify-between pt-2"><Label>Ativo</Label><Switch checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} /></div>
           <DialogFooter><Button type="submit" disabled={mut.isPending} className="gradient-primary text-primary-foreground shadow-glow w-full">{mut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>

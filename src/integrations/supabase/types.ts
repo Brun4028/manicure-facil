@@ -153,6 +153,8 @@ export type Database = {
           custo: number
           duracao_min: number
           id: string
+          intervalo_recomendado: number
+          dias_manutencao: number
           nome: string
           updated_at: string
           user_id: string
@@ -164,6 +166,8 @@ export type Database = {
           custo?: number
           duracao_min?: number
           id?: string
+          intervalo_recomendado?: number
+          dias_manutencao?: number
           nome: string
           updated_at?: string
           user_id: string
@@ -175,6 +179,8 @@ export type Database = {
           custo?: number
           duracao_min?: number
           id?: string
+          intervalo_recomendado?: number
+          dias_manutencao?: number
           nome?: string
           updated_at?: string
           user_id?: string
@@ -423,6 +429,8 @@ export type Database = {
           titulo: string
           descricao: string | null
           imagem_url: string
+          foto_antes_url: string | null
+          cliente_id: string | null
           tags: string[] | null
           publico: boolean
           created_at: string
@@ -433,6 +441,8 @@ export type Database = {
           titulo: string
           descricao?: string | null
           imagem_url: string
+          foto_antes_url?: string | null
+          cliente_id?: string | null
           tags?: string[] | null
           publico?: boolean
           created_at?: string
@@ -443,11 +453,21 @@ export type Database = {
           titulo?: string
           descricao?: string | null
           imagem_url?: string
+          foto_antes_url?: string | null
+          cliente_id?: string | null
           tags?: string[] | null
           publico?: boolean
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       vendas: {
         Row: {

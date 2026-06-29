@@ -3,13 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Users, CalendarDays, Wallet, TrendingUp, CheckCircle2, Clock, Cake,
+  Sparkles, AlertTriangle, Target, ArrowUp, ArrowDown, RotateCcw,
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell } from "recharts";
-import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays, subMonths, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -19,6 +21,363 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+/* ───── F1: Smart Assistant ───── */
+function SmartAssistant() {
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+  const prevMonthStart = startOfMonth(subMonths(now, 1));
+  const prevMonthEnd = endOfMonth(subMonths(now, 1));
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard-smart-assistant"],
+    queryFn: async () => {
+      const [agendamentosR, clientesR, produtosR, metasR, servicosR] = await Promise.all([
+        supabase.from("agendamentos").select("id, data_hora, valor, custo, status, servico_id").order("data_hora", { ascending: true }),
+        supabase.from("clientes").select("id, nome, data_nascimento"),
+        supabase.from("produtos").select("id, nome, quantidade, quantidade_minima"),
+        supabase.from("metas_mensais").select("*").eq("mes_ano", format(now, "yyyy-MM")).maybeSingle(),
+        supabase.from("servicos").select("id, nome"),
+      ]);
+      return {
+        agendamentos: agendamentosR.data ?? [],
+        clientes: clientesR.data ?? [],
+        produtos: produtosR.data ?? [],
+        meta: metasR.data ?? null,
+        servicos: servicosR.data ?? [],
+      };
+    },
+  });
+
+  if (isLoading || !data) return null;
+
+  const ags = data.agendamentos;
+  const clientes = data.clientes;
+  const produtos = data.produtos;
+  const meta = data.meta;
+  const servicos = data.servicos;
+
+  // Today's appointments
+  const hojeAgs = ags.filter((a) => {
+    const d = new Date(a.data_hora);
+    return d >= todayStart && d <= todayEnd && a.status !== "cancelado";
+  });
+
+  // Next upcoming appointments
+  const proximos = ags
+    .filter((a) => {
+      const d = new Date(a.data_hora);
+      return d >= now && a.status !== "cancelado";
+    })
+    .slice(0, 3);
+
+  // This month concluded
+  const conclMes = ags.filter((a) => {
+    const d = new Date(a.data_hora);
+    return d >= monthStart && d <= monthEnd && a.status === "concluido";
+  });
+  const faturamentoMes = conclMes.reduce((s, a) => s + Number(a.valor), 0);
+
+  // Previous month concluded
+  const conclPrev = ags.filter((a) => {
+    const d = new Date(a.data_hora);
+    return d >= prevMonthStart && d <= prevMonthEnd && a.status === "concluido";
+  });
+  const faturamentoPrev = conclPrev.reduce((s, a) => s + Number(a.valor), 0);
+
+  // Growth
+  const growth = faturamentoPrev > 0 ? ((faturamentoMes - faturamentoPrev) / faturamentoPrev) * 100 : 0;
+
+  // Meta remaining
+  const metaVal = Number(meta?.faturamento_alvo ?? 0);
+  const faltaMeta = metaVal > 0 ? Math.max(0, metaVal - faturamentoMes) : 0;
+
+  // Low stock products
+  const estoqueBaixo = produtos.filter((p) => p.quantidade <= p.quantidade_minima);
+
+  // Most sold services this month
+  const servicoCount: Record<string, number> = {};
+  conclMes.forEach((a) => {
+    if (a.servico_id) {
+      servicoCount[a.servico_id] = (servicoCount[a.servico_id] ?? 0) + 1;
+    }
+  });
+  const servicoRank = Object.entries(servicoCount)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(([id, count]) => ({
+      nome: servicos.find((s) => s.id === id)?.nome ?? "Avulso",
+      count,
+    }));
+
+  // Birthday clients this month
+  const aniversariantes = clientes.filter((c) => {
+    if (!c.data_nascimento) return false;
+    const birth = new Date(c.data_nascimento + "T00:00:00");
+    return !isNaN(birth.getTime()) && birth.getMonth() === now.getMonth();
+  });
+
+  return (
+    <Card className="bg-gradient-to-br from-[#D946EF]/5 via-[#A855F7]/5 to-transparent border border-[#D946EF]/10 rounded-[20px] p-6 shadow-card mb-8">
+      <div className="flex items-start gap-3 mb-5">
+        <div className="size-10 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)] shrink-0">
+          <Sparkles className="size-5 text-white" />
+        </div>
+        <div>
+          <h3 className="font-semibold text-lg text-card-foreground">Resumo Inteligente</h3>
+          <p className="text-xs text-muted-foreground">Informações rápidas do seu negócio</p>
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Today's appointments */}
+        <div className="bg-card/60 backdrop-blur-sm border border-border/60 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+            <CalendarDays className="size-3.5 text-[#D946EF]" />
+            Atendimentos hoje
+          </div>
+          <p className="text-2xl font-bold text-card-foreground">{hojeAgs.length}</p>
+          {proximos.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {proximos.slice(0, 2).map((a: any) => (
+                <p key={a.id} className="text-[10px] text-muted-foreground truncate">
+                  {format(new Date(a.data_hora), "HH:mm")} — {a.servico_id ? "Agendado" : "Serviço"}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Growth vs last month */}
+        <div className="bg-card/60 backdrop-blur-sm border border-border/60 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+            <TrendingUp className="size-3.5 text-emerald-500" />
+            Crescimento vs mês anterior
+          </div>
+          <div className="flex items-center gap-2">
+            <p className={`text-2xl font-bold ${growth >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+              {growth >= 0 ? "+" : ""}{growth.toFixed(1)}%
+            </p>
+            {growth >= 0 ? <ArrowUp className="size-5 text-emerald-500" /> : <ArrowDown className="size-5 text-red-500" />}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Faturamento: {brl(faturamentoMes)} este mês
+          </p>
+        </div>
+
+        {/* Meta remaining */}
+        <div className="bg-card/60 backdrop-blur-sm border border-border/60 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+            <Target className="size-3.5 text-amber-500" />
+            Meta mensal
+          </div>
+          {metaVal > 0 ? (
+            <>
+              <p className="text-2xl font-bold text-card-foreground">
+                {faltaMeta > 0 ? `Faltam ${brl(faltaMeta)}` : "Meta atingida! 🎉"}
+              </p>
+              <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, (faturamentoMes / metaVal) * 100)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {((faturamentoMes / metaVal) * 100).toFixed(0)}% de {brl(metaVal)}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Configure metas em Relatórios</p>
+          )}
+        </div>
+
+        {/* Low stock */}
+        {estoqueBaixo.length > 0 && (
+          <div className="bg-card/60 backdrop-blur-sm border border-red-500/20 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <AlertTriangle className="size-3.5 text-red-500" />
+              Estoque crítico
+            </div>
+            <p className="text-2xl font-bold text-red-500">{estoqueBaixo.length} produto{estoqueBaixo.length > 1 ? "s" : ""}</p>
+            <div className="mt-2 space-y-1">
+              {estoqueBaixo.slice(0, 3).map((p: any) => (
+                <p key={p.id} className="text-[10px] text-muted-foreground truncate">
+                  {p.nome} — {p.quantidade} un
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Top services */}
+        {servicoRank.length > 0 && (
+          <div className="bg-card/60 backdrop-blur-sm border border-border/60 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <TrendingUp className="size-3.5 text-[#A855F7]" />
+              Serviços mais vendidos
+            </div>
+            <div className="space-y-1.5 mt-1">
+              {servicoRank.map((s, i) => (
+                <div key={s.nome} className="flex items-center justify-between text-xs">
+                  <span className="text-card-foreground font-medium truncate mr-2">
+                    {i + 1}. {s.nome}
+                  </span>
+                  <Badge variant="secondary" className="text-[10px] shrink-0">{s.count}x</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Birthday clients */}
+        {aniversariantes.length > 0 && (
+          <div className="bg-card/60 backdrop-blur-sm border border-border/60 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <Cake className="size-3.5 text-pink-500" />
+              Aniversariantes do mês
+            </div>
+            <p className="text-2xl font-bold text-card-foreground">{aniversariantes.length}</p>
+            <div className="mt-2 space-y-1">
+              {aniversariantes.slice(0, 3).map((c: any) => (
+                <p key={c.id} className="text-[10px] text-muted-foreground truncate">
+                  🎂 {c.nome}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/* ───── F2: Return Reminder ───── */
+function ReturnReminder() {
+  const now = new Date();
+  const todayStart = startOfDay(now);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard-return-reminder"],
+    queryFn: async () => {
+      const [clientesR, agendamentosR, servicosR] = await Promise.all([
+        supabase.from("clientes").select("id, nome, telefone"),
+        supabase.from("agendamentos").select("id, cliente_id, servico_id, data_hora, status").eq("status", "concluido").order("data_hora", { ascending: false }),
+        supabase.from("servicos").select("id, nome, intervalo_recomendado, dias_manutencao"),
+      ]);
+      return {
+        clientes: clientesR.data ?? [],
+        agendamentos: agendamentosR.data ?? [],
+        servicos: servicosR.data ?? [],
+      };
+    },
+  });
+
+  if (isLoading || !data) return null;
+
+  const clientes = data.clientes;
+  const agendamentos = data.agendamentos;
+  const servicos = data.servicos;
+
+  // Group: for each client, find their last concluded appointment per service
+  const clientReturnMap: Record<string, { cliente: any; servico: any; ultimaData: Date; diasPassados: number; status: "atrasado" | "proximo" | "ok" }> = {};
+
+  agendamentos.forEach((a) => {
+    if (!a.cliente_id || !a.servico_id) return;
+    const key = `${a.cliente_id}-${a.servico_id}`;
+    if (clientReturnMap[key]) return; // first one is the most recent (ordered desc)
+    
+    const servico = servicos.find((s) => s.id === a.servico_id);
+    if (!servico) return;
+
+    const cliente = clientes.find((c) => c.id === a.cliente_id);
+    if (!cliente) return;
+
+    const ultimaData = new Date(a.data_hora);
+    const diasPassados = differenceInDays(now, ultimaData);
+    const intervalo = Number(servico.intervalo_recomendado ?? 15);
+    const manutencao = Number(servico.dias_manutencao ?? 7);
+
+    let status: "atrasado" | "proximo" | "ok" = "ok";
+    if (diasPassados > intervalo) {
+      status = "atrasado";
+    } else if (diasPassados >= (intervalo - manutencao)) {
+      status = "proximo";
+    }
+
+    if (status !== "ok") {
+      clientReturnMap[key] = { cliente, servico, ultimaData, diasPassados, status };
+    }
+  });
+
+  const atrasados = Object.values(clientReturnMap).filter(r => r.status === "atrasado");
+  const proximos = Object.values(clientReturnMap).filter(r => r.status === "proximo");
+
+  if (atrasados.length === 0 && proximos.length === 0) return null;
+
+  return (
+    <Card className="bg-card border border-border rounded-[20px] p-6 shadow-card mb-8">
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="size-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 grid place-items-center">
+          <RotateCcw className="size-[18px] text-white" />
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-card-foreground">Lembrete de Retorno</h3>
+          <p className="text-xs text-muted-foreground">Clientes que precisam retornar</p>
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        {atrasados.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <AlertTriangle className="size-3.5 text-red-500" />
+              <span className="text-xs font-medium text-red-500">Atrasados ({atrasados.length})</span>
+            </div>
+            <div className="space-y-1.5">
+              {atrasados.slice(0, 5).map((r, i) => (
+                <div key={i} className="flex items-center justify-between bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-card-foreground truncate">{r.cliente.nome}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{r.servico.nome} • {r.diasPassados}d atrás</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-red-500 border-red-500/20 bg-red-500/10 shrink-0 ml-2">
+                    +{r.diasPassados - Number(r.servico.intervalo_recomendado)}d
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {proximos.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Clock className="size-3.5 text-amber-500" />
+              <span className="text-xs font-medium text-amber-500">Próximos ({proximos.length})</span>
+            </div>
+            <div className="space-y-1.5">
+              {proximos.slice(0, 5).map((r, i) => (
+                <div key={i} className="flex items-center justify-between bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-card-foreground truncate">{r.cliente.nome}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{r.servico.nome} • {r.diasPassados}d atrás</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/20 bg-amber-500/10 shrink-0 ml-2">
+                    em {Number(r.servico.intervalo_recomendado) - r.diasPassados}d
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/* ───── Dashboard Main ───── */
 function Dashboard() {
   const { user } = useAuth();
   const nome = user?.user_metadata?.nome || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
@@ -110,7 +469,7 @@ function Dashboard() {
 
       {/* Welcome greeting */}
       {nome && (
-        <div className="mb-10 animate-fade-up">
+        <div className="mb-6 animate-fade-up">
           <div className="flex items-center gap-2.5">
             <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
               {greeting}, {nome}
@@ -130,6 +489,12 @@ function Dashboard() {
           )}
         </div>
       )}
+
+      {/* F1: Smart Assistant */}
+      <SmartAssistant />
+
+      {/* F2: Return Reminder */}
+      <ReturnReminder />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map((s) => (

@@ -389,8 +389,8 @@ function RelatoriosPage() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-4">
-              {/* Goal 1: Revenue */}
-              <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+              {/* Goal 1: Revenue — F4 Enhanced */}
+              <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)] relative overflow-hidden">
                 <div className="flex justify-between items-start">
                   <div className="size-10 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-500/20 dark:to-purple-500/10 grid place-items-center"><TrendingUp className="size-5 text-purple-600 dark:text-purple-400" /></div>
                   <Badge variant="secondary" className="text-[10px] rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-transparent">Faturamento</Badge>
@@ -401,10 +401,25 @@ function RelatoriosPage() {
                   <span className="text-xs text-muted-foreground mt-0.5 block">Meta: {brl(metaQuery.data?.faturamento_alvo ?? 0)}</span>
                 </div>
                 <Progress value={metaQuery.data?.faturamento_alvo ? (currentMonthData.faturamentoReal / metaQuery.data.faturamento_alvo) * 100 : 0} className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-purple-500 [&>div]:to-pink-500" />
+                {metaQuery.data?.faturamento_alvo ? (
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-muted-foreground">{((currentMonthData.faturamentoReal / metaQuery.data.faturamento_alvo) * 100).toFixed(0)}% concluído</span>
+                      {currentMonthData.faturamentoReal < metaQuery.data.faturamento_alvo && (
+                        <span className="text-amber-500 font-medium">Faltam {brl(metaQuery.data.faturamento_alvo - currentMonthData.faturamentoReal)}</span>
+                      )}
+                    </div>
+                    {format(new Date(), "yyyy-MM") === selectedMonth && (
+                      <div className="text-[10px] text-muted-foreground">
+                        Projeção: <span className="font-medium text-card-foreground">{brl(insights.projetado)}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </Card>
 
-              {/* Goal 2: Profit */}
-              <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+              {/* Goal 2: Profit — F4 Enhanced */}
+              <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)] relative overflow-hidden">
                 <div className="flex justify-between items-start">
                   <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-500/20 dark:to-emerald-500/10 grid place-items-center"><Target className="size-5 text-emerald-600 dark:text-emerald-400" /></div>
                   <Badge variant="secondary" className="text-[10px] rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-transparent">Lucro Líquido</Badge>
@@ -415,10 +430,23 @@ function RelatoriosPage() {
                   <span className="text-xs text-muted-foreground mt-0.5 block">Meta: {brl(metaQuery.data?.lucro_alvo ?? 0)}</span>
                 </div>
                 <Progress value={metaQuery.data?.lucro_alvo ? (currentMonthData.lucroReal / metaQuery.data.lucro_alvo) * 100 : 0} className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:to-emerald-500" />
+                {metaQuery.data?.lucro_alvo ? (
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-muted-foreground">{((currentMonthData.lucroReal / metaQuery.data.lucro_alvo) * 100).toFixed(0)}% concluído</span>
+                      {currentMonthData.lucroReal < metaQuery.data.lucro_alvo && (
+                        <span className="text-red-500 font-medium">Faltam {brl(metaQuery.data.lucro_alvo - currentMonthData.lucroReal)}</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      Margem: <span className="font-medium text-card-foreground">{currentMonthData.faturamentoReal > 0 ? ((currentMonthData.lucroReal / currentMonthData.faturamentoReal) * 100).toFixed(1) : "0"}%</span>
+                    </div>
+                  </div>
+                ) : null}
               </Card>
 
-              {/* Goal 3: Services count */}
-              <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+              {/* Goal 3: Services count — F4 Enhanced */}
+              <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)] relative overflow-hidden">
                 <div className="flex justify-between items-start">
                   <div className="size-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-500/20 dark:to-amber-500/10 grid place-items-center"><Award className="size-5 text-amber-600 dark:text-amber-400" /></div>
                   <Badge variant="secondary" className="text-[10px] rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-transparent">Serviços</Badge>
@@ -429,6 +457,16 @@ function RelatoriosPage() {
                   <span className="text-xs text-muted-foreground mt-0.5 block">Meta: {metaQuery.data?.servicos_alvo ?? 0} un</span>
                 </div>
                 <Progress value={metaQuery.data?.servicos_alvo ? (currentMonthData.servicosQtd / metaQuery.data.servicos_alvo) * 100 : 0} className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-amber-400 [&>div]:to-amber-500" />
+                {metaQuery.data?.servicos_alvo ? (
+                  <div className="pt-1">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-muted-foreground">{((currentMonthData.servicosQtd / metaQuery.data.servicos_alvo) * 100).toFixed(0)}% concluído</span>
+                      {currentMonthData.servicosQtd < metaQuery.data.servicos_alvo && (
+                        <span className="text-amber-500 font-medium">Faltam {metaQuery.data.servicos_alvo - currentMonthData.servicosQtd} un</span>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
               </Card>
             </div>
 
@@ -588,12 +626,6 @@ function MetaGoalDialog({ current, onSaved }: { current: MetaMensal | null | und
     faturamento_alvo: current?.faturamento_alvo ?? 3000,
     lucro_alvo: current?.lucro_alvo ?? 2000,
     servicos_alvo: current?.servicos_alvo ?? 50,
-  });
-
-  const mut = useMutation({
-    mutationFn: async () => {
-      // triggers mutation
-    }
   });
 
   return (

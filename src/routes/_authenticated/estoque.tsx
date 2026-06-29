@@ -106,7 +106,7 @@ function EstoquePage() {
 
   // Query Clients
   const clientsQuery = useQuery({
-    queryKey: ["clientes"],
+    queryKey: ["clientes-pos"],
     queryFn: async () => {
       try {
         const { data, error } = await supabase.from("clientes").select("id, nome, telefone").order("nome");

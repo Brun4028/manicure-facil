@@ -108,7 +108,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               }`}
             >
               <div className="text-sm font-semibold leading-none whitespace-nowrap text-white">Manicure Fácil</div>
-              <div className="text-[10px] text-[#A1A1AA] mt-0.5 whitespace-nowrap">Premium SaaS</div>
             </div>
           </div>
 
@@ -227,7 +226,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-white leading-none">Manicure Fácil</div>
-                    <div className="text-[10px] text-[#A1A1AA] mt-1">Premium SaaS</div>
                   </div>
                 </div>
                 <SheetClose asChild>
