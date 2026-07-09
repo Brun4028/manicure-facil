@@ -41,7 +41,7 @@ function ClientesPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("clientes");
-  
+
   const { data, isLoading } = useQuery({
     queryKey: ["clientes"],
     queryFn: async () => {
@@ -66,7 +66,7 @@ function ClientesPage() {
   const ranking = useMemo(() => {
     if (!data || !ags) return [];
     const clientMap = new Map<string, { nome: string; atendimentos: number; totalGasto: number; ultimaVisita: Date | null }>();
-    
+
     ags.forEach((a) => {
       if (!a.cliente_id) return;
       const existing = clientMap.get(a.cliente_id) ?? {
@@ -92,7 +92,7 @@ function ClientesPage() {
     if (ranked.length <= 1) return ranked.map(r => ({ ...r, categoria: "🥉 Bronze" as const }));
     const top20 = Math.max(1, Math.ceil(ranked.length * 0.2));
     const top50 = Math.max(1, Math.ceil(ranked.length * 0.5));
-    
+
     return ranked.map((r, i) => ({
       ...r,
       categoria: i < top20 ? "🥇 Ouro" as const : i < top50 ? "🥈 Prata" as const : "🥉 Bronze" as const,
@@ -218,11 +218,10 @@ function ClientesPage() {
                       <p className="text-lg font-semibold text-card-foreground">
                         {r.totalGasto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                       </p>
-                      <Badge variant="secondary" className={`text-[10px] ${
-                        r.categoria === "🥇 Ouro" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" :
-                        r.categoria === "🥈 Prata" ? "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20" :
-                        "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20"
-                      }`}>{r.categoria}</Badge>
+                      <Badge variant="secondary" className={`text-[10px] ${r.categoria === "🥇 Ouro" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" :
+                          r.categoria === "🥈 Prata" ? "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20" :
+                            "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20"
+                        }`}>{r.categoria}</Badge>
                     </div>
                   </div>
                 </Card>
