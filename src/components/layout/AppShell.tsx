@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet";
 import { ProfileDialog } from "@/components/profile/profile-dialog";
+import logoIconWhite from "@/assets/logo-icon-white.png";
 
 const nav = [
   { to: "/dashboard", label: "Menu Geral", icon: LayoutDashboard },
@@ -100,7 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Logo */}
           <div className={`flex items-center gap-3 px-5 py-6 ${desktopCollapsed ? "justify-center px-0" : ""}`}>
             <div className="size-9 min-w-9 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)]">
-              <Sparkles className="size-[18px] text-white" />
+              <img src={logoIconWhite} alt="Manicure Fácil Logo" className="size-[18px] object-contain" />
             </div>
             <div
               className={`overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
@@ -222,7 +223,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="px-6 py-6 flex items-center justify-between border-b border-[#252836]">
                 <div className="flex items-center gap-2">
                   <div className="size-9 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)]">
-                    <Sparkles className="size-5 text-white" />
+                    <img src={logoIconWhite} alt="Manicure Fácil Logo" className="size-5 object-contain" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-white leading-none">Manicure Fácil</div>

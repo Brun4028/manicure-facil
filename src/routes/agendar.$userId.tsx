@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import logoIconWhite from "@/assets/logo-icon-white.png";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -354,7 +355,7 @@ function PublicAgendamentoPage() {
       <header className="max-w-4xl w-full mx-auto flex items-center justify-between pb-6 border-b border-border/40">
         <div className="flex items-center gap-3">
           <div className="size-10 rounded-xl gradient-primary grid place-items-center shadow-glow">
-            <Sparkles className="size-5 text-primary-foreground" />
+            <img src={logoIconWhite} alt="Logo" className="size-5 object-contain" />
           </div>
           <div>
             <h1 className="font-display text-xl leading-none">{profileQuery.data?.nome || "Carregando..."}</h1>

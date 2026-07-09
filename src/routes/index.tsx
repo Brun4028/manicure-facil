@@ -1,6 +1,7 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { Sparkles, CalendarDays, Users, Wallet, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import logoIconWhite from "@/assets/logo-icon-white.png";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -29,7 +30,7 @@ function Landing() {
       <header className="px-6 md:px-12 py-6 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-2">
           <div className="size-9 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)]">
-            <Sparkles className="size-5 text-white" />
+            <img src={logoIconWhite} alt="Manicure Fácil Logo" className="size-5 object-contain" />
           </div>
           <span className="text-xl font-semibold text-white">Manicure Fácil</span>
         </div>

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import logoIconWhite from "@/assets/logo-icon-white.png";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -123,7 +124,7 @@ function SmartAssistant() {
     <Card className="bg-gradient-to-br from-[#D946EF]/5 via-[#A855F7]/5 to-transparent border border-[#D946EF]/10 rounded-[20px] p-6 shadow-card mb-8">
       <div className="flex items-start gap-3 mb-5">
         <div className="size-10 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)] shrink-0">
-          <Sparkles className="size-5 text-white" />
+          <img src={logoIconWhite} alt="Logo" className="size-5 object-contain" />
         </div>
         <div>
           <h3 className="font-semibold text-lg text-card-foreground">Resumo Inteligente</h3>

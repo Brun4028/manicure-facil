@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, redirect, Link } from "@tanstack/react-ro
 import { useState } from "react";
 import { z } from "zod";
 import { Sparkles } from "lucide-react";
+import logoIconWhite from "@/assets/logo-icon-white.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,7 +68,7 @@ function AuthPage() {
       <div className="w-full max-w-md relative z-10">
         <Link to="/" className="flex items-center gap-2 justify-center mb-8">
           <div className="size-11 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)]">
-            <Sparkles className="size-5 text-white" />
+            <img src={logoIconWhite} alt="Manicure Fácil Logo" className="size-5 object-contain" />
           </div>
           <span className="text-2xl font-semibold text-white">Manicure Fácil</span>
         </Link>
