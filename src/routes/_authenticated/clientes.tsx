@@ -12,10 +12,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, Search, Phone, Mail, Cake, Users, Trophy, Award, Star } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Phone, Mail, Cake, Users, Trophy, Award, Star, History } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { differenceInDays } from "date-fns";
+import { ClienteHistoryDialog } from "@/components/clientes/cliente-history-dialog";
 
 export const Route = createFileRoute("/_authenticated/clientes")({
   head: () => ({ meta: [{ title: "Clientes — Manicure Fácil" }] }),
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/clientes")({
 type Cliente = {
   id: string; nome: string; telefone: string | null; email: string | null;
   data_nascimento: string | null; observacoes: string | null; alergias: string | null; servico_favorito: string | null;
+  created_at?: string;
 };
 
 const schema = z.object({
@@ -41,6 +43,7 @@ function ClientesPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("clientes");
+  const [historyCliente, setHistoryCliente] = useState<Cliente | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["clientes"],
@@ -103,6 +106,15 @@ function ClientesPage() {
 
   return (
     <>
+      {/* Histórico Dialog */}
+      {historyCliente && (
+        <ClienteHistoryDialog
+          cliente={historyCliente}
+          open={!!historyCliente}
+          onOpenChange={(v) => { if (!v) setHistoryCliente(null); }}
+        />
+      )}
+
       <PageHeader
         title="Clientes"
         subtitle="Gerencie seu CRM"
@@ -150,6 +162,9 @@ function ClientesPage() {
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" onClick={() => setHistoryCliente(c)}>
+                        <History className="size-4 text-[#D946EF]" />
+                      </Button>
                       <ClienteDialog cliente={c} onSaved={() => qc.invalidateQueries({ queryKey: ["clientes"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
                       <DeleteBtn id={c.id} onDone={() => qc.invalidateQueries({ queryKey: ["clientes"] })} />
                     </div>

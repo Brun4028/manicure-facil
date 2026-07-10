@@ -19,8 +19,14 @@ import process from "node:process";
 export function getServerConfig() {
   return {
     nodeEnv: process.env.NODE_ENV,
-    // Add server-only values here, e.g.:
-    //   databaseUrl: process.env.DATABASE_URL,
-    //   stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+    // ─── AI Provider Configuration ──────────────────────────────────
+    // Define qual provedor de IA usar: "openai" (default) ou "gemini"
+    aiProvider: process.env.AI_PROVIDER ?? "openai",
+    // OpenAI
+    openAiApiKey: process.env.OPENAI_API_KEY,
+    openAiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+    // Google Gemini
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
   };
 }

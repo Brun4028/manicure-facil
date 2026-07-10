@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet";
 import { ProfileDialog } from "@/components/profile/profile-dialog";
+import { AiAssistant } from "@/components/assistant/ai-assistant";
 import logoIconWhite from "@/assets/logo-icon-white.png";
 
 const nav = [
@@ -385,6 +386,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Profile Dialog */}
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+
+      {/* AI Assistant */}
+      <AiAssistant />
     </TooltipProvider>
   );
 }
