@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
+import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog";
 import {
   Users, CalendarDays, Wallet, TrendingUp, CheckCircle2, Clock, Cake,
   Sparkles, AlertTriangle, Target, ArrowUp, ArrowDown, RotateCcw,
@@ -466,6 +467,7 @@ function Dashboard() {
 
   return (
     <>
+      <OnboardingDialog />
       <PageHeader title="Menu Geral" subtitle={format(now, "EEEE, dd 'de' MMMM", { locale: ptBR })} />
 
       {/* Welcome greeting */}

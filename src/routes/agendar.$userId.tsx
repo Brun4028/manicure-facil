@@ -279,7 +279,7 @@ function PublicAgendamentoPage() {
           custo: selectedService.custo,
           status: "agendado",
           pagamento: "pendente",
-        });
+        } as any);
 
         if (appErr) throw appErr;
 

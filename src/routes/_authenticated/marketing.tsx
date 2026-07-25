@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { fallbackDb } from "@/lib/fallback-db";
 import { Plus, Pencil, Trash2, Award, Percent, Gift, Settings, Sparkles, Check, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/marketing")({
   head: () => ({ meta: [{ title: "Fidelidade & Promoções — Manicure Fácil" }] }),
@@ -86,6 +87,7 @@ const defaultPromos: Promo[] = [
 
 function MarketingPage() {
   const qc = useQueryClient();
+  const { confirm: confirmDel } = useConfirm();
   const [activeTab, setActiveTab] = useState("fidelidade");
 
   // Query Loyalty Config
@@ -392,10 +394,15 @@ function MarketingPage() {
                             toast.success(val ? "Promoção ativada" : "Promoção pausada");
                             invalidate();
                           }} />
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => {
-                            if (confirm(`Excluir promoção ${promo.nome}?`)) deletePromoMut.mutate(promo.id);
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" aria-label={`Excluir promoção ${promo.nome}`} onClick={() => {
+                            confirmDel({
+                              title: "Excluir promoção?",
+                              description: `Deseja excluir a promoção "${promo.nome}"?`,
+                              confirmText: "Excluir", variant: "danger",
+                              onConfirm: () => deletePromoMut.mutate(promo.id),
+                            });
                           }}>
-                            <Trash2 className="size-4" />
+                            <Trash2 className="size-4" aria-hidden="true" />
                           </Button>
                         </div>
                       </div>

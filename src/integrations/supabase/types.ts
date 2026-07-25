@@ -34,7 +34,6 @@ export type Database = {
           cliente_id?: string | null
           created_at?: string
           custo?: number
-          data_hora: string
           duracao_min?: number
           id?: string
           observacoes?: string | null
@@ -76,6 +75,120 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      audit_log: {
+        Row: {
+          id: string
+          user_id: string | null
+          acao: string
+          entidade: string
+          entidade_id: string | null
+          detalhes: Json | null
+          ip_address: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          acao: string
+          entidade: string
+          entidade_id?: string | null
+          detalhes?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          acao?: string
+          entidade?: string
+          entidade_id?: string | null
+          detalhes?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      backup_log: {
+        Row: {
+          id: string
+          user_id: string | null
+          tipo: string
+          status: string
+          tamanho_bytes: number | null
+          tabelas_incluidas: string[] | null
+          error_message: string | null
+          started_at: string
+          completed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          tipo: string
+          status: string
+          tamanho_bytes?: number | null
+          tabelas_incluidas?: string[] | null
+          error_message?: string | null
+          started_at?: string
+          completed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          tipo?: string
+          status?: string
+          tamanho_bytes?: number | null
+          tabelas_incluidas?: string[] | null
+          error_message?: string | null
+          started_at?: string
+          completed_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      bloqueios_agenda: {
+        Row: {
+          id: string
+          user_id: string
+          titulo: string
+          tipo: string
+          data_inicio: string
+          data_fim: string
+          horario_inicio: string | null
+          horario_fim: string | null
+          cor: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          titulo: string
+          tipo: string
+          data_inicio: string
+          data_fim: string
+          horario_inicio?: string | null
+          horario_fim?: string | null
+          cor?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          titulo?: string
+          tipo?: string
+          data_inicio?: string
+          data_fim?: string
+          horario_inicio?: string | null
+          horario_fim?: string | null
+          cor?: string | null
+          created_at?: string
+        }
+        Relationships: []
       }
       clientes: {
         Row: {
@@ -119,154 +232,116 @@ export type Database = {
         }
         Relationships: []
       }
-      profiles: {
+      configuracoes: {
         Row: {
-          avatar_url: string | null
-          created_at: string
           id: string
-          nome: string
-          telefone: string | null
+          user_id: string
+          empresa_nome: string | null
+          empresa_telefone: string | null
+          empresa_email: string | null
+          empresa_endereco: string | null
+          empresa_documento: string | null
+          horario_inicio_padrao: string
+          horario_fim_padrao: string
+          intervalo_padrao: number
+          lembrete_ativo: boolean
+          lembrete_email: boolean
+          lembrete_whatsapp: boolean
+          lembrete_antecipacao_min: number
+          notificacao_sonora: boolean
+          created_at: string
           updated_at: string
         }
         Insert: {
-          avatar_url?: string | null
+          id?: string
+          user_id: string
+          empresa_nome?: string | null
+          empresa_telefone?: string | null
+          empresa_email?: string | null
+          empresa_endereco?: string | null
+          empresa_documento?: string | null
+          horario_inicio_padrao?: string
+          horario_fim_padrao?: string
+          intervalo_padrao?: number
+          lembrete_ativo?: boolean
+          lembrete_email?: boolean
+          lembrete_whatsapp?: boolean
+          lembrete_antecipacao_min?: number
+          notificacao_sonora?: boolean
           created_at?: string
-          id: string
-          nome?: string
-          telefone?: string | null
           updated_at?: string
         }
         Update: {
-          avatar_url?: string | null
-          created_at?: string
           id?: string
-          nome?: string
-          telefone?: string | null
+          user_id?: string
+          empresa_nome?: string | null
+          empresa_telefone?: string | null
+          empresa_email?: string | null
+          empresa_endereco?: string | null
+          empresa_documento?: string | null
+          horario_inicio_padrao?: string
+          horario_fim_padrao?: string
+          intervalo_padrao?: number
+          lembrete_ativo?: boolean
+          lembrete_email?: boolean
+          lembrete_whatsapp?: boolean
+          lembrete_antecipacao_min?: number
+          notificacao_sonora?: boolean
+          created_at?: string
           updated_at?: string
         }
         Relationships: []
       }
-      servicos: {
+      despesas: {
         Row: {
-          ativo: boolean
-          created_at: string
-          custo: number
-          duracao_min: number
           id: string
-          intervalo_recomendado: number
-          dias_manutencao: number
-          nome: string
-          updated_at: string
           user_id: string
+          categoria: string
+          subcategoria: string | null
+          descricao: string
           valor: number
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          custo?: number
-          duracao_min?: number
-          id?: string
-          intervalo_recomendado?: number
-          dias_manutencao?: number
-          nome: string
-          updated_at?: string
-          user_id: string
-          valor?: number
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          custo?: number
-          duracao_min?: number
-          id?: string
-          intervalo_recomendado?: number
-          dias_manutencao?: number
-          nome?: string
-          updated_at?: string
-          user_id?: string
-          valor?: number
-        }
-        Relationships: []
-      }
-      produtos: {
-        Row: {
-          id: string
-          user_id: string
-          nome: string
-          descricao: string | null
-          preco_venda: number
-          preco_custo: number
-          quantidade: number
-          quantidade_minima: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          nome: string
-          descricao?: string | null
-          preco_venda?: number
-          preco_custo?: number
-          quantidade?: number
-          quantidade_minima?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          nome?: string
-          descricao?: string | null
-          preco_venda?: number
-          preco_custo?: number
-          quantidade?: number
-          quantidade_minima?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      movimentacoes_estoque: {
-        Row: {
-          id: string
-          user_id: string
-          produto_id: string
-          tipo: "entrada" | "saida"
-          quantidade: number
-          motivo: string
-          data: string
+          data_vencimento: string
+          data_pagamento: string | null
+          pago: boolean
+          forma_pagamento: string
+          recorrente: boolean
+          recorrencia_tipo: string | null
+          observacoes: string | null
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          produto_id: string
-          tipo: "entrada" | "saida"
-          quantidade: number
-          motivo: string
-          data?: string
+          categoria: string
+          subcategoria?: string | null
+          descricao: string
+          valor: number
+          data_vencimento: string
+          data_pagamento?: string | null
+          pago?: boolean
+          forma_pagamento?: string
+          recorrente?: boolean
+          recorrencia_tipo?: string | null
+          observacoes?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          produto_id?: string
-          tipo?: "entrada" | "saida"
-          quantidade?: number
-          motivo?: string
-          data?: string
+          categoria?: string
+          subcategoria?: string | null
+          descricao?: string
+          valor?: number
+          data_vencimento?: string
+          data_pagamento?: string | null
+          pago?: boolean
+          forma_pagamento?: string
+          recorrente?: boolean
+          recorrencia_tipo?: string | null
+          observacoes?: string | null
           created_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "movimentacoes_estoque_produto_id_fkey"
-            columns: ["produto_id"]
-            isOneToOne: false
-            referencedRelation: "produtos"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       fidelidade_config: {
         Row: {
@@ -383,6 +458,176 @@ export type Database = {
           }
         ]
       }
+      horarios_trabalho: {
+        Row: {
+          id: string
+          user_id: string
+          dia_semana: string
+          hora_inicio: string
+          hora_fim: string
+          ativo: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          dia_semana: string
+          hora_inicio: string
+          hora_fim: string
+          ativo?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          dia_semana?: string
+          hora_inicio?: string
+          hora_fim?: string
+          ativo?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      metas_mensais: {
+        Row: {
+          id: string
+          user_id: string
+          mes_ano: string
+          faturamento_alvo: number
+          lucro_alvo: number
+          servicos_alvo: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          mes_ano: string
+          faturamento_alvo?: number
+          lucro_alvo?: number
+          servicos_alvo?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          mes_ano?: string
+          faturamento_alvo?: number
+          lucro_alvo?: number
+          servicos_alvo?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      movimentacoes_estoque: {
+        Row: {
+          id: string
+          user_id: string
+          produto_id: string
+          tipo: "entrada" | "saida"
+          quantidade: number
+          motivo: string
+          data: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          produto_id: string
+          tipo: "entrada" | "saida"
+          quantidade: number
+          motivo: string
+          data?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          produto_id?: string
+          tipo?: "entrada" | "saida"
+          quantidade?: number
+          motivo?: string
+          data?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_estoque_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      notificacoes_internas: {
+        Row: {
+          id: string
+          user_id: string
+          titulo: string
+          mensagem: string
+          tipo: string
+          lida: boolean
+          acao_texto: string | null
+          acao_link: string | null
+          entidade: string | null
+          entidade_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          titulo: string
+          mensagem: string
+          tipo?: string
+          lida?: boolean
+          acao_texto?: string | null
+          acao_link?: string | null
+          entidade?: string | null
+          entidade_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          titulo?: string
+          mensagem?: string
+          tipo?: string
+          lida?: boolean
+          acao_texto?: string | null
+          acao_link?: string | null
+          entidade?: string | null
+          entidade_id?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       promocoes: {
         Row: {
           id: string
@@ -468,6 +713,135 @@ export type Database = {
             referencedColumns: ["id"]
           }
         ]
+      }
+      produtos: {
+        Row: {
+          id: string
+          user_id: string
+          nome: string
+          descricao: string | null
+          preco_venda: number
+          preco_custo: number
+          quantidade: number
+          quantidade_minima: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          nome: string
+          descricao?: string | null
+          preco_venda?: number
+          preco_custo?: number
+          quantidade?: number
+          quantidade_minima?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          nome?: string
+          descricao?: string | null
+          preco_venda?: number
+          preco_custo?: number
+          quantidade?: number
+          quantidade_minima?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      recorrencias: {
+        Row: {
+          id: string
+          user_id: string
+          cliente_id: string
+          servico_id: string
+          tipo: string
+          intervalo_dias: number
+          dia_semana: number | null
+          dia_mes: number | null
+          valor: number
+          observacoes: string | null
+          ativo: boolean
+          proxima_data: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          cliente_id: string
+          servico_id: string
+          tipo: string
+          intervalo_dias?: number
+          dia_semana?: number | null
+          dia_mes?: number | null
+          valor: number
+          observacoes?: string | null
+          ativo?: boolean
+          proxima_data?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          cliente_id?: string
+          servico_id?: string
+          tipo?: string
+          intervalo_dias?: number
+          dia_semana?: number | null
+          dia_mes?: number | null
+          valor?: number
+          observacoes?: string | null
+          ativo?: boolean
+          proxima_data?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      servicos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          custo: number
+          duracao_min: number
+          id: string
+          intervalo_recomendado: number
+          dias_manutencao: number
+          nome: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          custo?: number
+          duracao_min?: number
+          id?: string
+          intervalo_recomendado?: number
+          dias_manutencao?: number
+          nome: string
+          updated_at?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          custo?: number
+          duracao_min?: number
+          id?: string
+          intervalo_recomendado?: number
+          dias_manutencao?: number
+          nome?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: []
       }
       vendas: {
         Row: {
@@ -593,42 +967,31 @@ export type Database = {
           }
         ]
       }
-      metas_mensais: {
+    }
+    Views: {
+      vw_dre_mensal: {
         Row: {
-          id: string
-          user_id: string
-          mes_ano: string
-          faturamento_alvo: number
-          lucro_alvo: number
-          servicos_alvo: number
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          mes_ano: string
-          faturamento_alvo?: number
-          lucro_alvo?: number
-          servicos_alvo?: number
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          mes_ano?: string
-          faturamento_alvo?: number
-          lucro_alvo?: number
-          servicos_alvo?: number
-          created_at?: string
+          mes: string | null
+          mes_ano: string | null
+          total_receitas: number | null
+          custos_servicos: number | null
+          lucro_bruto: number | null
+          total_despesas: number | null
+          resultado_liquido: number | null
         }
         Relationships: []
       }
     }
-    Views: {
-      [_ in never]: never
-    }
     Functions: {
-      [_ in never]: never
+      fluxo_caixa_projetado: {
+        Args: { dias_projecao: number }
+        Returns: {
+          dia: string
+          entradas: number
+          saidas: number
+          saldo_dia: number
+        }[]
+      }
     }
     Enums: {
       agendamento_status: "agendado" | "confirmado" | "concluido" | "cancelado"

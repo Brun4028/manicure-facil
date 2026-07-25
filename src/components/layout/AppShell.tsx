@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, CalendarDays, Scissors, Wallet,
   Moon, Sun, LogOut, Plus, Sparkles, Menu, X,
   Package, Percent, Image as ImageIcon, FileSpreadsheet, Link as LinkIcon,
-  ChevronLeft, User,
+  ChevronLeft, User, Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet";
 import { ProfileDialog } from "@/components/profile/profile-dialog";
 import { AiAssistant } from "@/components/assistant/ai-assistant";
+import { NotificationsPopover } from "@/components/notifications/notifications-popover";
 import logoIconWhite from "@/assets/logo-icon-white.png";
 
 const nav = [
@@ -33,6 +34,7 @@ const labels: Record<string, string> = {
   dashboard: "Menu Geral", clientes: "Clientes", agendamentos: "Agendamentos",
   servicos: "Serviços", financeiro: "Financeiro", estoque: "Estoque & Vendas",
   marketing: "Marketing", portfolio: "Galeria & Feedbacks", relatorios: "Relatórios & Backup",
+  configuracoes: "Configurações",
 };
 
 function SidebarNavItem({
@@ -48,13 +50,16 @@ function SidebarNavItem({
   const link = (
     <Link
       to={item.to}
-      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+      aria-label={item.label}
+      aria-current={active ? "page" : undefined}
+      role="menuitem"
+      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D946EF] ${
         active
           ? "bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white shadow-[0_4px_24px_rgba(217,70,239,0.15)]"
           : "text-[#A1A1AA] hover:text-white hover:bg-[#1F2128]"
       } ${collapsed ? "justify-center px-2" : ""}`}
     >
-      <item.icon className={`size-[18px] shrink-0 ${active ? "text-white" : "text-[#A1A1AA] group-hover:text-white"}`} />
+      <item.icon className={`size-[18px] shrink-0 ${active ? "text-white" : "text-[#A1A1AA] group-hover:text-white"}`} aria-hidden="true" />
       {!collapsed && item.label}
     </Link>
   );
@@ -92,6 +97,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <TooltipProvider delayDuration={0}>
+      {/* Skip-to-content link for keyboard users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[#D946EF] focus:text-white focus:rounded-xl focus:text-sm focus:font-medium focus:shadow-lg"
+      >
+        Pular para o conteúdo principal
+      </a>
       <div className="min-h-screen flex w-full">
         {/* ── Desktop Sidebar ── */}
         <aside
@@ -114,7 +126,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           {/* Navigation */}
-          <nav className="px-3 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden">
+          <nav className="px-3 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden" role="navigation" aria-label="Navegação principal">
             {nav.map((n) => (
               <SidebarNavItem key={n.to} item={n} pathname={pathname} collapsed={desktopCollapsed} />
             ))}
@@ -360,7 +372,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               </nav>
 
               {/* Right actions */}
-              <div className="ml-auto flex items-center gap-2 shrink-0">
+              <div className="ml-auto flex items-center gap-1 shrink-0">
+                <NotificationsPopover />
+                <Button variant="ghost" size="icon" onClick={() => navigate({ to: "/configuracoes" as any })} aria-label="Configurações">
+                  <Settings className="size-5" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={toggle} aria-label="Alternar tema">
                   {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
                 </Button>
@@ -369,7 +385,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
 
           {/* Page content */}
-          <main className="flex-1 px-4 md:px-8 py-6 md:py-8 max-w-[1400px] w-full mx-auto">
+          <main
+            id="main-content"
+            className="flex-1 px-4 md:px-8 py-6 md:py-8 max-w-[1400px] w-full mx-auto"
+            aria-live="polite"
+            aria-atomic="false"
+          >
             {children}
           </main>
 

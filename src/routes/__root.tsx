@@ -9,6 +9,7 @@ import faviconUrl from "../assets/logo-icon-color.png";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { AuthProvider } from "@/hooks/use-auth";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { Toaster } from "sonner";
 
 function NotFoundComponent() {
@@ -94,7 +95,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <Outlet />
+          <ConfirmProvider>
+            <Outlet />
+          </ConfirmProvider>
           <Toaster position="top-right" richColors closeButton />
         </AuthProvider>
       </ThemeProvider>

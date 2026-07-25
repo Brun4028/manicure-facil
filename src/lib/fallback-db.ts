@@ -1,7 +1,39 @@
-// LocalStorage fallback utility for all new modules when Supabase tables are not created or accessible.
+/**
+ * LocalStorage fallback utility.
+ *
+ * ATENÇÃO: Em PRODUÇÃO (NODE_ENV === 'production'), o fallbackDb é DESATIVADO
+ * e retorna os defaults sem armazenar nada. Ele NÃO deve ser usado como
+ * armazenamento real em produção.
+ *
+ * Motivo: localStorage não é seguro para dados sensíveis de clientes.
+ * Veja: https://owasp.org/www-community/vulnerabilities/Information_exposure_through_query_strings_in_url
+ */
+
+// Determinado uma vez na inicialização do módulo
+const IS_PRODUCTION: boolean = (() => {
+  try {
+    return typeof process !== "undefined" && process.env?.NODE_ENV === "production";
+  } catch {
+    return false;
+  }
+})();
+
+let warned = false;
+
+function warnOnce(): void {
+  if (IS_PRODUCTION && !warned) {
+    warned = true;
+    console.warn(
+      "[fallbackDb] localStorage fallback DESATIVADO em produção. " +
+      "Certifique-se de que o Supabase esteja configurado corretamente."
+    );
+  }
+}
+
 export const fallbackDb = {
   get: <T>(key: string, defaults: T[]): T[] => {
     if (typeof window === "undefined") return defaults;
+    if (IS_PRODUCTION) { warnOnce(); return defaults; }
     try {
       const data = localStorage.getItem(`mf_local_${key}`);
       if (!data) {
@@ -16,6 +48,7 @@ export const fallbackDb = {
   
   set: <T>(key: string, data: T[]) => {
     if (typeof window === "undefined") return;
+    if (IS_PRODUCTION) { warnOnce(); return; }
     try {
       localStorage.setItem(`mf_local_${key}`, JSON.stringify(data));
     } catch (e) {
@@ -24,6 +57,7 @@ export const fallbackDb = {
   },
 
   insert: <T extends Record<string, any>>(key: string, item: T, defaults: T[]): T => {
+    if (IS_PRODUCTION) { warnOnce(); return { id: crypto.randomUUID(), ...item } as unknown as T; }
     const list = fallbackDb.get<T>(key, defaults);
     const newItem = { 
       id: crypto.randomUUID(), 
@@ -37,6 +71,7 @@ export const fallbackDb = {
   },
 
   update: <T extends Record<string, any>>(key: string, id: string, updates: Partial<T>, defaults: T[]): T => {
+    if (IS_PRODUCTION) { warnOnce(); return { id, ...updates } as unknown as T; }
     const list = fallbackDb.get<T>(key, defaults);
     const idx = list.findIndex(x => x.id === id);
     if (idx !== -1) {
@@ -56,6 +91,7 @@ export const fallbackDb = {
   },
 
   delete: <T extends Record<string, any>>(key: string, id: string, defaults: T[]): void => {
+    if (IS_PRODUCTION) { warnOnce(); return; }
     const list = fallbackDb.get<T>(key, defaults);
     const filtered = list.filter(x => x.id !== id);
     fallbackDb.set(key, filtered);

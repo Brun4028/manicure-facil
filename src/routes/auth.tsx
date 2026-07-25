@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate, redirect, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Mail } from "lucide-react";
 import logoIconWhite from "@/assets/logo-icon-white.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
@@ -37,11 +37,19 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     const parsed = loginSchema.safeParse({ email, password });
-    if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
+    if (!parsed.success) {
+      const errs: Record<string, string> = {};
+      parsed.error.issues.forEach(i => { const field = i.path[0] as string; errs[field] = i.message; });
+      setLoginErrors(errs);
+      toast.error(parsed.error.issues[0].message);
+      return;
+    }
+    setLoginErrors({});
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword(parsed.data);
     setLoading(false);
@@ -79,18 +87,25 @@ function AuthPage() {
             <p className="text-sm text-[#A1A1AA] mt-2">Acesse sua agenda em segundos</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-5" aria-label="Formulário de login">
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-sm font-medium text-[#A1A1AA]">Email</Label>
-              <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-11 rounded-xl bg-[#1F2128] border-[#252836] text-white focus:border-[#D946EF] focus:ring-2 focus:ring-[#D946EF]/20 transition-all" />
+              <Label htmlFor="login-email" className="text-sm font-medium text-[#A1A1AA]">Email</Label>
+              <Input id="login-email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setLoginErrors(e => { delete e.email; return {...e}; }); }} required className={`h-11 rounded-xl bg-[#1F2128] border-[#252836] text-white focus:border-[#D946EF] focus:ring-2 focus:ring-[#D946EF]/20 transition-all ${loginErrors.email ? "ring-2 ring-destructive" : ""}`} aria-invalid={!!loginErrors.email} aria-describedby={loginErrors.email ? "error-login-email" : undefined} />
+              {loginErrors.email && <span id="error-login-email" className="sr-only" role="alert">{loginErrors.email}</span>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-sm font-medium text-[#A1A1AA]">Senha</Label>
-              <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required className="h-11 rounded-xl bg-[#1F2128] border-[#252836] text-white focus:border-[#D946EF] focus:ring-2 focus:ring-[#D946EF]/20 transition-all" />
+              <Label htmlFor="login-password" className="text-sm font-medium text-[#A1A1AA]">Senha</Label>
+              <Input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(e) => { setPassword(e.target.value); setLoginErrors(e => { delete e.password; return {...e}; }); }} required className={`h-11 rounded-xl bg-[#1F2128] border-[#252836] text-white focus:border-[#D946EF] focus:ring-2 focus:ring-[#D946EF]/20 transition-all ${loginErrors.password ? "ring-2 ring-destructive" : ""}`} aria-invalid={!!loginErrors.password} aria-describedby={loginErrors.password ? "error-login-password" : undefined} />
+              {loginErrors.password && <span id="error-login-password" className="sr-only" role="alert">{loginErrors.password}</span>}
             </div>
             <Button type="submit" disabled={loading} className="w-full h-11 rounded-xl bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white shadow-[0_4px_24px_rgba(217,70,239,0.15)] hover:shadow-[0_8px_32px_rgba(217,70,239,0.25)] transition-all text-base">
               {loading ? "Entrando..." : "Entrar"}
             </Button>
+            
+            {/* Link para recuperação de senha */}
+            <div className="text-center">
+              <ForgotPasswordDialog />
+            </div>
           </form>
 
           <div className="my-6 flex items-center gap-3 text-xs text-[#A1A1AA]">
@@ -149,21 +164,143 @@ function SignupDialog({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button className="text-primary font-medium underline-offset-4 hover:underline">Criar conta</button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={setOpen}>          <DialogTrigger asChild>
+            <button className="text-primary font-medium underline-offset-4 hover:underline" aria-label="Criar nova conta">Criar conta</button>
+          </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle className="font-display text-2xl">Criar sua conta</DialogTitle></DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
-          <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
-          <div><Label>Senha</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
-          <div><Label>Confirmar senha</Label><Input type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} required /></div>
-          <Button type="submit" disabled={loading} className="w-full gradient-primary text-primary-foreground shadow-glow">
+        <form onSubmit={submit} className="space-y-4" aria-label="Formulário de cadastro">
+          <div><Label htmlFor="signup-nome">Nome</Label><Input id="signup-nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
+          <div><Label htmlFor="signup-email">Email</Label><Input id="signup-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
+          <div><Label htmlFor="signup-senha">Senha</Label><Input id="signup-senha" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
+          <div><Label htmlFor="signup-confirm">Confirmar senha</Label><Input id="signup-confirm" type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} required /></div>
+          <Button type="submit" disabled={loading} className="w-full gradient-primary text-primary-foreground shadow-glow" aria-label={loading ? "Criando conta" : "Criar conta"}>
             {loading ? "Criando..." : "Criar conta"}
           </Button>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ───── Diálogo de Recuperação de Senha ───── */
+function ForgotPasswordDialog() {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = z.string().email("Email inválido").safeParse(email);
+    if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
+    
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
+      redirectTo: `${window.location.origin}/auth?reset=true`,
+    });
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setSent(true);
+    toast.success("Enviamos um link de recuperação para seu email.");
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setSent(false); setEmail(""); } }}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="text-xs text-[#A1A1AA] hover:text-[#D946EF] transition-colors underline-offset-2 hover:underline mt-2"
+        >
+          Esqueceu sua senha?
+        </button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="size-10 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)]">
+              <Mail className="size-5 text-white" />
+            </div>
+            <div>
+              <DialogTitle className="font-display text-xl">
+                {sent ? "Email enviado!" : "Recuperar senha"}
+              </DialogTitle>
+            </div>
+          </div>
+        </DialogHeader>
+
+        {sent ? (
+          <div className="space-y-4 py-4 text-center">
+            <div className="size-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 grid place-items-center mx-auto">
+              <Mail className="size-6 text-emerald-500" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Verifique sua caixa de entrada e clique no link para redefinir sua senha.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Não recebeu? Verifique a pasta de spam ou{" "}
+              <button
+                type="button"
+                onClick={() => { setSent(false); }}
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                tente novamente
+              </button>
+              .
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              className="rounded-xl"
+            >
+              Fechar
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleReset} className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Digite seu email cadastrado e enviaremos um link para redefinir sua senha.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="reset-email" className="text-sm font-medium">
+                Seu email
+              </Label>
+              <Input
+                id="reset-email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+                className="h-11 rounded-xl"
+                autoFocus
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                className="rounded-xl"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading || !email.trim()}
+                className="rounded-xl bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white shadow-[0_4px_24px_rgba(217,70,239,0.15)]"
+              >
+                {loading ? "Enviando..." : "Enviar link"}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

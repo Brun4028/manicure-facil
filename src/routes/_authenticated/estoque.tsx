@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fallbackDb } from "@/lib/fallback-db";
 import { Plus, Pencil, Trash2, Package, ShoppingCart, ArrowUpDown, AlertTriangle, Check, Trash, Box } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -72,6 +73,7 @@ const defaultMovs: Mov[] = [
 
 function EstoquePage() {
   const qc = useQueryClient();
+  const { confirm: confirmDelete } = useConfirm();
   const [activeTab, setActiveTab] = useState("estoque");
 
   // Query Products
@@ -194,12 +196,17 @@ function EstoquePage() {
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <ProductDialog serv={p} onSaved={invalidate} products={products} trigger={
-                          <Button size="icon" variant="ghost" className="hover:bg-purple-100 dark:hover:bg-purple-500/20"><Pencil className="size-4 text-purple-500" /></Button>
+                          <Button size="icon" variant="ghost" className="hover:bg-purple-100 dark:hover:bg-purple-500/20" aria-label={`Editar ${p.nome}`}><Pencil className="size-4 text-purple-500" aria-hidden="true" /></Button>
                         } />
-                        <Button size="icon" variant="ghost" className="hover:bg-red-100 dark:hover:bg-red-500/20" onClick={() => {
-                          if (confirm(`Deseja mesmo excluir ${p.nome}?`)) deleteProdMut.mutate(p.id);
+                        <Button size="icon" variant="ghost" className="hover:bg-red-100 dark:hover:bg-red-500/20" aria-label={`Excluir ${p.nome}`} onClick={() => {
+                          confirmDelete({
+                            title: "Excluir produto?",
+                            description: `Deseja mesmo excluir "${p.nome}"?`,
+                            confirmText: "Excluir", variant: "danger",
+                            onConfirm: () => deleteProdMut.mutate(p.id),
+                          });
                         }}>
-                          <Trash2 className="size-4 text-destructive" />
+                          <Trash2 className="size-4 text-destructive" aria-hidden="true" />
                         </Button>
                       </div>
                     </div>
@@ -530,7 +537,7 @@ function MovementDialog({ products, onSaved }: { products: Prod[]; onSaved: () =
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all"><ArrowUpDown className="size-4 mr-1.5" /> Lançar Entrada/Saída</Button>
+        <Button variant="outline" className="border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all" aria-label="Lançar movimentação de estoque"><ArrowUpDown className="size-4 mr-1.5" aria-hidden="true" /> Lançar Entrada/Saída</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -844,9 +851,8 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
                       <p className="text-[10px] text-muted-foreground">{brl(item.prod.preco_venda)} / un</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Input type="number" className="h-7 w-12 text-center text-xs p-1 rounded-lg border-purple-200/40" min="1" max={item.prod.quantidade} value={item.qty} onChange={e => updateQty(item.id, Number(e.target.value), item.prod.quantidade)} />
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20" onClick={() => removeFromBasket(item.id)}>
-                        <Trash className="size-3.5" />
+                      <Input type="number" className="h-7 w-12 text-center text-xs p-1 rounded-lg border-purple-200/40" min="1" max={item.prod.quantidade} value={item.qty} onChange={e => updateQty(item.id, Number(e.target.value), item.prod.quantidade)} />                          <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20" onClick={() => removeFromBasket(item.id)} aria-label={`Remover ${item.prod.nome} do carrinho`}>
+                        <Trash className="size-3.5" aria-hidden="true" />
                       </Button>
                     </div>
                   </div>

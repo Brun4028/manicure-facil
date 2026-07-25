@@ -28,5 +28,15 @@ export function getServerConfig() {
     // Google Gemini
     geminiApiKey: process.env.GEMINI_API_KEY,
     geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
+    // ─── Rate Limiting Configuration ────────────────────────────────
+    // Define limites de rate limiting por categoria
+    rateLimit: {
+      authMaxRequests: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 5),
+      authWindowMs: Number(process.env.RATE_LIMIT_AUTH_WINDOW_MS ?? 60_000),
+      aiMaxRequests: Number(process.env.RATE_LIMIT_AI_MAX ?? 20),
+      aiWindowMs: Number(process.env.RATE_LIMIT_AI_WINDOW_MS ?? 60_000),
+      generalMaxRequests: Number(process.env.RATE_LIMIT_GENERAL_MAX ?? 100),
+      generalWindowMs: Number(process.env.RATE_LIMIT_GENERAL_WINDOW_MS ?? 60_000),
+    },
   };
 }

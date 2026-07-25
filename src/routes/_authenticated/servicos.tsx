@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Plus, Pencil, Trash2, Scissors } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/servicos")({
   head: () => ({ meta: [{ title: "Serviços — Manicure Fácil" }] }),
@@ -74,8 +75,8 @@ function ServicosPage() {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ServicoDialog serv={s} onSaved={() => qc.invalidateQueries({ queryKey: ["servicos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
-                    <DeleteServ id={s.id} onDone={() => qc.invalidateQueries({ queryKey: ["servicos"] })} />
+                    <ServicoDialog serv={s} onSaved={() => qc.invalidateQueries({ queryKey: ["servicos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" aria-label={`Editar ${s.nome}`}><Pencil className="size-4 text-[#D946EF]" aria-hidden="true" /></Button>} />
+                    <DeleteServ id={s.id} nome={s.nome} onDone={() => qc.invalidateQueries({ queryKey: ["servicos"] })} />
                   </div>
                 </div>
                 <div className="mt-5 grid grid-cols-3 gap-3">
@@ -119,13 +120,21 @@ function ServicosPage() {
   );
 }
 
-function DeleteServ({ id, onDone }: { id: string; onDone: () => void }) {
+function DeleteServ({ id, onDone, nome }: { id: string; onDone: () => void; nome?: string }) {
+  const { confirm } = useConfirm();
   const mut = useMutation({
     mutationFn: async () => { const { error } = await supabase.from("servicos").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { toast.success("Serviço removido"); onDone(); },
     onError: (e: Error) => toast.error(e.message),
   });
-  return <Button size="icon" variant="ghost" className="hover:bg-red-100 dark:hover:bg-red-500/20" onClick={() => { if (confirm("Excluir serviço?")) mut.mutate(); }}><Trash2 className="size-4 text-destructive" /></Button>;
+  return <Button size="icon" variant="ghost" className="hover:bg-red-100 dark:hover:bg-red-500/20" aria-label={`Excluir ${nome || "serviço"}`} onClick={() => {
+    confirm({
+      title: "Excluir serviço?",
+      description: `Tem certeza que deseja excluir "${nome || "este serviço"}"?`,
+      confirmText: "Excluir", variant: "danger",
+      onConfirm: () => mut.mutate(),
+    });
+  }}><Trash2 className="size-4 text-destructive" aria-hidden="true" /></Button>;
 }
 
 function ServicoDialog({ serv, onSaved, trigger }: { serv?: Serv; onSaved: () => void; trigger?: React.ReactNode }) {
@@ -151,27 +160,27 @@ function ServicoDialog({ serv, onSaved, trigger }: { serv?: Serv; onSaved: () =>
       <DialogTrigger asChild>{trigger ?? <Button className="gradient-primary text-primary-foreground shadow-glow"><Plus className="size-4 mr-1" /> Novo serviço</Button>}</DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle className="font-display text-2xl">{serv ? "Editar serviço" : "Novo serviço"}</DialogTitle></DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
-          <div><Label>Nome *</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
+        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3" aria-label="Formulário de serviço">
+          <div><Label htmlFor="serv-nome">Nome *</Label><Input id="serv-nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
           <div className="grid grid-cols-3 gap-3">
-            <div><Label>Valor</Label><Input type="number" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} /></div>
-            <div><Label>Custo</Label><Input type="number" step="0.01" value={form.custo} onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })} /></div>
-            <div><Label>Duração</Label><Input type="number" value={form.duracao_min} onChange={(e) => setForm({ ...form, duracao_min: Number(e.target.value) })} /></div>
+            <div><Label htmlFor="serv-valor">Valor</Label><Input id="serv-valor" type="number" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} /></div>
+            <div><Label htmlFor="serv-custo">Custo</Label><Input id="serv-custo" type="number" step="0.01" value={form.custo} onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })} /></div>
+            <div><Label htmlFor="serv-duracao">Duração</Label><Input id="serv-duracao" type="number" value={form.duracao_min} onChange={(e) => setForm({ ...form, duracao_min: Number(e.target.value) })} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
             <div>
-              <Label className="text-xs">Retorno (dias)</Label>
-              <Input type="number" min="1" max="365" value={form.intervalo_recomendado} onChange={(e) => setForm({ ...form, intervalo_recomendado: Number(e.target.value) })} className="text-xs" />
+              <Label className="text-xs" htmlFor="serv-retorno">Retorno (dias)</Label>
+              <Input id="serv-retorno" type="number" min="1" max="365" value={form.intervalo_recomendado} onChange={(e) => setForm({ ...form, intervalo_recomendado: Number(e.target.value) })} className="text-xs" />
               <span className="text-[9px] text-muted-foreground mt-0.5 block">Intervalo recomendado p/ retorno</span>
             </div>
             <div>
-              <Label className="text-xs">Manutenção (dias)</Label>
-              <Input type="number" min="1" max="90" value={form.dias_manutencao} onChange={(e) => setForm({ ...form, dias_manutencao: Number(e.target.value) })} className="text-xs" />
+              <Label className="text-xs" htmlFor="serv-manutencao">Manutenção (dias)</Label>
+              <Input id="serv-manutencao" type="number" min="1" max="90" value={form.dias_manutencao} onChange={(e) => setForm({ ...form, dias_manutencao: Number(e.target.value) })} className="text-xs" />
               <span className="text-[9px] text-muted-foreground mt-0.5 block">Janela p/ lembrete de manutenção</span>
             </div>
           </div>
-          <div className="flex items-center justify-between pt-2"><Label>Ativo</Label><Switch checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} /></div>
-          <DialogFooter><Button type="submit" disabled={mut.isPending} className="gradient-primary text-primary-foreground shadow-glow w-full">{mut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
+          <div className="flex items-center justify-between pt-2"><Label htmlFor="serv-ativo">Ativo</Label><Switch id="serv-ativo" checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} /></div>
+          <DialogFooter><Button type="submit" disabled={mut.isPending} className="gradient-primary text-primary-foreground shadow-glow w-full" aria-label={mut.isPending ? "Salvando serviço" : "Salvar serviço"}>{mut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { differenceInDays } from "date-fns";
 import { ClienteHistoryDialog } from "@/components/clientes/cliente-history-dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/clientes")({
   head: () => ({ meta: [{ title: "Clientes — Manicure Fácil" }] }),
@@ -162,11 +163,11 @@ function ClientesPage() {
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" onClick={() => setHistoryCliente(c)}>
-                        <History className="size-4 text-[#D946EF]" />
+                      <Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" onClick={() => setHistoryCliente(c)} aria-label={`Histórico de ${c.nome}`}>
+                        <History className="size-4 text-[#D946EF]" aria-hidden="true" />
                       </Button>
-                      <ClienteDialog cliente={c} onSaved={() => qc.invalidateQueries({ queryKey: ["clientes"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
-                      <DeleteBtn id={c.id} onDone={() => qc.invalidateQueries({ queryKey: ["clientes"] })} />
+                      <ClienteDialog cliente={c} onSaved={() => qc.invalidateQueries({ queryKey: ["clientes"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" aria-label={`Editar ${c.nome}`}><Pencil className="size-4 text-[#D946EF]" aria-hidden="true" /></Button>} />
+                      <DeleteBtn id={c.id} nome={c.nome} onDone={() => qc.invalidateQueries({ queryKey: ["clientes"] })} />
                     </div>
                   </div>
                   <div className="mt-4 pt-4 border-t border-border space-y-2.5 text-sm">
@@ -249,7 +250,8 @@ function ClientesPage() {
   );
 }
 
-function DeleteBtn({ id, onDone }: { id: string; onDone: () => void }) {
+function DeleteBtn({ id, onDone, nome }: { id: string; onDone: () => void; nome?: string }) {
+  const { confirm } = useConfirm();
   const mut = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("clientes").delete().eq("id", id);
@@ -259,8 +261,16 @@ function DeleteBtn({ id, onDone }: { id: string; onDone: () => void }) {
     onError: (e: Error) => toast.error(e.message),
   });
   return (
-    <Button size="icon" variant="ghost" onClick={() => { if (confirm("Excluir cliente?")) mut.mutate(); }}>
-      <Trash2 className="size-4 text-destructive" />
+    <Button size="icon" variant="ghost" aria-label={`Excluir ${nome || "cliente"}`} onClick={() => {
+      confirm({
+        title: "Excluir cliente?",
+        description: `Tem certeza que deseja excluir "${nome || "esta cliente"}"?`,
+        confirmText: "Excluir",
+        variant: "danger",
+        onConfirm: () => mut.mutate(),
+      });
+    }}>
+      <Trash2 className="size-4 text-destructive" aria-hidden="true" />
     </Button>
   );
 }
@@ -310,18 +320,18 @@ function ClienteDialog({ cliente, onSaved, trigger }: { cliente?: Cliente; onSav
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle className="font-display text-2xl">{cliente ? "Editar cliente" : "Nova cliente"}</DialogTitle></DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
-          <div><Label>Nome *</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
+        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3" aria-label="Formulário de cliente">
+          <div><Label htmlFor="cli-nome">Nome *</Label><Input id="cli-nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Telefone</Label><Input value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></div>
-            <div><Label>Nascimento</Label><Input type="date" value={form.data_nascimento} onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })} /></div>
+            <div><Label htmlFor="cli-tel">Telefone</Label><Input id="cli-tel" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></div>
+            <div><Label htmlFor="cli-nasc">Nascimento</Label><Input id="cli-nasc" type="date" value={form.data_nascimento} onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })} /></div>
           </div>
-          <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-          <div><Label>Serviço favorito</Label><Input value={form.servico_favorito} onChange={(e) => setForm({ ...form, servico_favorito: e.target.value })} /></div>
-          <div><Label>Alergias</Label><Textarea value={form.alergias} onChange={(e) => setForm({ ...form, alergias: e.target.value })} rows={2} /></div>
-          <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} /></div>
+          <div><Label htmlFor="cli-email">Email</Label><Input id="cli-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+          <div><Label htmlFor="cli-servico">Serviço favorito</Label><Input id="cli-servico" value={form.servico_favorito} onChange={(e) => setForm({ ...form, servico_favorito: e.target.value })} /></div>
+          <div><Label htmlFor="cli-alergias">Alergias</Label><Textarea id="cli-alergias" value={form.alergias} onChange={(e) => setForm({ ...form, alergias: e.target.value })} rows={2} /></div>
+          <div><Label htmlFor="cli-obs">Observações</Label><Textarea id="cli-obs" value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} /></div>
           <DialogFooter>
-            <Button type="submit" disabled={mut.isPending} className="gradient-primary text-primary-foreground shadow-glow w-full">
+            <Button type="submit" disabled={mut.isPending} className="gradient-primary text-primary-foreground shadow-glow w-full" aria-label={mut.isPending ? "Salvando cliente" : "Salvar cliente"}>
               {mut.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>

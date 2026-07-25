@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { fallbackDb } from "@/lib/fallback-db";
 import { Plus, Pencil, Trash2, Image, Star, Eye, EyeOff, Sparkles, Heart, Split } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -106,6 +107,7 @@ const defaultReviews: Review[] = [
 
 function PortfolioPage() {
   const qc = useQueryClient();
+  const { confirm: confirmDelPhoto, confirm: confirmDelReview, confirm: confirmDelBA } = useConfirm();
   const [activeTab, setActiveTab] = useState("portfolio");
 
   // Query Photos
@@ -239,10 +241,15 @@ function PortfolioPage() {
                       }}>
                         {p.publico ? <Eye className="size-4" /> : <EyeOff className="size-4 text-muted-foreground" />}
                       </Button>
-                      <Button size="icon" variant="destructive" className="size-8 rounded-full shadow-md" onClick={() => {
-                        if (confirm("Deseja mesmo remover esta foto?")) deletePhotoMut.mutate(p.id);
+                      <Button size="icon" variant="destructive" className="size-8 rounded-full shadow-md" aria-label={`Excluir foto ${p.titulo}`} onClick={() => {
+                        confirmDelPhoto({
+                          title: "Remover foto?",
+                          description: `Deseja mesmo remover "${p.titulo}"?`,
+                          confirmText: "Remover", variant: "danger",
+                          onConfirm: () => deletePhotoMut.mutate(p.id),
+                        });
                       }}>
-                        <Trash2 className="size-4" />
+                        <Trash2 className="size-4" aria-hidden="true" />
                       </Button>
                     </div>
                   </div>
@@ -368,10 +375,15 @@ function PortfolioPage() {
                           invalidate();
                         }} />
                       </div>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => {
-                        if (confirm("Deseja mesmo remover esta avaliação?")) deleteReviewMut.mutate(r.id);
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" aria-label={`Excluir avaliação de ${r.cliente_nome}`} onClick={() => {
+                        confirmDelReview({
+                          title: "Remover avaliação?",
+                          description: `Deseja mesmo remover a avaliação de "${r.cliente_nome}"?`,
+                          confirmText: "Remover", variant: "danger",
+                          onConfirm: () => deleteReviewMut.mutate(r.id),
+                        });
                       }}>
-                        <Trash2 className="size-4" />
+                        <Trash2 className="size-4" aria-hidden="true" />
                       </Button>
                     </div>
                   </Card>

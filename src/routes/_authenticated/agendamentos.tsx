@@ -12,11 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Calendar, Clock, CalendarDays, ArrowRight, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Clock, CalendarDays, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { format } from "date-fns";
+import { format, addDays, subDays, subMonths, addMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { BloqueioHorariosDialog } from "@/components/agenda/bloqueio-horarios-dialog";
 
 export const Route = createFileRoute("/_authenticated/agendamentos")({
   validateSearch: (s: Record<string, unknown>) => ({ new: s.new ? 1 : undefined }),
@@ -58,6 +60,21 @@ function AgendamentosPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const [openNew, setOpenNew] = useState(false);
+  const [viewMode, setViewMode] = useState<"lista" | "calendario">("calendario");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  const [keyboardDragId, setKeyboardDragId] = useState<string | null>(null);
+  const [keyboardDragSource, setKeyboardDragSource] = useState<string | null>(null);
+
+  // Drag & Drop mutation
+  const moveAgMut = useMutation({
+    mutationFn: async ({ id, newDate }: { id: string; newDate: string }) => {
+      const { error } = await supabase.from("agendamentos").update({ data_hora: newDate }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agendamentos"] }); toast.success("Agendamento movido!"); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   useEffect(() => { if (search.new) { setOpenNew(true); navigate({ to: "/agendamentos", search: {} as never, replace: true }); } }, [search.new, navigate]);
 
@@ -66,11 +83,59 @@ function AgendamentosPage() {
     queryFn: async () => {
       const { data, error } = await supabase.from("agendamentos")
         .select("*, clientes(nome), servicos(nome)")
-        .order("data_hora", { ascending: false });
+        .order("data_hora", { ascending: true });
       if (error) throw error;
       return data;
     },
   });
+
+  // Calendar helpers
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const days = eachDayOfInterval({ start: calStart, end: calEnd });
+
+  // Today's appointments for quick view
+  const hoje = ags?.filter((a: any) => isSameDay(new Date(a.data_hora), new Date())) ?? [];
+
+  // Agendamentos por dia (para calendário)
+  const agsByDay = useMemo(() => {
+    const map = new Map<string, any[]>();
+    (ags ?? []).forEach((a: any) => {
+      const key = format(new Date(a.data_hora), "yyyy-MM-dd");
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(a);
+    });
+    return map;
+  }, [ags]);
+
+  // Drag & Drop handlers
+  function handleDragStart(e: React.DragEvent, agId: string, agDate: string) {
+    e.dataTransfer.setData("text/plain", JSON.stringify({ id: agId, data_hora: agDate }));
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e: React.DragEvent, dayKey: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDay(dayKey);
+  }
+
+  function handleDrop(e: React.DragEvent, targetDay: string) {
+    e.preventDefault();
+    setDragOverDay(null);
+    try {
+      const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+      if (data.id && data.data_hora) {
+        const oldDate = new Date(data.data_hora);
+        const newDate = new Date(targetDay + "T" + format(oldDate, "HH:mm:ss"));
+        if (newDate.getTime() !== oldDate.getTime()) {
+          moveAgMut.mutate({ id: data.id, newDate: newDate.toISOString() });
+        }
+      }
+    } catch { /* ignore */ }
+  }
 
   return (
     <>
@@ -78,62 +143,242 @@ function AgendamentosPage() {
         title="Agendamentos"
         subtitle="Sua agenda visual"
         actions={
-          <AgendamentoDialog
-            open={openNew} setOpen={setOpenNew}
-            onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })}
-          />
+          <div className="flex items-center gap-2">
+            <div className="flex bg-muted/50 rounded-xl p-0.5 border border-border/50">
+              <button
+                onClick={() => setViewMode("calendario")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === "calendario" ? "bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white shadow-glow" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <CalendarDays className="size-3.5 inline mr-1" />
+                Calendário
+              </button>
+              <button
+                onClick={() => setViewMode("lista")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === "lista" ? "bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white shadow-glow" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Lista
+              </button>
+            </div>
+            <BloqueioHorariosDialog />
+            <AgendamentoDialog
+              open={openNew} setOpen={setOpenNew}
+              onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })}
+            />
+          </div>
         }
       />
 
-      {isLoading ? (
-        <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-28 rounded-[20px] bg-muted" />)}</div>
-      ) : !ags?.length ? (
-        <Card className="bg-card border border-border rounded-[20px] p-12 text-center shadow-card">
-          <div className="size-16 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center mx-auto mb-4">
-            <CalendarDays className="size-7 text-[#D946EF]" />
+      {/* Today's quick agenda */}
+      {hoje.length > 0 && (
+        <div className="bg-gradient-to-br from-[#D946EF]/5 via-[#A855F7]/5 to-transparent border border-[#D946EF]/10 rounded-[20px] p-4 mb-6">
+          <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+            <CalendarDays className="size-3.5 text-[#D946EF]" />
+            Hoje • {hoje.length} agendamento{hoje.length > 1 ? "s" : ""}
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            {hoje.slice(0, 5).map((a: any) => (
+              <div key={a.id} className="shrink-0 bg-card/80 backdrop-blur-sm border border-border/60 rounded-xl p-3 min-w-[180px]">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-card-foreground">{format(new Date(a.data_hora), "HH:mm")}</span>
+                  <Badge variant="outline" className={`text-[9px] ${statusColor[a.status as Status]}`}>{a.status}</Badge>
+                </div>
+                <p className="text-xs font-medium truncate text-card-foreground">{a.clientes?.nome ?? "Cliente"}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{a.servicos?.nome ?? "Serviço"}</p>
+              </div>
+            ))}
           </div>
-          <p className="text-muted-foreground">Nenhum agendamento ainda. Clique em <strong className="text-[#D946EF]">Novo</strong> para começar.</p>
+        </div>
+      )}
+
+      {viewMode === "calendario" ? (
+        <Card className="bg-card border border-border rounded-[20px] shadow-card overflow-hidden">
+          {/* Calendar Header */}
+          <div className="flex items-center justify-between p-4 border-b border-border/40">
+            <button
+              onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+              className="p-2 rounded-xl hover:bg-accent/40 transition-colors"
+              aria-label="Mês anterior"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <h3 className="font-display text-base font-semibold">
+              {format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}
+            </h3>
+            <button
+              onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+              className="p-2 rounded-xl hover:bg-accent/40 transition-colors"
+              aria-label="Próximo mês"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="p-4">
+            <div className="grid grid-cols-7 gap-px">
+              {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map(d => (
+                <div key={d} className="text-center text-[10px] text-muted-foreground uppercase tracking-wider font-medium py-2">{d}</div>
+              ))}
+              {days.map((day, i) => {
+                const dayKey = format(day, "yyyy-MM-dd");
+                const dayAgs = agsByDay.get(dayKey) ?? [];
+                const isCurrentMonth = isSameMonth(day, currentDate);
+                const isDayToday = isToday(day);
+                const isDragOver = dragOverDay === dayKey;
+
+                return (
+                  <div
+                    key={i}
+                    role="gridcell"
+                    aria-label={`${format(day, "dd 'de' MMMM")}${dayAgs.length > 0 ? `, ${dayAgs.length} agendamento${dayAgs.length > 1 ? "s" : ""}` : ""}${keyboardDragId ? ". Pressione Enter para soltar agendamento aqui." : ""}`}
+                    tabIndex={isCurrentMonth ? 0 : -1}
+                    onKeyDown={(e) => {
+                      if (keyboardDragId && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        // Drop the appointment on this day
+                        const oldDate = new Date(keyboardDragSource + "T00:00:00");
+                        const newDate = new Date(dayKey + "T" + format(oldDate, "HH:mm:ss"));
+                        if (newDate.getTime() !== oldDate.getTime()) {
+                          moveAgMut.mutate({ id: keyboardDragId, newDate: newDate.toISOString() });
+                        }
+                        setKeyboardDragId(null);
+                        setKeyboardDragSource(null);
+                        return;
+                      }
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        // Focus first appointment or open new dialog for this day
+                        const firstAg = dayAgs[0];
+                        if (firstAg) {
+                          const el = document.getElementById(`ag-${firstAg.id}`);
+                          el?.focus();
+                        }
+                      }
+                      if (e.key === "Escape" && keyboardDragId) {
+                        setKeyboardDragId(null);
+                        setKeyboardDragSource(null);
+                        toast.info("Movimento cancelado");
+                      }
+                    }}
+                    onDragOver={(e) => handleDragOver(e, dayKey)}
+                    onDrop={(e) => handleDrop(e, dayKey)}
+                    onDragLeave={() => setDragOverDay(null)}
+                    className={`min-h-[80px] border border-border/30 rounded-lg p-1.5 transition-all ${
+                      !isCurrentMonth ? "opacity-30" : "hover:bg-accent/20 focus-visible:ring-2 focus-visible:ring-[#D946EF] focus-visible:outline-none"
+                    } ${isDayToday ? "ring-1 ring-[#D946EF]/30 bg-[#D946EF]/5" : ""} ${isDragOver ? "ring-2 ring-[#D946EF] bg-[#D946EF]/10" : ""}`}
+                  >
+                    <div className={`text-[10px] font-medium mb-1 ${isDayToday ? "text-[#D946EF]" : "text-muted-foreground"}`}>
+                      {format(day, "dd")}
+                    </div>
+                    <div className="space-y-0.5">
+                      {dayAgs.slice(0, 3).map((a: any) => (
+                        <div
+                          key={a.id}
+                          id={`ag-${a.id}`}
+                          draggable
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`${format(new Date(a.data_hora), "HH:mm")} - ${a.clientes?.nome ?? "Cliente"} - ${a.status}`}
+                          onDragStart={(e) => handleDragStart(e, a.id, a.data_hora)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              if (keyboardDragId === a.id) {
+                                // Drop on same day — cancel
+                                setKeyboardDragId(null);
+                                setKeyboardDragSource(null);
+                                toast.info("Movimento cancelado");
+                              } else if (keyboardDragId) {
+                                // We're in a different day cell — this shouldn't happen via this handler
+                                // But if it does, drop on current cell's day
+                                setKeyboardDragId(null);
+                                setKeyboardDragSource(null);
+                                toast.info("Movimento cancelado");
+                              } else {
+                                // Pick up this appointment
+                                toast.info(`Agendamento selecionado: ${a.clientes?.nome ?? "Cliente"}. Use Tab para navegar até o dia desejado e pressione Enter para soltar.`);
+                                setKeyboardDragId(a.id);
+                                setKeyboardDragSource(format(new Date(a.data_hora), "yyyy-MM-dd"));
+                              }
+                            }
+                            if (e.key === "Escape" && keyboardDragId) {
+                              setKeyboardDragId(null);
+                              setKeyboardDragSource(null);
+                              toast.info("Movimento cancelado");
+                            }
+                          }}
+                          className={`text-[8px] leading-tight px-1 py-0.5 rounded truncate cursor-grab active:cursor-grabbing transition-colors focus-visible:ring-2 focus-visible:ring-[#D946EF] focus-visible:outline-none ${keyboardDragId === a.id ? "ring-2 ring-amber-500 bg-amber-500/20" : ""} ${
+                            a.status === "cancelado" ? "bg-rose-500/15 text-rose-500 line-through" :
+                            a.status === "concluido" ? "bg-emerald-500/15 text-emerald-500" :
+                            a.status === "confirmado" ? "bg-blue-500/15 text-blue-400" :
+                            "bg-[#D946EF]/10 text-[#D946EF]"
+                          }`}
+                        >
+                          {format(new Date(a.data_hora), "HH:mm")} {a.clientes?.nome ?? ""}
+                        </div>
+                      ))}
+                      {dayAgs.length > 3 && (
+                        <div className="text-[8px] text-muted-foreground px-1">+{dayAgs.length - 3} mais</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </Card>
       ) : (
+        /* View: List */
         <div className="space-y-3">
-          {ags.map((a: any) => (
-            <Card key={a.id} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300">
-              <div className="flex flex-col md:flex-row md:items-center gap-4">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="size-14 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 text-[#D946EF] grid place-items-center shrink-0 text-center leading-none">
-                    <div>
-                      <div className="text-[10px] font-medium opacity-70">{format(new Date(a.data_hora), "MMM", { locale: ptBR }).toUpperCase()}</div>
-                      <div className="text-xl font-bold">{format(new Date(a.data_hora), "dd")}</div>
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-medium truncate text-base text-card-foreground">{a.clientes?.nome ?? "Cliente"}</h3>
-                    <p className="text-sm text-muted-foreground truncate">{a.servicos?.nome ?? "Serviço"}</p>
-                    <div className="flex items-center gap-4 mt-1.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="size-3.5" />
-                        {format(new Date(a.data_hora), "dd/MM/yyyy")}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="size-3.5" />
-                        {format(new Date(a.data_hora), "HH:mm")}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <div className="text-xl font-semibold text-card-foreground">
-                      {Number(a.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                    </div>
-                    <Badge variant="outline" className={statusColor[a.status as Status] + " mt-1"}>{a.status}</Badge>
-                  </div>
-                  <AgendamentoDialog ag={a} onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10 opacity-0 group-hover:opacity-100 transition-opacity"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
-                  <DeleteAg id={a.id} onDone={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} />
-                </div>
+          {isLoading ? (
+            <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-28 rounded-[20px] bg-muted" />)}</div>
+          ) : !ags?.length ? (
+            <Card className="bg-card border border-border rounded-[20px] p-12 text-center shadow-card">
+              <div className="size-16 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center mx-auto mb-4">
+                <CalendarDays className="size-7 text-[#D946EF]" />
               </div>
+              <p className="text-muted-foreground">Nenhum agendamento ainda. Clique em <strong className="text-[#D946EF]">Novo</strong> para começar.</p>
             </Card>
-          ))}
+          ) : (
+            ags.map((a: any) => (
+              <Card key={a.id} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300">
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="size-14 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 text-[#D946EF] grid place-items-center shrink-0 text-center leading-none">
+                      <div>
+                        <div className="text-[10px] font-medium opacity-70">{format(new Date(a.data_hora), "MMM", { locale: ptBR }).toUpperCase()}</div>
+                        <div className="text-xl font-bold">{format(new Date(a.data_hora), "dd")}</div>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-medium truncate text-base text-card-foreground">{a.clientes?.nome ?? "Cliente"}</h3>
+                      <p className="text-sm text-muted-foreground truncate">{a.servicos?.nome ?? "Serviço"}</p>
+                      <div className="flex items-center gap-4 mt-1.5 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="size-3.5" />
+                          {format(new Date(a.data_hora), "dd/MM/yyyy")}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="size-3.5" />
+                          {format(new Date(a.data_hora), "HH:mm")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-xl font-semibold text-card-foreground">
+                        {Number(a.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </div>
+                      <Badge variant="outline" className={statusColor[a.status as Status] + " mt-1"}>{a.status}</Badge>
+                    </div>
+                    <AgendamentoDialog ag={a} onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10 opacity-0 group-hover:opacity-100 transition-opacity"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
+                    <DeleteAg id={a.id} onDone={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} />
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
         </div>
       )}
     </>
@@ -141,12 +386,30 @@ function AgendamentosPage() {
 }
 
 function DeleteAg({ id, onDone }: { id: string; onDone: () => void }) {
+  const { confirm } = useConfirm();
   const mut = useMutation({
     mutationFn: async () => { const { error } = await supabase.from("agendamentos").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { toast.success("Agendamento removido"); onDone(); },
     onError: (e: Error) => toast.error(e.message),
   });
-  return <Button size="icon" variant="ghost" onClick={() => { if (confirm("Excluir agendamento?")) mut.mutate(); }}><Trash2 className="size-4 text-destructive" /></Button>;
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      onClick={() => {
+        confirm({
+          title: "Excluir agendamento?",
+          description: "Esta ação não pode ser desfeita. O horário será liberado para novos agendamentos.",
+          confirmText: "Sim, excluir",
+          cancelText: "Cancelar",
+          variant: "danger",
+          onConfirm: () => mut.mutate(),
+        });
+      }}
+    >
+      <Trash2 className="size-4 text-destructive" />
+    </Button>
+  );
 }
 
 function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setOpenProp }: {
@@ -156,6 +419,14 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
   const [openInternal, setOpenInternal] = useState(false);
   const open = openProp ?? openInternal;
   const setOpen = setOpenProp ?? setOpenInternal;
+
+  const [recorrente, setRecorrente] = useState(false);
+  const [frequencia, setFrequencia] = useState<string>("semanal");
+  const [dataFim, setDataFim] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 6);
+    return format(d, "yyyy-MM-dd");
+  });
 
   const [form, setForm] = useState(() => {
     const d = ag ? new Date(ag.data_hora) : new Date();
@@ -289,12 +560,38 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
         pagamento: parsed.data.pagamento,
         observacoes: parsed.data.observacoes || null,
       };
-      if (ag) {
-        const { error } = await supabase.from("agendamentos").update(payload).eq("id", ag.id);
-        if (error) throw error;
+
+      // Recurrence: save + create recorrencia
+      if (!ag && recorrente) {
+        // Save appointment first
+        const { data: agCriado, error: insertErr } = await supabase.from("agendamentos").insert({ ...payload, user_id: u.user!.id } as any).select("id").single();
+        if (insertErr) throw insertErr;
+
+        // Create recurrence record
+        const horaTime = `${String(new Date(data_hora).getHours()).padStart(2, "0")}:${String(new Date(data_hora).getMinutes()).padStart(2, "0")}`;
+        const { error: recErr } = await supabase.from("recorrencias").insert({
+          user_id: u.user!.id,
+          cliente_id: parsed.data.cliente_id,
+          servico_id: parsed.data.servico_id,
+          frequencia,
+          hora: horaTime,
+          duracao_min: parsed.data.duracao_min,
+          valor: parsed.data.valor,
+          custo: parsed.data.custo,
+          observacoes: parsed.data.observacoes || null,
+          data_inicio: parsed.data.data,
+          data_fim: dataFim || null,
+          proxima_geracao: format(addDays(new Date(parsed.data.data), frequencia === "semanal" ? 7 : frequencia === "quinzenal" ? 14 : 30), "yyyy-MM-dd"),
+        } as any);
+        if (recErr) throw recErr;
       } else {
-        const { error } = await supabase.from("agendamentos").insert({ ...payload, user_id: u.user!.id });
-        if (error) throw error;
+        if (ag) {
+          const { error } = await supabase.from("agendamentos").update(payload as any).eq("id", ag.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("agendamentos").insert({ ...payload, user_id: u.user!.id } as any);
+          if (error) throw error;
+        }
       }
     },
     onSuccess: () => { toast.success(ag ? "Agendamento atualizado" : "Agendamento criado"); onSaved(); setOpen(false); },
@@ -385,6 +682,41 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
               </Select>
             </div>
           </div>
+          {/* Recorrência */}
+          {!ag && (
+            <div className="border border-border/40 rounded-xl p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="recorrente"
+                  checked={recorrente}
+                  onChange={(e) => setRecorrente(e.target.checked)}
+                  className="size-4 accent-[#D946EF]"
+                  aria-label="Repetir este agendamento"
+                />
+                <Label htmlFor="recorrente" className="text-sm font-medium cursor-pointer">Repetir agendamento</Label>
+              </div>
+              {recorrente && (
+                <div className="grid grid-cols-2 gap-3 ml-6">
+                  <div>
+                    <Label className="text-xs">Frequência</Label>
+                    <Select value={frequencia} onValueChange={setFrequencia}>
+                      <SelectTrigger className="h-9 rounded-xl text-xs" aria-label="Frequência da recorrência"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="semanal">Semanal</SelectItem>
+                        <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                        <SelectItem value="mensal">Mensal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Até</Label>
+                    <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-9 rounded-xl text-xs" aria-label="Data final da recorrência" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div><Label>Observações</Label><Textarea rows={2} value={form.observacoes ?? ""} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
           <DialogFooter>
             <Button type="submit" disabled={mut.isPending} className="gradient-primary text-primary-foreground shadow-glow w-full">
