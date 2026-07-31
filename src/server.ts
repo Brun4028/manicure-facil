@@ -166,7 +166,17 @@ function getRateLimitConfig(pathname: string, method: string): RateLimitConfig {
     return RATE_LIMITS.auth;
   }
   if (pathname.startsWith("/agendar/")) return RATE_LIMITS.public_booking;
-  if (pathname.includes("/ai/") || pathname.includes("getAiChatResponse")) return RATE_LIMITS.ai;
+  // Server functions do TanStack Start são POSTadas em rotas do tipo /_server-fn/<id>.
+  // O id da getAiChatResponse inclui o caminho do arquivo (ai/ai-chat) — detecta
+  // tanto pelo prefixo da rota quanto pelo nome da função para aplicar o limite de IA.
+  if (
+    pathname.includes("/_server-fn/") ||
+    pathname.includes("/server-fn/") ||
+    pathname.includes("getAiChatResponse") ||
+    pathname.includes("ai-chat")
+  ) {
+    return RATE_LIMITS.ai;
+  }
   return RATE_LIMITS.general;
 }
 

@@ -2,12 +2,26 @@
  * AI Service Layer — Frontend
  *
  * Abstrai a comunicação com o backend de IA.
- * Fornece tipos, tratamento de erros, cache, e preparação para streaming.
- * Preparado para futuras funções: análise de clientes, campanhas, etc.
+ * Fornece tipos, tratamento de erros, cache e preparação para streaming.
+ *
+ * IMPORTANTE (descoberto na auditoria ETAPA 3):
+ * O TanStack Start serializa erros lançados em server functions preservando
+ * APENAS `message` (ShallowErrorPlugin do seroval). Por isso a server function
+ * retorna um ENVELOPE estruturado { ok:true|false, code, message, userMessage }
+ * e a normalização completa de erros vive em `ai-errors.ts`.
  */
 
 import { getAiChatResponse } from "./ai-chat";
 import { aiCache } from "./ai-cache";
+import {
+  AiServiceError,
+  normalizeErrorToAiError,
+  isAiError,
+  type AiErrorCode,
+} from "./ai-errors";
+
+// Re-export para compatibilidade com imports existentes
+export { AiServiceError, isAiError, type AiErrorCode };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -47,47 +61,29 @@ export type AiResponse = {
   suggestions?: string[];
 };
 
-export type AiErrorCode =
-  | "network"
-  | "timeout"
-  | "rate-limit"
-  | "api-error"
-  | "server-error"
-  | "content-filter" // Conteúdo bloqueado pelo filtro de segurança
-  | "unknown";
+/** Contexto padrão usado quando os dados ainda não carregaram */
+export const EMPTY_AI_CONTEXT: AiContext = {
+  totalClientes: 0,
+  totalAgendamentos: 0,
+  totalServicos: 0,
+  faturamentoMes: 0,
+  estoqueBaixo: 0,
+  contasAReceber: 0,
+  contasVencidas: 0,
+  aniversariantesMes: 0,
+  metasFaturamento: 0,
+  metasLucro: 0,
+  servicosMaisVendidos: "Nenhum ainda",
+  clientesInativos: 0,
+  ticketMedio: 0,
+  ocupacaoAgenda: 0,
+  lucroMes: 0,
+};
 
-export class AiServiceError extends Error {
-  code: AiErrorCode;
-  userMessage: string;
-
-  constructor(code: AiErrorCode, message: string, userMessage?: string) {
-    super(message);
-    this.name = "AiServiceError";
-    this.code = code;
-    this.userMessage = userMessage ?? mensagemAmigavel(code);
-  }
-}
-
-// ─── Friendly error messages in Portuguese ──────────────────────────────────
-
-function mensagemAmigavel(code: AiErrorCode): string {
-  const messages: Record<AiErrorCode, string> = {
-    network:
-      "😔 Não foi possível conectar ao assistente. Verifique sua conexão com a internet e tente novamente.",
-    timeout:
-      "⏰ O assistente demorou muito para responder. Pode ser um momento de instabilidade — tente novamente em alguns segundos.",
-    "rate-limit":
-      "🔄 Você já fez muitas perguntas seguidas! Aguarde um momento e tente novamente.",
-    "api-error":
-      "🤖 O assistente está temporariamente indisponível. Já estou avisando a equipe técnica! Tente novamente mais tarde.",
-    "server-error":
-      "🔧 Serviço temporariamente indisponível. Tente novamente em instantes.",
-    "content-filter":
-      "🚫 Sua pergunta foi bloqueada pelos filtros de segurança. Reformule de outra forma.",
-    unknown:
-      "😅 Algo inesperado aconteceu. Por favor, tente novamente ou reformule sua pergunta.",
-  };
-  return messages[code];
+/** Une contexto parcial (possivelmente undefined) com valores seguros */
+export function normalizeContext(context?: Partial<AiContext> | null): AiContext {
+  if (!context) return EMPTY_AI_CONTEXT;
+  return { ...EMPTY_AI_CONTEXT, ...context };
 }
 
 // ─── Fallback response ──────────────────────────────────────────────────────
@@ -188,12 +184,12 @@ const DEFAULT_CONFIG: AiServiceConfig = {
 
 /**
  * Envia uma mensagem para o assistente IA e retorna a resposta.
- * Inclui cache, segurança, e tratamento completo de erros.
+ * Inclui cache, segurança e tratamento completo de erros.
  */
 export async function sendToAi(
   message: string,
   history: AiMessage[],
-  context: AiContext,
+  context?: Partial<AiContext> | null,
   config: AiServiceConfig = DEFAULT_CONFIG,
 ): Promise<AiResponse> {
   // ── Validação de segurança ──────────────────────────────────────
@@ -223,6 +219,9 @@ export async function sendToAi(
     return cached;
   }
 
+  // ── Contexto seguro (nunca undefined — evita falha de validação) ─
+  const safeContext = normalizeContext(context);
+
   // ── Tenta obter resposta da IA ──────────────────────────────────
   try {
     const response = await withTimeout(
@@ -234,7 +233,7 @@ export async function sendToAi(
             appName: "Manicure Fácil",
             appDescription:
               "Sistema de gestão premium para manicures e pequenos salões de beleza",
-            ...context,
+            ...safeContext,
           },
           settings: {
             provider: config.provider,
@@ -243,55 +242,50 @@ export async function sendToAi(
           },
         },
       }),
-      30_000,
+      45_000,
     );
 
-    const result: AiResponse = {
-      text: response.text,
-      suggestions: response.suggestions,
+    // ── Envelope estruturado do servidor ──────────────────────────
+    if (!response || typeof response !== "object") {
+      throw new AiServiceError("api-error", "Resposta inválida do servidor");
+    }
+
+    if (response.ok === true) {
+      const result: AiResponse = {
+        text: response.text,
+        suggestions: response.suggestions,
+      };
+
+      // Armazena em cache (exceto respostas muito curtas)
+      if (result.text.length > 50) {
+        aiCache.set(trimmedMessage, recentHistory, result);
+      }
+
+      return result;
+    }
+
+    // ok === false → erro estruturado com código real
+    const err = response as {
+      code: AiErrorCode;
+      message: string;
+      userMessage?: string;
     };
-
-    // Armazena em cache (exceto respostas muito curtas)
-    if (result.text.length > 50) {
-      aiCache.set(trimmedMessage, recentHistory, result);
-    }
-
-    return result;
+    throw new AiServiceError(err.code, err.message, err.userMessage);
   } catch (error) {
-    // AiServiceError local
-    if (error instanceof AiServiceError) {
-      throw error;
-    }
+    const normalized = normalizeErrorToAiError(error);
 
-    // Erro serializado do servidor (createServerFn)
-    if (error && typeof error === "object" && "code" in error) {
-      const err = error as { code: AiErrorCode; message: string; userMessage?: string };
-      throw new AiServiceError(err.code, err.message, err.userMessage);
-    }
+    // ── Log client-side para diagnóstico ──────────────────────────
+    console.error(
+      `[AI CLIENT] ${normalized.code}: ${normalized.message}`,
+      { userMessage: normalized.userMessage },
+    );
 
-    // Erro de rede
-    if (error instanceof TypeError && error.message.includes("fetch")) {
-      throw new AiServiceError("network", error.message);
-    }
-
-    // Desconhecido
-    const msg =
-      error instanceof Error
-        ? error.message
-        : typeof error === "object" && error !== null
-          ? JSON.stringify(error)
-          : String(error);
-
-    throw new AiServiceError("unknown", msg);
+    throw normalized;
   }
 }
 
 export function getFallbackResponse(): AiResponse {
   return fallbackResponse();
-}
-
-export function isAiError(error: unknown): error is AiServiceError {
-  return error instanceof AiServiceError;
 }
 
 export function getAiErrorMessage(error: unknown): string {

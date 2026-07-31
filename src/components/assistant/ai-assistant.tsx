@@ -258,7 +258,7 @@ export function AiAssistant() {
         // Lê as settings atuais
         const settings = getAiSettings();
 
-        const response = await sendToAi(text, historyForAi, context!, {
+        const response = await sendToAi(text, historyForAi, context, {
           historyLength: 10,
           temperature: settings.temperature,
           maxTokens: settings.maxTokens,

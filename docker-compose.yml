@@ -38,6 +38,12 @@ services:
       - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
 
+      # ── Inteligência Artificial (IA) ────────────────────────────
+      # Google Gemini (gratuito) — gere a chave em https://aistudio.google.com/apikey
+      - AI_PROVIDER=${AI_PROVIDER:-gemini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
       # ── Lovable Cloud Auth (se aplicável) ─────────────────────
       # Configure no painel Lovable Cloud se usar login social
     env_file:

@@ -4,6 +4,17 @@
  * createServerFn que recebe a mensagem, contexto e configurações do cliente,
  * e chama os provedores de IA (OpenAI/Gemini) com fallback.
  *
+ * 🔧 CORREÇÃO ETAPA 3 (auditoria):
+ * - O TanStack Start serializa erros lançados aqui preservando APENAS
+ *   `message`. Por isso este handler NÃO lança classes de erro customizadas
+ *   para o cliente: ele captura tudo, registra em logs internos e retorna um
+ *   ENVELOPE serializável { ok:true|false, code, message, userMessage }.
+ * - Todas as falhas são logadas no console + aiLogger para manutenção.
+ * - Autenticação obrigatória (requireSupabaseAuth) — evita queima da chave
+ *   de API por usuários não autenticados.
+ * - Leitura de env vars robusta (process.env + fallback para arquivo .env),
+ *   garantindo que a chave funcione em dev, Docker e produção.
+ *
  * Segurança:
  * - Validação rigorosa de entrada com Zod
  * - Limite de tamanho de mensagens
@@ -13,6 +24,14 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { aiLogger } from "./ai-logger";
+import {
+  AiServiceError,
+  mensagemAmigavel,
+  type AiErrorCode,
+} from "./ai-errors";
 
 // ─── Limites de segurança ───────────────────────────────────────────────────
 
@@ -71,7 +90,7 @@ const contextSchema = z.object({
 const settingsSchema = z.object({
   provider: z.enum(["openai", "gemini"]).optional(),
   temperature: z.number().min(0).max(2).optional(),
-  maxTokens: z.number().int().min(64).max(8192).optional(),
+  maxTokens: z.number().int().min(1024).max(8192).optional(),
 }).optional().default({});
 
 const inputSchema = z.object({
@@ -81,41 +100,155 @@ const inputSchema = z.object({
   settings: settingsSchema,
 });
 
+// ─── Envelope de resposta (serializável — atravessa o RPC sem perdas) ───────
+
+export type AiChatSuccess = {
+  ok: true;
+  text: string;
+  suggestions?: string[];
+};
+
+export type AiChatFailure = {
+  ok: false;
+  code: AiErrorCode;
+  message: string;
+  userMessage: string;
+};
+
+export type AiChatResponse = AiChatSuccess | AiChatFailure;
+
+function success(
+  text: string,
+  suggestions?: string[],
+): AiChatSuccess {
+  return { ok: true, text, suggestions };
+}
+
+function failure(
+  code: AiErrorCode,
+  message: string,
+  userMessage?: string,
+): AiChatFailure {
+  return { ok: false, code, message, userMessage: userMessage ?? mensagemAmigavel(code) };
+}
+
+// ─── Conversão de erro → envelope (compartilhada) ──────────────────────────
+
+function toFailureEnvelope(error: unknown): AiChatFailure {
+  if (error instanceof AiServiceError) {
+    return failure(error.code, error.message, error.userMessage);
+  }
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as { code?: unknown }).code === "string"
+  ) {
+    const e = error as { code: AiErrorCode; message: string; userMessage?: string };
+    return failure(e.code, e.message, e.userMessage);
+  }
+  // Falha de rede real (fetch) — não confundir com erro de API
+  if (error instanceof TypeError) {
+    return failure("network", error.message);
+  }
+  const msg = error instanceof Error ? error.message : String(error);
+  return failure("api-error", msg);
+}
+
+// ─── Logging server-side ────────────────────────────────────────────────────
+
+type LogMeta = {
+  provider: "openai" | "gemini";
+  model: string;
+  startTime: number;
+  messageLength: number;
+  userId?: string;
+};
+
+function logServerError(meta: LogMeta, error: unknown): void {
+  const normalized =
+    error instanceof AiServiceError
+      ? { code: error.code, message: error.message, userMessage: error.userMessage }
+      : error && typeof error === "object" && "code" in error
+        ? {
+            code: (error as { code: AiErrorCode }).code,
+            message: String((error as { message?: unknown }).message ?? "unknown"),
+            userMessage: (error as { userMessage?: string }).userMessage,
+          }
+        : {
+            code: "unknown" as const,
+            message: error instanceof Error ? error.message : String(error),
+            userMessage: mensagemAmigavel("unknown"),
+          };
+
+  try {
+    aiLogger.log(aiLogger.createLog({
+      provider: meta.provider,
+      model: meta.model,
+      startTime: meta.startTime,
+      messageLength: meta.messageLength,
+      responseLength: 0,
+      success: false,
+      error: `${normalized.code}: ${normalized.message}`,
+      cached: false,
+    }));
+  } catch {
+    /* logging nunca deve quebrar a request */
+  }
+
+  console.error(
+    `[AI SERVER ERROR] ${normalized.code} (${meta.provider}/${meta.model}) — ${normalized.message}`,
+    { userId: meta.userId ?? "unknown", timestamp: new Date().toISOString() },
+  );
+}
+
 // ─── Server Function ────────────────────────────────────────────────────────
 
 export const getAiChatResponse = createServerFn({ method: "POST" })
-  .inputValidator(inputSchema)
-  .handler(async ({ data }) => {
+  .middleware([requireSupabaseAuth])
+  .validator(inputSchema)
+  .handler(async ({ data, context }): Promise<AiChatResponse> => {
+    const userId = (context as { userId?: string } | undefined)?.userId ?? "unknown";
+    const startTime = Date.now();
+
     const { callOpenAI, callGemini, buildSystemPrompt } = await import(
       "./ai-providers.server"
     );
 
-    const { message, history, context, settings } = data;
+    const { message, history, context: aiContext, settings } = data;
     const effectiveSettings = settings ?? {};
 
     // ── Verificação de prompt injection ──────────────────────────
     if (detectPromptInjection(message)) {
-      const { AiServiceError } = await import("./ai-service");
-      throw new AiServiceError(
+      const result = failure(
         "content-filter",
         "Prompt injection detected in message",
         "🚫 Sua pergunta foi bloqueada pelos filtros de segurança. Reformule de outra forma, por favor.",
       );
+      logServerError({ provider: "openai", model: "n/a", startTime, messageLength: message.length, userId }, {
+        code: result.code,
+        message: result.message,
+      });
+      return result;
     }
 
     for (const h of history) {
       if (detectPromptInjection(h.text)) {
-        const { AiServiceError } = await import("./ai-service");
-        throw new AiServiceError(
+        const result = failure(
           "content-filter",
           "Prompt injection detected in history",
           "🚫 Detectamos um padrão suspeito no histórico da conversa. Vamos começar uma nova conversa.",
         );
+        logServerError({ provider: "openai", model: "n/a", startTime, messageLength: message.length, userId }, {
+          code: result.code,
+          message: result.message,
+        });
+        return result;
       }
     }
 
     // ── Monta mensagens para a IA ────────────────────────────────
-    const systemPrompt = buildSystemPrompt(context);
+    const systemPrompt = buildSystemPrompt(aiContext);
     const chatMessages: { role: string; content: string }[] = [
       { role: "system", content: systemPrompt },
     ];
@@ -127,8 +260,9 @@ export const getAiChatResponse = createServerFn({ method: "POST" })
     chatMessages.push({ role: "user", content: message });
 
     // ── Determina provedor: client setting > env var > openai ────
+    const { getServerEnv } = await import("../config.server");
     const provider = effectiveSettings.provider ??
-      (process.env.AI_PROVIDER ?? "openai").toLowerCase() as "openai" | "gemini";
+      ((getServerEnv("AI_PROVIDER") ?? "openai") as "openai" | "gemini");
 
     // Prepara overrides de configuração
     const configOverrides = {
@@ -139,28 +273,52 @@ export const getAiChatResponse = createServerFn({ method: "POST" })
     // ── Executa com fallback ──────────────────────────────────────
     try {
       if (provider === "gemini") {
-        return await callGemini(chatMessages, configOverrides);
+        const result = await callGemini(chatMessages, configOverrides);
+        return success(result.text, result.suggestions);
       }
-      return await callOpenAI(chatMessages, configOverrides);
+      const result = await callOpenAI(chatMessages, configOverrides);
+      return success(result.text, result.suggestions);
     } catch (primaryError: any) {
-      // Se for rate-limit ou api-error, tenta o outro provedor
-      if (
+      // Se o provedor primário falhar (rate-limit, api-error ou chave não
+      // configurada), tenta o outro provedor — assim, mesmo com apenas uma
+      // chave configurada (ex: só Gemini), a IA continua funcionando.
+      const isRetryable =
         primaryError &&
         typeof primaryError === "object" &&
         "code" in primaryError &&
         typeof primaryError.code === "string" &&
-        ["rate-limit", "api-error"].includes(primaryError.code)
-      ) {
+        ["rate-limit", "api-error", "server-error"].includes(primaryError.code);
+
+      if (isRetryable) {
         const fallbackProvider = provider === "gemini" ? "openai" : "gemini";
         try {
-          return fallbackProvider === "gemini"
+          const result = fallbackProvider === "gemini"
             ? await callGemini(chatMessages, configOverrides)
             : await callOpenAI(chatMessages, configOverrides);
-        } catch {
-          // Fallback também falhou — propaga o erro original
+          return success(result.text, result.suggestions);
+        } catch (fallbackError) {
+          logServerError(
+            {
+              provider: fallbackProvider,
+              model: "fallback",
+              startTime,
+              messageLength: message.length,
+              userId,
+            },
+            fallbackError,
+          );
+          logServerError({ provider, model: "primary", startTime, messageLength: message.length, userId }, primaryError);
+
+          // Ambos falharam — reporta o erro do provider realmente tentado por último
+          // (o fallback), que costuma ser o mais relevante para o usuário.
+          return toFailureEnvelope(fallbackError);
         }
       }
 
-      throw primaryError;
+      logServerError({ provider, model: "primary", startTime, messageLength: message.length, userId }, primaryError);
+
+      // Converte qualquer erro (AiServiceError ou não) em envelope
+      return toFailureEnvelope(primaryError);
     }
   });
+

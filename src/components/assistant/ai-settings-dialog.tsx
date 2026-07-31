@@ -35,9 +35,13 @@ export type AiSettings = {
 };
 
 const STORAGE_KEY = "manicure-facil-ai-settings";
+// Bump quando o formato das settings mudar (ex: novo provider padrão),
+// para descartar settings legadas que possam quebrar a IA.
+const STORAGE_VERSION = 2;
 
 const DEFAULT_SETTINGS: AiSettings = {
-  provider: "openai",
+  // Padrão do projeto: Google Gemini (AI_PROVIDER=gemini no .env).
+  provider: "gemini",
   temperature: 0.7,
   maxTokens: 2048,
 };
@@ -47,7 +51,18 @@ function loadSettings(): AiSettings {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      // Descarta settings de versões antigas (ex: provider "openai" legado
+      // sem chave configurada) que fariam toda chamada falhar no primário.
+      if (parsed.__version === STORAGE_VERSION) {
+        const { provider, temperature, maxTokens } = parsed;
+        if (
+          (provider === "openai" || provider === "gemini") &&
+          typeof temperature === "number" &&
+          typeof maxTokens === "number"
+        ) {
+          return { provider, temperature, maxTokens };
+        }
+      }
     }
   } catch { /* ignore */ }
   return DEFAULT_SETTINGS;
@@ -55,7 +70,7 @@ function loadSettings(): AiSettings {
 
 function saveSettings(settings: AiSettings): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...settings, __version: STORAGE_VERSION }));
   } catch { /* ignore */ }
 }
 
@@ -133,7 +148,7 @@ export function AiSettingsDialog({
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-sm">🌐</span>
                   <span>Gemini</span>
-                  <span className="opacity-70">Flash 2.0</span>
+                  <span className="opacity-70">Flash</span>
                 </div>
               </Button>
             </div>
@@ -176,7 +191,9 @@ export function AiSettingsDialog({
             <Slider
               value={[settings.maxTokens]}
               onValueChange={([v]) => updateSetting("maxTokens", v)}
-              min={256} max={4096} step={256}
+              // Mínimo 1024: modelos atuais (ex: gemini-flash-latest) gastam
+              // tokens em raciocínio — valores muito baixos geram resposta vazia.
+              min={1024} max={8192} step={256}
               className="[&_[role=slider]]:bg-[#D946EF]"
             />
             <div className="flex justify-between text-[10px] text-muted-foreground">

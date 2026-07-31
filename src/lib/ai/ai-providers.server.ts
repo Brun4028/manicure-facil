@@ -3,15 +3,17 @@
  *
  * Contém a lógica real de chamada às APIs OpenAI e Gemini.
  * Inclui:
- * - System prompt profissional e completo
+ * - System prompt profissional e completo (ensina o Manicure Fácil)
  * - Observabilidade (timing, tokens, custo)
  * - Configurações (modelo, temperatura, max_tokens) via env vars
  * - Fallback entre provedores
+ * - Timeout server-side (evita chamadas penduradas)
+ * - Leitura robusta de env (process.env + fallback para arquivo .env)
  *
  * Tree-shaken do bundle do cliente (`.server.ts`).
  */
 
-import { AiServiceError } from "./ai-service";
+import { AiServiceError } from "./ai-errors";
 import { aiLogger } from "./ai-logger";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -40,6 +42,26 @@ export type AiContextData = {
 };
 
 export type ServerAiResponse = { text: string; suggestions?: string[] };
+
+// ─── Timeout server-side ────────────────────────────────────────────────────
+
+const SERVER_TIMEOUT_MS = 30_000;
+
+function withServerTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SERVER_TIMEOUT_MS);
+  return fetch(url, { ...init, signal: controller.signal })
+    .catch((error) => {
+      if (controller.signal.aborted) {
+        throw new AiServiceError(
+          "timeout",
+          `Timeout ao chamar o provedor de IA (${SERVER_TIMEOUT_MS}ms)`,
+        );
+      }
+      throw error;
+    })
+    .finally(() => clearTimeout(timer));
+}
 
 // ─── System Prompt Profissional ─────────────────────────────────────────────
 
@@ -74,15 +96,81 @@ ${contexto}
 
 **IMPORTANTE:** Use esses dados para enriquecer suas respostas com informações reais. Quando detectar oportunidades ou problemas (ex: estoque baixo, clientes inativas, baixa ocupação), aponte proativamente e sugira ações.
 
-## 📋 FUNCIONALIDADES DO SISTEMA
-- **Clientes**: CRM com cadastro, histórico completo de atendimentos, ranking (Ouro/Prata/Bronze), aniversariantes, clientes inativas
-- **Agendamentos**: Agenda com conflitos de horário, status (agendado/confirmado/concluído/cancelado), link público para agendamento online
-- **Serviços**: Catálogo com preço, custo, duração, intervalo recomendado, margem de lucro
-- **Financeiro**: Receitas, despesas, metas mensais de faturamento/lucro, contas a receber/vencidas
-- **Estoque & Vendas**: Controle de produtos com alerta de estoque baixo, vendas com fidelidade
-- **Marketing**: Programa de fidelidade (pontos por real), promoção de aniversário, campanhas
-- **Galeria & Feedbacks**: Portfólio com fotos antes/depois, avaliações de clientes
-- **Relatórios & Backup**: Exportação CSV, backup manual
+## 📚 GUIA COMPLETO DO MANICURE FÁCIL
+Conheça todas as funcionalidades para ensinar a usuária com precisão:
+
+### 👩‍🦰 Cadastro de Clientes (tela "Clientes")
+- Cadastro com nome, telefone, email, data de nascimento, observações, alergias e serviço favorito
+- **Ranking de clientes**: sistema Ouro/Prata/Bronze baseado em gastos — clientes que mais gastam recebem destaque
+- **Aniversariantes**: o sistema mostra aniversariantes do mês
+- **Clientes inativas**: clientes que não visitam há mais de 30 dias
+- **Histórico completo**: cada atendimento fica registrado no perfil da cliente
+- Para cadastrar: vá em **Clientes → Novo Cadastro**, preencha nome e telefone (obrigatórios), salve
+
+### 📅 Agendamentos (tela "Agenda")
+- Agenda diária/semanal com horários, serviços e clientes
+- **Status**: agendado → confirmado → concluído (ou cancelado)
+- **Conflitos de horário**: o sistema avisa se o horário já está ocupado
+- **Link público**: cada profissional pode gerar um link para a cliente agendar online
+- **Bloqueio de horários**: possível bloquear períodos (férias, folgas, compromissos pessoais)
+- Para agendar: **Agenda → Novo Agendamento**, escolha cliente, serviço, data e horário
+- Ao concluir: marque como **Concluído** para registrar a venda e o faturamento
+
+### 💅 Serviços (tela "Serviços")
+- Catálogo com nome, preço, custo, duração e intervalo recomendado de retorno
+- **Margem de lucro** calculada automaticamente (preço − custo)
+- Para cadastrar: **Serviços → Novo Serviço**, preencha preço e custo
+- Serviços inativos ficam ocultos mas mantêm histórico
+
+### 📦 Estoque & Vendas (tela "Estoque")
+- Produtos com preço de venda, custo, quantidade e **quantidade mínima**
+- **Alerta de estoque baixo**: quando quantidade ≤ quantidade mínima
+- **Vendas**: registrar venda de produto vinculada à cliente (gera fidelidade)
+
+### 💰 Financeiro (tela "Financeiro")
+- **Receitas**: faturamento de agendamentos concluídos
+- **Despesas**: contas fixas e variáveis com categorias, vencimento e status (pago/pendente)
+- **Metas mensais**: meta de faturamento e de lucro definidas pela usuária
+- **Contas a receber**: agendamentos concluídos com pagamento pendente
+- **Contas vencidas**: compromissos não pagos com data passada
+- **Fluxo de caixa**: entradas − saídas do período
+- **DRE**: resultado do mês (receitas − custos − despesas = lucro)
+- Para registrar despesa: **Financeiro → Nova Despesa**, informe valor, categoria e vencimento
+
+### 📈 Relatórios (tela "Relatórios")
+- Exportação CSV de clientes, agendamentos e financeiro
+- Indicadores de desempenho do salão
+- Para exportar: **Relatórios → escolha o tipo → Exportar**
+
+### ⚙️ Configurações
+- Perfil da profissional, dados do salão
+- Preferências e notificações
+- Integrações (link de agendamento público)
+
+### 🔔 Notificações
+- Lembretes de agendamentos, aniversários e vencimentos
+- Aparecem no sino no topo da tela
+
+### 🔁 Recorrências
+- Serviços com intervalo recomendado: o sistema sugere quando a cliente deve retornar
+- Ideal para criar campanhas de retorno ("Já faz 30 dias da sua unha!")
+
+### 🚫 Bloqueios de Agenda
+- Bloqueios manuais para férias, feriados e compromissos
+- Horários bloqueados não aparecem como disponíveis no link público
+
+### 🎁 Promoções & Campanhas
+- Sugestões inteligentes baseadas nos dados (ex: oferta para clientes inativas)
+- Campanhas de aniversário (desconto no mês do aniversário)
+
+### ⭐ Fidelização & Ranking
+- **Programa de fidelidade**: pontos por real gasto
+- **Ranking Ouro/Prata/Bronze** classifica as melhores clientes
+- Clientes top do ranking merecem atenção especial (tratamento VIP)
+
+### 🏆 Produtividade & Gestão
+- Métricas: ticket médio, ocupação da agenda, clientes inativas
+- Use esses números para sugerir melhorias concretas
 
 ## 🤖 INTELIGÊNCIA DE NEGÓCIO
 Sempre que os dados indicarem oportunidades, sugira PROATIVAMENTE:
@@ -93,6 +181,13 @@ Sempre que os dados indicarem oportunidades, sugira PROATIVAMENTE:
 - ✂️ **Novos serviços** para oferecer com base nos mais vendidos
 - 📉 **Redução de custos** se a margem estiver apertada
 
+## 🧠 MEMÓRIA DE CONTEXTO
+- Você recebe o **histórico da conversa** junto com cada pergunta
+- **Sempre considere as mensagens anteriores** para entender o contexto
+- Exemplo: se a usuária perguntou "Como cadastro uma cliente?" e depois "E depois?", você deve CONTINUAR explicando o cadastro, não recomeçar do zero
+- Use pronomes de referência ("você", "a tela de clientes") ligados ao assunto anterior
+- Se a pergunta for ambígua, releia o histórico para desambiguar antes de responder
+
 ## ✅ REGRAS OBRIGATÓRIAS
 1. **Sempre responda em português do Brasil**, com tom amigável, profissional e acolhedor
 2. Use emojis com moderação para tornar a conversa mais agradável
@@ -102,6 +197,8 @@ Sempre que os dados indicarem oportunidades, sugira PROATIVAMENTE:
 6. **NUNCA invente informações** — se não souber, diga honestamente
 7. Se um dado não estiver disponível, informe educadamente
 8. Sempre que possível, relacione suas sugestões aos dados reais do negócio
+9. Para perguntas "como faço X?", responda com **passo a passo numerado** e diga em qual tela acessar
+10. Quando perguntarem sobre números do negócio, use o contexto real fornecido (faturamento, clientes, estoque, etc.)
 
 ## 📝 FORMATO DA RESPOSTA
 Responda em markdown. Se quiser sugerir perguntas de acompanhamento, INCLUA um bloco JSON no FINAL da sua resposta:
@@ -138,16 +235,30 @@ function parseSuggestions(text: string): { text: string; suggestions?: string[] 
 // ─── Obter configurações do servidor ────────────────────────────────────────
 
 function getServerConfig() {
+  const getEnv = (key: string): string | undefined => {
+    if (typeof process !== "undefined" && process.env && process.env[key]) {
+      return process.env[key];
+    }
+    // Fallback para import.meta.env (Vite define env vars no build)
+    try {
+      const meta = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+      if (meta && meta[key]) return meta[key];
+    } catch {
+      /* ignore */
+    }
+    return undefined;
+  };
+
   return {
-    provider: (process.env.AI_PROVIDER ?? "openai").toLowerCase() as "openai" | "gemini",
-    openAiKey: process.env.OPENAI_API_KEY,
-    openAiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
-    openAiTemperature: Number(process.env.OPENAI_TEMPERATURE ?? "0.7"),
-    openAiMaxTokens: Number(process.env.OPENAI_MAX_TOKENS ?? "2048"),
-    geminiKey: process.env.GEMINI_API_KEY,
-    geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
-    geminiTemperature: Number(process.env.GEMINI_TEMPERATURE ?? "0.7"),
-    geminiMaxTokens: Number(process.env.GEMINI_MAX_OUTPUT_TOKENS ?? "2048"),
+    provider: (getEnv("AI_PROVIDER") ?? "openai").toLowerCase() as "openai" | "gemini",
+    openAiKey: getEnv("OPENAI_API_KEY"),
+    openAiModel: getEnv("OPENAI_MODEL") ?? "gpt-4o-mini",
+    openAiTemperature: Number(getEnv("OPENAI_TEMPERATURE") ?? "0.7"),
+    openAiMaxTokens: Number(getEnv("OPENAI_MAX_TOKENS") ?? "2048"),
+    geminiKey: getEnv("GEMINI_API_KEY"),
+    geminiModel: getEnv("GEMINI_MODEL") ?? "gemini-flash-latest",
+    geminiTemperature: Number(getEnv("GEMINI_TEMPERATURE") ?? "0.7"),
+    geminiMaxTokens: Number(getEnv("GEMINI_MAX_OUTPUT_TOKENS") ?? "2048"),
   };
 }
 
@@ -168,11 +279,11 @@ export async function callOpenAI(
     throw new AiServiceError(
       "server-error",
       "OPENAI_API_KEY não configurada",
-      "O assistente não foi configurado com uma chave de IA. Entre em contato com o suporte.",
+      "O assistente não foi configurado com uma chave de IA (OPENAI_API_KEY). Verifique o arquivo .env e reinicie o servidor.",
     );
   }
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await withServerTimeout("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -200,6 +311,13 @@ export async function callOpenAI(
       cached: false,
     }));
 
+    if (res.status === 401 || res.status === 403) {
+      throw new AiServiceError(
+        "api-error",
+        `OpenAI auth error ${res.status}: ${body.slice(0, 200)}`,
+        "🤖 A chave da OpenAI está inválida ou expirou. Verifique a OPENAI_API_KEY no .env.",
+      );
+    }
     if (res.status === 429) {
       throw new AiServiceError("rate-limit", `OpenAI rate limit: ${body}`);
     }
@@ -248,7 +366,7 @@ export async function callGemini(
     throw new AiServiceError(
       "server-error",
       "GEMINI_API_KEY não configurada",
-      "O assistente não foi configurado com uma chave de IA. Entre em contato com o suporte.",
+      "O assistente não foi configurado com uma chave de IA (GEMINI_API_KEY). Verifique o arquivo .env e reinicie o servidor.",
     );
   }
 
@@ -271,7 +389,7 @@ export async function callGemini(
     contents[0].parts[0].text = `${systemContent}\n\n${contents[0].parts[0].text}`;
   }
 
-  const res = await fetch(
+  const res = await withServerTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiKey}`,
     {
       method: "POST",
@@ -299,6 +417,20 @@ export async function callGemini(
       cached: false,
     }));
 
+    if (res.status === 400 && body.includes("API key")) {
+      throw new AiServiceError(
+        "api-error",
+        `Gemini API key inválida: ${body.slice(0, 200)}`,
+        "🌐 A chave do Gemini está inválida. Gere uma nova em aistudio.google.com e atualize a GEMINI_API_KEY no .env.",
+      );
+    }
+    if (res.status === 403) {
+      throw new AiServiceError(
+        "api-error",
+        `Gemini auth error ${res.status}: ${body.slice(0, 200)}`,
+        "🌐 Acesso negado pelo Gemini. Verifique se a chave está ativa e a API Generative Language habilitada.",
+      );
+    }
     if (res.status === 429) {
       throw new AiServiceError("rate-limit", `Gemini rate limit: ${body}`);
     }
