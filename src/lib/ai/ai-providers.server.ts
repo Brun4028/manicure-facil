@@ -45,7 +45,9 @@ export type ServerAiResponse = { text: string; suggestions?: string[] };
 
 // ─── Timeout server-side ────────────────────────────────────────────────────
 
-const SERVER_TIMEOUT_MS = 30_000;
+// 40s: a cota free-tier do Gemini fica lenta sob carga; 30s gerava
+// timeouts espúrios enquanto o cliente ainda aguarda (45s).
+const SERVER_TIMEOUT_MS = 40_000;
 
 function withServerTimeout(url: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
@@ -65,36 +67,57 @@ function withServerTimeout(url: string, init: RequestInit): Promise<Response> {
 
 // ─── System Prompt Profissional ─────────────────────────────────────────────
 
-export function buildSystemPrompt(context: AiContextData): string {
-  const contexto = [
-    `- Nome: ${context.appName}`,
-    `- Descrição: ${context.appDescription}`,
-    `- Clientes cadastradas: ${context.totalClientes}`,
-    `- Agendamentos registrados: ${context.totalAgendamentos}`,
-    `- Serviços disponíveis: ${context.totalServicos}`,
-    `- Faturamento do mês: R$ ${context.faturamentoMes.toFixed(2)}`,
-    `- Lucro do mês: R$ ${context.lucroMes.toFixed(2)}`,
-    `- Ticket médio: R$ ${context.ticketMedio.toFixed(2)}`,
-    `- Ocupação da agenda: ${context.ocupacaoAgenda}%`,
-    `- Produtos com estoque baixo: ${context.estoqueBaixo}`,
-    `- Contas a receber: R$ ${context.contasAReceber.toFixed(2)}`,
-    `- Contas vencidas: R$ ${context.contasVencidas.toFixed(2)}`,
-    `- Aniversariantes do mês: ${context.aniversariantesMes}`,
-    `- Clientes inativas (+30 dias sem visitar): ${context.clientesInativos}`,
-    `- Meta de faturamento: R$ ${context.metasFaturamento.toFixed(2)}`,
-    `- Meta de lucro: R$ ${context.metasLucro.toFixed(2)}`,
-    `- Serviços mais vendidos: ${context.servicosMaisVendidos}`,
-  ].join("\n");
+/**
+ * Monta o system prompt da IA.
+ *
+ * 🔒 INVARIANTE DE SEGURANÇA (não quebrar em refatorações):
+ * `context === null` ⇔ pergunta de conhecimento geral ⇔ escopo `shared` do
+ * cache ⇔ o histórico NÃO é enviado ao modelo. Essa equivalência é garantida
+ * pelo único caller, `ai-chat.ts` (`buildSystemPrompt(cacheScope === "shared"
+ * ? null : aiContext)` + omissão do histórico no mesmo escopo). Se um dia
+ * chamar `buildSystemPrompt(null)` COM histórico, o prompt mentiria —
+ * mantenha as duas condições sempre sincronizadas.
+ */
+export function buildSystemPrompt(context?: AiContextData | null): string {
+  // 🔒 Perguntas de conhecimento geral (cache compartilhado) NÃO recebem os
+  // dados do negócio: sem dados no prompt, a resposta não pode conter dados
+  // de nenhum usuário e pode ser compartilhada com segurança entre todos.
+  const hasContext = Boolean(context);
 
-  return `Você é a assistente virtual especializada do "${context.appName}", um sistema de gestão premium para manicures e pequenos salões de beleza.
+  const contexto = context
+    ? [
+        `- Nome: ${context.appName}`,
+        `- Descrição: ${context.appDescription}`,
+        `- Clientes cadastradas: ${context.totalClientes}`,
+        `- Agendamentos registrados: ${context.totalAgendamentos}`,
+        `- Serviços disponíveis: ${context.totalServicos}`,
+        `- Faturamento do mês: R$ ${context.faturamentoMes.toFixed(2)}`,
+        `- Lucro do mês: R$ ${context.lucroMes.toFixed(2)}`,
+        `- Ticket médio: R$ ${context.ticketMedio.toFixed(2)}`,
+        `- Ocupação da agenda: ${context.ocupacaoAgenda}%`,
+        `- Produtos com estoque baixo: ${context.estoqueBaixo}`,
+        `- Contas a receber: R$ ${context.contasAReceber.toFixed(2)}`,
+        `- Contas vencidas: R$ ${context.contasVencidas.toFixed(2)}`,
+        `- Aniversariantes do mês: ${context.aniversariantesMes}`,
+        `- Clientes inativas (+30 dias sem visitar): ${context.clientesInativos}`,
+        `- Meta de faturamento: R$ ${context.metasFaturamento.toFixed(2)}`,
+        `- Meta de lucro: R$ ${context.metasLucro.toFixed(2)}`,
+        `- Serviços mais vendidos: ${context.servicosMaisVendidos}`,
+      ].join("\n")
+    : "";
+
+  return `Você é a assistente virtual especializada do "${context?.appName ?? "Manicure Fácil"}", um sistema de gestão premium para manicures e pequenos salões de beleza.
 
 ## 🎯 SEU PAPEL
 Você é uma **consultora sênior de gestão** para salões de beleza. Sua missão é ajudar a profissional a administrar melhor o negócio como uma CEO, aumentando lucro, fidelizando clientes e otimizando processos.
 
-## 📊 CONTEXTO ATUAL DO NEGÓCIO
+${hasContext
+  ? `## 📊 CONTEXTO ATUAL DO NEGÓCIO
 ${contexto}
 
-**IMPORTANTE:** Use esses dados para enriquecer suas respostas com informações reais. Quando detectar oportunidades ou problemas (ex: estoque baixo, clientes inativas, baixa ocupação), aponte proativamente e sugira ações.
+**IMPORTANTE:** Use esses dados para enriquecer suas respostas com informações reais. Quando detectar oportunidades ou problemas (ex: estoque baixo, clientes inativas, baixa ocupação), aponte proativamente e sugira ações.`
+  : `## 📌 CONHECIMENTO GERAL DO SISTEMA
+Esta é uma pergunta de conhecimento geral do sistema. Responda APENAS com base no guia abaixo, de forma genérica e didática. NÃO invente, cite nem faça referência a dados específicos de nenhum salão, cliente, funcionária, serviço cadastrado, valor, percentual, data, telefone ou e-mail — nenhum dado do banco está disponível nesta pergunta.`}
 
 ## 📚 GUIA COMPLETO DO MANICURE FÁCIL
 Conheça todas as funcionalidades para ensinar a usuária com precisão:
@@ -170,23 +193,28 @@ Conheça todas as funcionalidades para ensinar a usuária com precisão:
 
 ### 🏆 Produtividade & Gestão
 - Métricas: ticket médio, ocupação da agenda, clientes inativas
-- Use esses números para sugerir melhorias concretas
+${hasContext ? "- Use esses números para sugerir melhorias concretas" : ""}
 
-## 🤖 INTELIGÊNCIA DE NEGÓCIO
+${hasContext
+  ? `## 🤖 INTELIGÊNCIA DE NEGÓCIO
 Sempre que os dados indicarem oportunidades, sugira PROATIVAMENTE:
 - 🎯 **Promoções** e campanhas para clientes inativas
 - 💰 **Aumento de preço** se o ticket médio estiver baixo
 - 📦 **Serviços mais lucrativos** para divulgar
 - 📅 **Clientes que precisam retornar** com base no intervalo recomendado
 - ✂️ **Novos serviços** para oferecer com base nos mais vendidos
-- 📉 **Redução de custos** se a margem estiver apertada
+- 📉 **Redução de custos** se a margem estiver apertada`
+  : ""}
 
-## 🧠 MEMÓRIA DE CONTEXTO
+${hasContext
+  ? `## 🧠 MEMÓRIA DE CONTEXTO
 - Você recebe o **histórico da conversa** junto com cada pergunta
 - **Sempre considere as mensagens anteriores** para entender o contexto
 - Exemplo: se a usuária perguntou "Como cadastro uma cliente?" e depois "E depois?", você deve CONTINUAR explicando o cadastro, não recomeçar do zero
 - Use pronomes de referência ("você", "a tela de clientes") ligados ao assunto anterior
-- Se a pergunta for ambígua, releia o histórico para desambiguar antes de responder
+- Se a pergunta for ambígua, releia o histórico para desambiguar antes de responder`
+  : `## 🧠 PERGUNTA INDEPENDENTE
+Esta é uma pergunta de conhecimento geral **independente** — nenhum histórico de conversa anterior está incluído nesta solicitação. Responda apenas com base no guia do sistema e na pergunta atual.`}
 
 ## ✅ REGRAS OBRIGATÓRIAS
 1. **Sempre responda em português do Brasil**, com tom amigável, profissional e acolhedor
@@ -198,7 +226,9 @@ Sempre que os dados indicarem oportunidades, sugira PROATIVAMENTE:
 7. Se um dado não estiver disponível, informe educadamente
 8. Sempre que possível, relacione suas sugestões aos dados reais do negócio
 9. Para perguntas "como faço X?", responda com **passo a passo numerado** e diga em qual tela acessar
-10. Quando perguntarem sobre números do negócio, use o contexto real fornecido (faturamento, clientes, estoque, etc.)
+${hasContext
+  ? "10. Quando perguntarem sobre números do negócio, use o contexto real fornecido (faturamento, clientes, estoque, etc.)"
+  : "10. Para perguntas de conhecimento geral, responda apenas com o guia do sistema — nunca cite dados reais de clientes, funcionárias, serviços, valores, percentuais, datas, telefones ou e-mails."}
 
 ## 📝 FORMATO DA RESPOSTA
 Responda em markdown. Se quiser sugerir perguntas de acompanhamento, INCLUA um bloco JSON no FINAL da sua resposta:
@@ -307,6 +337,8 @@ export async function callOpenAI(
       messageLength: messages.reduce((s, m) => s + m.content.length, 0),
       responseLength: 0,
       success: false,
+      // Limite de cota não é erro crítico
+      warn: res.status === 429,
       error: `HTTP ${res.status}: ${body.slice(0, 200)}`,
       cached: false,
     }));
@@ -324,7 +356,18 @@ export async function callOpenAI(
     throw new AiServiceError("api-error", `OpenAI error ${res.status}: ${body}`);
   }
 
-  const json = await res.json();
+  let json: any;
+  try {
+    json = await res.json();
+  } catch (parseError) {
+    // 🔧 res.json() com corpo inválido lança SyntaxError (erro genérico que
+    // seria escondido atrás de "api-error") — registra a causa real.
+    console.error("[AI] OpenAI retornou corpo não-JSON:", parseError);
+    throw new AiServiceError(
+      "api-error",
+      `OpenAI retornou corpo inválido (HTTP ${res.status}): ${String(parseError)}`,
+    );
+  }
   const text = json.choices?.[0]?.message?.content?.trim() ?? "";
 
   if (!text) {
@@ -389,20 +432,33 @@ export async function callGemini(
     contents[0].parts[0].text = `${systemContent}\n\n${contents[0].parts[0].text}`;
   }
 
-  const res = await withServerTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents,
-        generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens,
-        },
-      }),
-    },
-  );
+  // ── Requisição com 1 retry em instabilidade transitória (5xx) ──
+  // A API do Gemini (free tier) retorna 500/503 ocasionalmente sob carga;
+  // uma única nova tentativa após 1.2s resolve a maioria desses casos.
+  let res: Response;
+  let retry = 0;
+  for (;;) {
+    res = await withServerTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          generationConfig: {
+            temperature,
+            maxOutputTokens: maxTokens,
+          },
+        }),
+      },
+    );
+    if (res.ok || retry >= 1 || ![500, 502, 503, 504].includes(res.status)) {
+      break;
+    }
+    retry += 1;
+    console.error(`[AI] Gemini HTTP ${res.status} — instabilidade transitória, nova tentativa (${retry}/1)`);
+    await new Promise((r) => setTimeout(r, 1_200));
+  }
 
   if (!res.ok) {
     const body = await res.text();
@@ -413,6 +469,8 @@ export async function callGemini(
       messageLength: messages.reduce((s, m) => s + m.content.length, 0),
       responseLength: 0,
       success: false,
+      // Limite de cota (429) não é erro crítico
+      warn: res.status === 429,
       error: `HTTP ${res.status}: ${body.slice(0, 200)}`,
       cached: false,
     }));
@@ -432,12 +490,34 @@ export async function callGemini(
       );
     }
     if (res.status === 429) {
-      throw new AiServiceError("rate-limit", `Gemini rate limit: ${body}`);
+      // 🔧 Causa real visível: a cota free-tier do Gemini é limitada
+      // (ex: 20 req/dia) — o usuário deve ver isso claramente, não um
+      // genérico "assistente indisponível".
+      const retryMatch = body.match(/retry in (\d+(?:\.\d+)?)s/i);
+      const retrySecs = retryMatch ? Math.ceil(Number(retryMatch[1])) : undefined;
+      const quotaExhausted =
+        body.includes("RESOURCE_EXHAUSTED") || body.toLowerCase().includes("quota");
+      const userMessage = quotaExhausted
+        ? retrySecs
+          ? `🔄 O limite gratuito da IA (Gemini) foi atingido. Tente novamente em ~${Math.min(retrySecs, 3600)}s — ou aumente a cota em aistudio.google.com.`
+          : "🔄 O limite gratuito da IA (Gemini) foi atingido. Tente novamente mais tarde ou aumente a cota em aistudio.google.com."
+        : "🔄 Você já fez muitas perguntas seguidas! Aguarde um momento e tente novamente.";
+      throw new AiServiceError("rate-limit", `Gemini rate limit: ${body.slice(0, 300)}`, userMessage);
     }
-    throw new AiServiceError("api-error", `Gemini error ${res.status}: ${body}`);
+    throw new AiServiceError("api-error", `Gemini error ${res.status}: ${body.slice(0, 300)}`);
   }
 
-  const json = await res.json();
+  let json: any;
+  try {
+    json = await res.json();
+  } catch (parseError) {
+    // 🔧 Mesmo cenário do OpenAI: corpo inválido vira SyntaxError genérico.
+    console.error("[AI] Gemini retornou corpo não-JSON:", parseError);
+    throw new AiServiceError(
+      "api-error",
+      `Gemini retornou corpo inválido (HTTP ${res.status}): ${String(parseError)}`,
+    );
+  }
   const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
 
   if (!text) {

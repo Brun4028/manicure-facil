@@ -35,6 +35,9 @@ const TYPING_SPEED_MIN = 8;
 const TYPING_SPEED_MAX = 25;
 const TYPING_PAUSE_PUNCTUATION = 200;
 const TYPING_PAUSE_NEWLINE = 300;
+// Debounce de envio: impede a MESMA pergunta de ser enviada 2x seguidas
+// (duplo clique no botão/Enter) — economiza chamadas à API.
+const SEND_DEBOUNCE_MS = 1500;
 
 const SUGGESTIONS = [
   "Como cadastrar uma nova cliente?",
@@ -183,6 +186,13 @@ export function AiAssistant() {
   const [input, setInput] = useState("");
   const [isWaiting, setIsWaiting] = useState(false);
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
+  // Rastreia qual mensagem do assistente está com a animação em voo.
+  // Evita que uma resposta antiga (de uma sessão anterior do painel) libere
+  // o input enquanto uma mensagem MAIS NOVA ainda está sendo digitada.
+  const activeStreamRef = useRef<string | null>(null);
+  // Debounce de envio: impede requisições duplicadas por cliques repetidos
+  // (duplo clique no botão/Enter) ou a MESMA pergunta enviada 2x seguidas.
+  const lastSendRef = useRef<{ text: string; at: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -210,6 +220,19 @@ export function AiAssistant() {
     }
   }, [open]);
 
+  // ── Auto-reset de segurança ────────────────────────────────────────
+  // Se `isWaiting` ou `streamingMsgId` ficarem presos (ex: exceção numa
+  // animação assíncrona), o input do chat permaneceria desabilitado para
+  // sempre. Ao reabrir o painel, garantimos que o estado sempre volte a
+  // zero — o input nunca pode ficar bloqueado.
+  useEffect(() => {
+    if (open) {
+      setIsWaiting(false);
+      setStreamingMsgId(null);
+      activeStreamRef.current = null;
+    }
+  }, [open]);
+
   // ── Progresso da digitação ──────────────────────────────────────
   const updateStreamingText = useCallback((msgId: string, partial: string) => {
     setMessages((prev) =>
@@ -221,7 +244,19 @@ export function AiAssistant() {
   // ── Envio de mensagem ────────────────────────────────────────────
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!text.trim() || isWaiting) return;
+      const trimmed = text.trim();
+      if (!trimmed || isWaiting) return;
+
+      // ── Debounce: mesma pergunta dentro de 1.5s é ignorada ──
+      // Evita que o usuário (ou um duplo clique) dispare a mesma
+      // requisição várias vezes seguidas — economiza chamadas à API.
+      const now = Date.now();
+      const last = lastSendRef.current;
+      if (last && last.text === trimmed && now - last.at < SEND_DEBOUNCE_MS) {
+        return;
+      }
+      lastSendRef.current = { text: trimmed, at: now };
+
       const currentMessages = messagesRef.current;
 
       const userMsg: AiMessage = {
@@ -244,6 +279,7 @@ export function AiAssistant() {
       setInput("");
       setIsWaiting(true);
       setStreamingMsgId(assistantMsgId);
+      activeStreamRef.current = assistantMsgId;
 
       try {
         // Prepara histórico (exclui streaming, mantém boas-vindas)
@@ -266,34 +302,70 @@ export function AiAssistant() {
         });
 
         // Anima caractere por caractere
+        // 🔧 PROTEÇÃO: o setTimeout é assíncrono — qualquer exceção aqui
+        // escaparia do try/catch e deixaria `isWaiting` preso em true,
+        // desabilitando o input para sempre. Por isso o callback é
+        // envolvido em try/catch próprio e `response.text` é protegido.
         setTimeout(() => {
-          let charIndex = 0;
-          const fullText = response.text;
-          const typeNextChar = () => {
-            if (charIndex < fullText.length) {
-              updateStreamingText(assistantMsgId, fullText.slice(0, charIndex + 1));
-              charIndex++;
+          try {
+            let charIndex = 0;
+            const fullText = typeof response.text === "string" ? response.text : "";
+            const typeNextChar = () => {
+              if (charIndex < fullText.length) {
+                updateStreamingText(assistantMsgId, fullText.slice(0, charIndex + 1));
+                charIndex++;
 
-              const char = fullText[charIndex - 1];
-              let delay = TYPING_SPEED_MIN + Math.random() * (TYPING_SPEED_MAX - TYPING_SPEED_MIN);
-              if (char === "." || char === "!" || char === "?" || char === ":") delay += TYPING_PAUSE_PUNCTUATION;
-              else if (char === "\n") delay += TYPING_PAUSE_NEWLINE;
-              setTimeout(typeNextChar, delay);
-            } else {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsgId
-                    ? { ...m, text: fullText, suggestions: response.suggestions, isStreaming: false }
-                    : m,
-                ),
-              );
+                const char = fullText[charIndex - 1];
+                let delay = TYPING_SPEED_MIN + Math.random() * (TYPING_SPEED_MAX - TYPING_SPEED_MIN);
+                if (char === "." || char === "!" || char === "?" || char === ":") delay += TYPING_PAUSE_PUNCTUATION;
+                else if (char === "\n") delay += TYPING_PAUSE_NEWLINE;
+                setTimeout(typeNextChar, delay);
+              } else {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, text: fullText, suggestions: response.suggestions, isStreaming: false }
+                      : m,
+                  ),
+                );
+                // Só libera o input se ESTA mensagem ainda for a animação ativa
+                if (activeStreamRef.current === assistantMsgId) {
+                  setStreamingMsgId(null);
+                  setIsWaiting(false);
+                  activeStreamRef.current = null;
+                }
+              }
+            };
+            typeNextChar();
+          } catch (animationError) {
+            // Nunca deixa o chat preso: mesmo com erro na animação,
+            // finaliza a mensagem e libera o input.
+            console.error("[AI] Erro na animação de digitação:", animationError);
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsgId
+                  ? {
+                      ...m,
+                      text:
+                        typeof response.text === "string" && response.text.length > 0
+                          ? response.text
+                          : "🤖 Recebi sua pergunta! Mas tive um problema ao exibir a resposta. Tente novamente.",
+                      suggestions: response.suggestions,
+                      isStreaming: false,
+                    }
+                  : m,
+              ),
+            );
+            if (activeStreamRef.current === assistantMsgId) {
               setStreamingMsgId(null);
               setIsWaiting(false);
+              activeStreamRef.current = null;
             }
-          };
-          typeNextChar();
+          }
         }, 120);
       } catch (error) {
+        // Libera o debounce para retry imediato em caso de erro
+        lastSendRef.current = null;
         const errorMessage = getAiErrorMessage(error);
         setMessages((prev) =>
           prev.map((m) =>
@@ -310,8 +382,11 @@ export function AiAssistant() {
               : m,
           ),
         );
-        setStreamingMsgId(null);
-        setIsWaiting(false);
+        if (activeStreamRef.current === assistantMsgId) {
+          setStreamingMsgId(null);
+          setIsWaiting(false);
+          activeStreamRef.current = null;
+        }
       }
     },
     [isWaiting, context, updateStreamingText, scrollToBottom],
@@ -326,6 +401,11 @@ export function AiAssistant() {
     setMessages([INITIAL_MESSAGE]);
     aiCache.clear();
     setInput("");
+    // Limpar a conversa também libera o estado de espera, caso haja
+    // uma requisição/animacão em voo — o input nunca fica preso.
+    setIsWaiting(false);
+    setStreamingMsgId(null);
+    activeStreamRef.current = null;
   }, []);
 
   // ── Lista de mensagens memoizada ────────────────────────────────

@@ -14,7 +14,9 @@
 
 export type AiLogEntry = {
   timestamp: string;
-  provider: "openai" | "gemini";
+  // "unknown" cobre a rede de segurança externa (exceções em imports,
+  // buildSystemPrompt etc. que não pertencem a um provider específico).
+  provider: "openai" | "gemini" | "unknown";
   model: string;
   durationMs: number;
   messageLength: number;
@@ -28,6 +30,8 @@ export type AiLogEntry = {
   success: boolean;
   error?: string;
   cached: boolean;
+  /** true quando a falha não é crítica (ex: limite de cota 429) */
+  warn?: boolean;
 };
 
 /**
@@ -81,19 +85,22 @@ export class AiLogger {
     }
 
     // Log estruturado no console (formato JSON para fácil parsing)
-    const level = entry.success ? "info" : "error";
+    // Limite de cota (warn) não deve poluir os logs como erro crítico.
+    const level = entry.success ? "info" : entry.warn ? "warn" : "error";
     const durationStr = `${entry.durationMs.toFixed(0)}ms`;
     const costStr = entry.estimatedCostUsd
       ? `$${entry.estimatedCostUsd.toFixed(6)}`
       : "N/A";
     const cachedStr = entry.cached ? " [CACHED]" : "";
 
-    console.log(
+    const logFn = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
+    logFn(
       `[AI ${level.toUpperCase()}]${cachedStr} ${entry.provider}/${entry.model} | ${durationStr} | Est. cost: ${costStr} | Input: ${entry.messageLength} chars | Output: ${entry.responseLength} chars${entry.error ? ` | Error: ${entry.error}` : ""}`,
     );
 
-    // Se houver erro, loga também no console.error
-    if (!entry.success && entry.error) {
+    // Erros críticos vão também para console.error com o objeto completo;
+    // avisos (cota 429 etc.) não são tratados como falha crítica.
+    if (!entry.success && entry.error && !entry.warn) {
       console.error(
         `[AI ERROR] ${entry.provider}/${entry.model}: ${entry.error}`,
         fullEntry,
@@ -106,7 +113,7 @@ export class AiLogger {
    * Aceita tokens opcionais e estima quando não disponíveis.
    */
   createLog(params: {
-    provider: "openai" | "gemini";
+    provider: "openai" | "gemini" | "unknown";
     model: string;
     startTime: number;
     messageLength: number;
@@ -114,6 +121,7 @@ export class AiLogger {
     success: boolean;
     error?: string;
     cached: boolean;
+    warn?: boolean;
     promptTokens?: number;
     completionTokens?: number;
   }): AiLogEntry {
@@ -144,6 +152,7 @@ export class AiLogger {
       success: params.success,
       error: params.error,
       cached: params.cached,
+      warn: params.warn,
     };
   }
 

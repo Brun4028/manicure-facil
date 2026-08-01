@@ -151,14 +151,24 @@ function toFailureEnvelope(error: unknown): AiChatFailure {
   if (error instanceof TypeError) {
     return failure("network", error.message);
   }
+  // 🔧 Exceção inesperada (não tipada) — NUNCA esconder a causa real.
+  // Registra o erro completo com stack antes de mapear para api-error.
   const msg = error instanceof Error ? error.message : String(error);
+  console.error(
+    `[AI UNEXPECTED ERROR] Mapeado para api-error (causa original): ${msg}`,
+    error instanceof Error
+      ? { stack: error.stack, originalError: error }
+      : { originalError: error },
+  );
   return failure("api-error", msg);
 }
 
 // ─── Logging server-side ────────────────────────────────────────────────────
 
 type LogMeta = {
-  provider: "openai" | "gemini";
+  // "unknown" cobre a rede de segurança externa (exceções em imports,
+  // buildSystemPrompt etc. que não pertencem a um provider específico).
+  provider: "openai" | "gemini" | "unknown";
   model: string;
   startTime: number;
   messageLength: number;
@@ -181,6 +191,9 @@ function logServerError(meta: LogMeta, error: unknown): void {
             userMessage: mensagemAmigavel("unknown"),
           };
 
+  // Limite de cota (rate-limit) não é erro crítico — registra como warn.
+  const isWarn = normalized.code === "rate-limit";
+
   try {
     aiLogger.log(aiLogger.createLog({
       provider: meta.provider,
@@ -189,6 +202,7 @@ function logServerError(meta: LogMeta, error: unknown): void {
       messageLength: meta.messageLength,
       responseLength: 0,
       success: false,
+      warn: isWarn,
       error: `${normalized.code}: ${normalized.message}`,
       cached: false,
     }));
@@ -196,9 +210,18 @@ function logServerError(meta: LogMeta, error: unknown): void {
     /* logging nunca deve quebrar a request */
   }
 
-  console.error(
-    `[AI SERVER ERROR] ${normalized.code} (${meta.provider}/${meta.model}) — ${normalized.message}`,
-    { userId: meta.userId ?? "unknown", timestamp: new Date().toISOString() },
+  // 🔧 Log COMPLETO da exceção original (incluindo stack trace) para que
+  // nenhuma falha real seja escondida atrás de mensagens genéricas.
+  const stack = error instanceof Error ? error.stack : undefined;
+  const logFn = isWarn ? console.warn : console.error;
+  logFn(
+    `[AI ${isWarn ? "RATE LIMIT" : "SERVER ERROR"}] ${normalized.code} (${meta.provider}/${meta.model}) — ${normalized.message}`,
+    {
+      userId: meta.userId ?? "unknown",
+      timestamp: new Date().toISOString(),
+      originalError: error,
+      stack,
+    },
   );
 }
 
@@ -208,6 +231,33 @@ export const getAiChatResponse = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(inputSchema)
   .handler(async ({ data, context }): Promise<AiChatResponse> => {
+    // 🔧 REDE DE SEGURANÇA FINAL: o corpo inteiro da antiga handler roda
+    // dentro de `handleAiChat`. Qualquer exceção (inclusive em imports
+    // dinâmicos, buildSystemPrompt, determinação de provider etc.) é
+    // capturada aqui, registrada COM STACK TRACE e retornada como envelope
+    // honesto — nenhuma falha real pode mais escapar sem log.
+    try {
+      return await handleAiChat(data, context);
+    } catch (unexpectedError) {
+      logServerError(
+        {
+          provider: "unknown",
+          model: "n/a",
+          startTime: Date.now(),
+          messageLength: typeof data?.message === "string" ? data.message.length : 0,
+          userId: (context as { userId?: string } | undefined)?.userId ?? "unknown",
+        },
+        unexpectedError,
+      );
+      return toFailureEnvelope(unexpectedError);
+    }
+  });
+
+// Corpo principal da server function (era o corpo do handler acima).
+async function handleAiChat(
+  data: z.infer<typeof inputSchema>,
+  context: unknown,
+): Promise<AiChatResponse> {
     const userId = (context as { userId?: string } | undefined)?.userId ?? "unknown";
     const startTime = Date.now();
 
@@ -247,14 +297,58 @@ export const getAiChatResponse = createServerFn({ method: "POST" })
       }
     }
 
+    // ── Cache server-side (economia de chamadas à API) ──────────
+    // Perguntas genéricas de "como fazer" são compartilhadas entre usuários;
+    // perguntas sobre dados do negócio são cacheadas por usuário (segurança:
+    // nunca misturar dados de contas diferentes).
+    const { aiServerCache, buildCacheKey, classifyQuestionScope } = await import(
+      "./ai-cache.server"
+    );
+    const cacheScope = classifyQuestionScope(message);
+    // 🔒 SEGURANÇA: perguntas de conhecimento geral (escopo `shared`) NÃO
+    // incluem o histórico na chave do cache — o histórico contém dados do
+    // usuário (respostas anteriores com nomes, valores, datas) e não pode
+    // influenciar uma resposta que será compartilhada entre usuários. Bônus:
+    // usuários diferentes com a MESMA pergunta genérica batem na mesma
+    // entrada (economia máxima da cota).
+    const cacheKey = buildCacheKey(
+      message,
+      cacheScope === "shared" ? [] : history,
+    );
+    const cachedHit =
+      cacheScope === "shared"
+        ? aiServerCache.get("shared", userId, cacheKey)
+        : aiServerCache.get("user", userId, cacheKey);
+    if (cachedHit) {
+      console.log(
+        `[AI CACHE] ${cacheScope} hit para "${message.slice(0, 50)}" (${cacheKey})`,
+      );
+      return success(cachedHit.text, cachedHit.suggestions);
+    }
+
     // ── Monta mensagens para a IA ────────────────────────────────
-    const systemPrompt = buildSystemPrompt(aiContext);
+    // 🔒 SEGURANÇA: perguntas de conhecimento geral (escopo `shared` do
+    // cache) NÃO recebem os dados do negócio no prompt — a resposta nasce
+    // sem nomes, valores, datas ou qualquer dado do banco, e pode ser
+    // compartilhada entre usuários sem risco de vazamento.
+    const systemPrompt = buildSystemPrompt(
+      cacheScope === "shared" ? null : aiContext,
+    );
     const chatMessages: { role: string; content: string }[] = [
       { role: "system", content: systemPrompt },
     ];
 
-    for (const h of history) {
-      chatMessages.push({ role: h.role, content: h.text });
+    // 🔒 SEGURANÇA (regra absoluta do usuário): o histórico NÃO é enviado ao
+    // modelo em perguntas de conhecimento geral (escopo `shared`) — o
+    // histórico pode conter dados do banco (respostas anteriores com nomes,
+    // valores, percentuais, datas, telefones) e a IA poderia citá-los na
+    // resposta, que seria cacheada COMPARTILHADA. Perguntas de
+    // acompanhamento ("E depois?") são classificadas como escopo `user` e
+    // recebem o histórico completo normalmente.
+    if (cacheScope !== "shared") {
+      for (const h of history) {
+        chatMessages.push({ role: h.role, content: h.text });
+      }
     }
 
     chatMessages.push({ role: "user", content: message });
@@ -271,13 +365,26 @@ export const getAiChatResponse = createServerFn({ method: "POST" })
     };
 
     // ── Executa com fallback ──────────────────────────────────────
+    const cacheSuccess = (result: { text: string; suggestions?: string[] }) => {
+      // Guarda a resposta de sucesso no cache (por escopo). Respostas
+      // curtas (ex: "ok") não valem a pena serem cacheadas.
+      if (result.text.length >= 30) {
+        if (cacheScope === "shared") {
+          aiServerCache.set("shared", userId, cacheKey, result);
+        } else {
+          aiServerCache.set("user", userId, cacheKey, result);
+        }
+      }
+      return success(result.text, result.suggestions);
+    };
+
     try {
       if (provider === "gemini") {
         const result = await callGemini(chatMessages, configOverrides);
-        return success(result.text, result.suggestions);
+        return cacheSuccess(result);
       }
       const result = await callOpenAI(chatMessages, configOverrides);
-      return success(result.text, result.suggestions);
+      return cacheSuccess(result);
     } catch (primaryError: any) {
       // Se o provedor primário falhar (rate-limit, api-error ou chave não
       // configurada), tenta o outro provedor — assim, mesmo com apenas uma
@@ -291,28 +398,38 @@ export const getAiChatResponse = createServerFn({ method: "POST" })
 
       if (isRetryable) {
         const fallbackProvider = provider === "gemini" ? "openai" : "gemini";
-        try {
-          const result = fallbackProvider === "gemini"
-            ? await callGemini(chatMessages, configOverrides)
-            : await callOpenAI(chatMessages, configOverrides);
-          return success(result.text, result.suggestions);
-        } catch (fallbackError) {
-          logServerError(
-            {
-              provider: fallbackProvider,
-              model: "fallback",
-              startTime,
-              messageLength: message.length,
-              userId,
-            },
-            fallbackError,
-          );
-          logServerError({ provider, model: "primary", startTime, messageLength: message.length, userId }, primaryError);
+        // Só tenta o fallback se o outro provedor tiver uma chave configurada.
+        // Caso contrário, pular direto evita erro enganoso do tipo
+        // "OPENAI_API_KEY não configurada" quando o problema real foi o Gemini
+        // falhar temporariamente (rate-limit, instabilidade da API etc).
+        const fallbackHasKey = fallbackProvider === "gemini"
+          ? Boolean(getServerEnv("GEMINI_API_KEY"))
+          : Boolean(getServerEnv("OPENAI_API_KEY"));
+        if (fallbackHasKey) {
+          try {
+            const result = fallbackProvider === "gemini"
+              ? await callGemini(chatMessages, configOverrides)
+              : await callOpenAI(chatMessages, configOverrides);
+            return cacheSuccess(result);
+          } catch (fallbackError) {
+            logServerError(
+              {
+                provider: fallbackProvider,
+                model: "fallback",
+                startTime,
+                messageLength: message.length,
+                userId,
+              },
+              fallbackError,
+            );
+            logServerError({ provider, model: "primary", startTime, messageLength: message.length, userId }, primaryError);
 
-          // Ambos falharam — reporta o erro do provider realmente tentado por último
-          // (o fallback), que costuma ser o mais relevante para o usuário.
-          return toFailureEnvelope(fallbackError);
+            // Ambos falharam — reporta o erro do provedor PRIMÁRIO (o real),
+            // que é o mais relevante para o usuário.
+            return toFailureEnvelope(primaryError);
+          }
         }
+        // Sem chave no fallback: cai para o reporte do erro primário abaixo.
       }
 
       logServerError({ provider, model: "primary", startTime, messageLength: message.length, userId }, primaryError);
@@ -320,5 +437,5 @@ export const getAiChatResponse = createServerFn({ method: "POST" })
       // Converte qualquer erro (AiServiceError ou não) em envelope
       return toFailureEnvelope(primaryError);
     }
-  });
+}
 
