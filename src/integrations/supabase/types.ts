@@ -190,6 +190,51 @@ export type Database = {
         }
         Relationships: []
       }
+      contas: {
+        Row: {
+          user_id: string
+          status: Database["public"]["Enums"]["conta_status"]
+          is_admin: boolean
+          plano: string | null
+          fonte: string
+          kirvano_transacao_id: string | null
+          trial_inicio: string | null
+          trial_fim: string | null
+          acesso_termina_em: string | null
+          motivo_bloqueio: string | null
+          criado_em: string
+          atualizado_em: string
+        }
+        Insert: {
+          user_id: string
+          status?: Database["public"]["Enums"]["conta_status"]
+          is_admin?: boolean
+          plano?: string | null
+          fonte?: string
+          kirvano_transacao_id?: string | null
+          trial_inicio?: string | null
+          trial_fim?: string | null
+          acesso_termina_em?: string | null
+          motivo_bloqueio?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Update: {
+          user_id?: string
+          status?: Database["public"]["Enums"]["conta_status"]
+          is_admin?: boolean
+          plano?: string | null
+          fonte?: string
+          kirvano_transacao_id?: string | null
+          trial_inicio?: string | null
+          trial_fim?: string | null
+          acesso_termina_em?: string | null
+          motivo_bloqueio?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           alergias: string | null
@@ -971,31 +1016,67 @@ export type Database = {
     Views: {
       vw_dre_mensal: {
         Row: {
+          user_id: string
           mes: string | null
-          mes_ano: string | null
-          total_receitas: number | null
-          custos_servicos: number | null
-          lucro_bruto: number | null
-          total_despesas: number | null
-          resultado_liquido: number | null
+          conta: string | null
+          valor: number | null
+          tipo: string | null
         }
         Relationships: []
       }
     }
     Functions: {
+      verificar_acesso: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      definir_admin: {
+        Args: { p_email: string }
+        Returns: undefined
+      }
+      atualizar_status_expirados: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      agendar_servico: {
+        Args: {
+          p_user_id: string
+          p_cliente_nome: string
+          p_cliente_telefone: string
+          p_cliente_email?: string | null
+          p_cliente_data_nascimento?: string | null
+          p_cliente_observacoes?: string | null
+          p_servico_id: string
+          p_data_hora: string
+          p_observacoes?: string | null
+          p_valor_final?: number
+        }
+        Returns: Json
+      }
+      criar_avaliacao: {
+        Args: {
+          p_user_id: string
+          p_cliente_nome: string
+          p_nota: number
+          p_comentario?: string | null
+        }
+        Returns: Json
+      }
       fluxo_caixa_projetado: {
-        Args: { dias_projecao: number }
+        Args: { p_user_id: string; p_dias?: number }
         Returns: {
-          dia: string
-          entradas: number
-          saidas: number
-          saldo_dia: number
+          data: string
+          tipo: string
+          descricao: string
+          valor: number
+          saldo_acumulado: number
         }[]
       }
     }
     Enums: {
       agendamento_status: "agendado" | "confirmado" | "concluido" | "cancelado"
       pagamento_metodo: "pix" | "dinheiro" | "debito" | "credito" | "pendente"
+      conta_status: "ativo" | "inativo" | "bloqueado" | "suspenso"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1125,6 +1206,7 @@ export const Constants = {
     Enums: {
       agendamento_status: ["agendado", "confirmado", "concluido", "cancelado"],
       pagamento_metodo: ["pix", "dinheiro", "debito", "credito", "pendente"],
+      conta_status: ["ativo", "inativo", "bloqueado", "suspenso"],
     },
   },
 } as const

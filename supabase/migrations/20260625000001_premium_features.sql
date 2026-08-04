@@ -93,8 +93,11 @@ CREATE TABLE IF NOT EXISTS public.bloqueios_agenda (
   titulo TEXT NOT NULL,
   data_inicio DATE NOT NULL,
   data_fim DATE,
-  hora_inicio TIME,
-  hora_fim TIME,
+  -- 🔧 FIX AUDITORIA: colunas renomeadas para horario_inicio/horario_fim para
+  -- bater com o banco real (types.ts) e com o componente bloqueio-horarios-dialog.
+  -- A migration original usava hora_inicio/hora_fim (drift de schema).
+  horario_inicio TIME,
+  horario_fim TIME,
   recorrente_anual BOOLEAN NOT NULL DEFAULT false,
   cor TEXT DEFAULT '#EF4444',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()

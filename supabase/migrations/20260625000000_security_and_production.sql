@@ -212,11 +212,11 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Índices para consulta eficiente de audit log
-CREATE INDEX idx_audit_log_user ON public.audit_log(user_id);
-CREATE INDEX idx_audit_log_acao ON public.audit_log(acao);
-CREATE INDEX idx_audit_log_entidade ON public.audit_log(entidade);
-CREATE INDEX idx_audit_log_created_at ON public.audit_log(created_at DESC);
+-- Índices para consulta eficiente de audit log (IF NOT EXISTS = idempotente)
+CREATE INDEX IF NOT EXISTS idx_audit_log_user ON public.audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_acao ON public.audit_log(acao);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entidade ON public.audit_log(entidade);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON public.audit_log(created_at DESC);
 
 -- Usuários autenticados podem inserir seus próprios logs e ver apenas seus próprios logs
 GRANT SELECT, INSERT ON public.audit_log TO authenticated;
@@ -451,24 +451,34 @@ CREATE POLICY "own_backup_log" ON public.backup_log
 -- =============================================================================
 
 -- Garantir que valor e custo não sejam negativos em serviços
-ALTER TABLE public.servicos
-  ADD CONSTRAINT IF NOT EXISTS servicos_valor_check CHECK (valor >= 0),
-  ADD CONSTRAINT IF NOT EXISTS servicos_custo_check CHECK (custo >= 0);
+-- (NOTA: PostgreSQL NÃO suporta `ADD CONSTRAINT IF NOT EXISTS` — guard via pg_constraint.)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'servicos_valor_check' AND conrelid = 'public.servicos'::regclass) THEN
+    ALTER TABLE public.servicos ADD CONSTRAINT servicos_valor_check CHECK (valor >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'servicos_custo_check' AND conrelid = 'public.servicos'::regclass) THEN
+    ALTER TABLE public.servicos ADD CONSTRAINT servicos_custo_check CHECK (custo >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'servicos_duracao_check' AND conrelid = 'public.servicos'::regclass) THEN
+    ALTER TABLE public.servicos ADD CONSTRAINT servicos_duracao_check CHECK (duracao_min > 0);
+  END IF;
 
--- Garantir que valor não seja negativo em agendamentos
-ALTER TABLE public.agendamentos
-  ADD CONSTRAINT IF NOT EXISTS agendamentos_valor_check CHECK (valor >= 0),
-  ADD CONSTRAINT IF NOT EXISTS agendamentos_custo_check CHECK (custo >= 0);
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agendamentos_valor_check' AND conrelid = 'public.agendamentos'::regclass) THEN
+    ALTER TABLE public.agendamentos ADD CONSTRAINT agendamentos_valor_check CHECK (valor >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agendamentos_custo_check' AND conrelid = 'public.agendamentos'::regclass) THEN
+    ALTER TABLE public.agendamentos ADD CONSTRAINT agendamentos_custo_check CHECK (custo >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agendamentos_duracao_check' AND conrelid = 'public.agendamentos'::regclass) THEN
+    ALTER TABLE public.agendamentos ADD CONSTRAINT agendamentos_duracao_check CHECK (duracao_min > 0);
+  END IF;
 
--- Garantir que duracao_min seja positiva
-ALTER TABLE public.agendamentos
-  ADD CONSTRAINT IF NOT EXISTS agendamentos_duracao_check CHECK (duracao_min > 0);
-
-ALTER TABLE public.servicos
-  ADD CONSTRAINT IF NOT EXISTS servicos_duracao_check CHECK (duracao_min > 0);
-
--- Garantir que quantidade mínima seja >= 0
-ALTER TABLE public.produtos
-  ADD CONSTRAINT IF NOT EXISTS produtos_quantidade_check CHECK (quantidade >= 0),
-  ADD CONSTRAINT IF NOT EXISTS produtos_quantidade_minima_check CHECK (quantidade_minima >= 0);
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'produtos_quantidade_check' AND conrelid = 'public.produtos'::regclass) THEN
+    ALTER TABLE public.produtos ADD CONSTRAINT produtos_quantidade_check CHECK (quantidade >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'produtos_quantidade_minima_check' AND conrelid = 'public.produtos'::regclass) THEN
+    ALTER TABLE public.produtos ADD CONSTRAINT produtos_quantidade_minima_check CHECK (quantidade_minima >= 0);
+  END IF;
+END $$;
 

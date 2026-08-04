@@ -2,12 +2,18 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { Sparkles, CalendarDays, Users, Wallet, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logoIconWhite from "@/assets/logo-icon-white.png";
+import { getContaDe, contaTemAcesso } from "@/lib/access";
 
 export const Route = createFileRoute("/")({
   ssr: false,
   beforeLoad: async () => {
+    // Sessão com acesso ativo → vai para o painel. Contas sem acesso liberado
+    // permanecem vendo a página pública de apresentação.
     const { data } = await supabase.auth.getSession();
-    if (data.session) throw redirect({ to: "/dashboard" });
+    if (data.session) {
+      const conta = await getContaDe(data.session.user.id);
+      if (contaTemAcesso(conta)) throw redirect({ to: "/dashboard" });
+    }
   },
   head: () => ({
     meta: [
@@ -56,7 +62,7 @@ function Landing() {
         
         <div className="mt-10 flex items-center justify-center gap-4">
           <Link to="/auth" className="rounded-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white px-8 py-3.5 text-base font-medium shadow-[0_4px_24px_rgba(217,70,239,0.15)] hover:shadow-[0_8px_32px_rgba(217,70,239,0.25)] transition-all inline-flex items-center gap-2">
-            Começar grátis <span className="text-lg">→</span>
+            Entrar no sistema <span className="text-lg">→</span>
           </Link>
         </div>
 
@@ -77,7 +83,7 @@ function Landing() {
         </div>
 
         <ul className="mt-16 flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-[#A1A1AA]">
-          {["Dark mode incluso", "100% responsivo", "Dados seguros", "Sem cartão de crédito"].map((x) => (
+          {["Dark mode incluso", "100% responsivo", "Seus dados protegidos", "Acesso liberado após a compra"].map((x) => (
             <li key={x} className="inline-flex items-center gap-2">
               <span className="size-5 rounded-full bg-[#D946EF]/20 border border-[#D946EF]/30 grid place-items-center">
                 <Check className="size-3 text-[#D946EF]" />

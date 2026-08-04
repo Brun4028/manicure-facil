@@ -69,6 +69,24 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       throw new Error('Unauthorized: No user ID found in token');
     }
 
+    // ── Controle de acesso SaaS: a conta deve estar ATIVA ────────────────
+    // Validação NO SERVIDOR: mesmo com um JWT válido, uma conta bloqueada,
+    // suspensa, inativa ou expirada é rejeitada imediatamente em toda server
+    // function. A defesa em profundidade continua no banco (RLS verificar_acesso).
+    const { data: conta } = await supabase
+      .from('contas')
+      .select('status, acesso_termina_em')
+      .eq('user_id', data.claims.sub)
+      .maybeSingle();
+
+    if (!conta || conta.status !== 'ativo') {
+      throw new Error('Acesso negado: sua conta não está ativa');
+    }
+
+    if (conta.acesso_termina_em && new Date(conta.acesso_termina_em).getTime() < Date.now()) {
+      throw new Error('Acesso negado: sua assinatura expirou');
+    }
+
     return next({
       context: {
         supabase,

@@ -22,6 +22,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # ── Variáveis públicas (VITE_*) para o BUILD ────────────────
+        # O Vite substitui import.meta.env.VITE_* no bundle do cliente em
+        # TEMPO DE BUILD. O .env não entra no contexto (está no .dockerignore),
+        # então estas variáveis são repassadas do .env local via build args.
+        # Se faltarem, o app abre no navegador sem Supabase configurado.
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
     container_name: manicure-facil
     restart: unless-stopped
     ports:

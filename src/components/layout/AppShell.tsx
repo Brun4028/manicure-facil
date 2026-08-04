@@ -1,15 +1,17 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState, useEffect } from "react";
 import {
   LayoutDashboard, Users, CalendarDays, Scissors, Wallet,
   Moon, Sun, LogOut, Plus, Sparkles, Menu, X,
   Package, Percent, Image as ImageIcon, FileSpreadsheet, Link as LinkIcon,
-  ChevronLeft, User, Settings,
+  ChevronLeft, User, Settings, ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getMinhaConta } from "@/lib/access";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet";
@@ -86,6 +88,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   const segments = pathname.split("/").filter(Boolean);
 
+  // Só administradores veem o item de navegação "Admin"
+  const { data: minhaConta } = useQuery({
+    queryKey: ["minha_conta"],
+    queryFn: getMinhaConta,
+    enabled: !!user,
+  });
+  const isAdmin = minhaConta?.is_admin === true;
+  const navItems = (isAdmin
+    ? [...nav, { to: "/admin", label: "Admin", icon: ShieldCheck }]
+    : [...nav]
+  ) as unknown as typeof nav;
+
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -127,7 +141,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {/* Navigation */}
           <nav className="px-3 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden" role="navigation" aria-label="Navegação principal">
-            {nav.map((n) => (
+            {navItems.map((n) => (
               <SidebarNavItem key={n.to} item={n} pathname={pathname} collapsed={desktopCollapsed} />
             ))}
           </nav>
@@ -251,7 +265,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               {/* Nav links */}
               <nav className="px-3 py-4 flex-1 space-y-1 overflow-y-auto">
-                {nav.map((n) => {
+                {navItems.map((n) => {
                   const active = pathname.startsWith(n.to);
                   return (
                     <SheetClose asChild key={n.to}>
@@ -374,7 +388,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {/* Right actions */}
               <div className="ml-auto flex items-center gap-1 shrink-0">
                 <NotificationsPopover />
-                <Button variant="ghost" size="icon" onClick={() => navigate({ to: "/configuracoes" as any })} aria-label="Configurações">
+                <Button variant="ghost" size="icon" onClick={() => navigate({ to: "/configuracoes" })} aria-label="Configurações">
                   <Settings className="size-5" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={toggle} aria-label="Alternar tema">

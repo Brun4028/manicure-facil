@@ -44,13 +44,26 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 const SELF = "'self'";
 const UNSAFE_INLINE = "'unsafe-inline'"; // Necessário para estilos inline do Tailwind
 
+// NOTA CSP:
+// - 'unsafe-inline' é necessário para os scripts inline de hidratação do SSR
+//   (TanStack Start). Removê-lo exigiria nonces — deixado como melhoria futura.
+// - 'unsafe-eval' foi REMOVIDO: o bundle de produção (React 19 + Vite +
+//   TanStack) não usa eval/new Function. Verificado no build.
+// - As chamadas de IA (OpenAI/Gemini) são feitas APENAS no servidor (server
+//   functions) — o navegador nunca conecta direto nas APIs de IA, então elas
+//   não precisam estar em connect-src.
+// - Domínios do Vercel (va.vercel-scripts.com / vercel.live) removidos: o app
+//   não usa Vercel Analytics.
+// - Cross-Origin-Embedder-Policy: require-corp REMOVIDO — quebrava o
+//   carregamento de recursos cross-origin legítimos (fontes do Google, fotos
+//   do Supabase Storage sem header CORP) sem benefício real para este app.
 const CSP_HEADER = [
   `default-src ${SELF}`,
-  `script-src ${SELF} 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://vercel.live https://*.supabase.co`,
+  `script-src ${SELF} 'unsafe-inline' https://*.supabase.co`,
   `style-src ${SELF} ${UNSAFE_INLINE} https://fonts.googleapis.com https://fonts.gstatic.com`,
   `img-src ${SELF} data: blob: https: https://*.supabase.co`,
   `font-src ${SELF} https://fonts.googleapis.com https://fonts.gstatic.com data:`,
-  `connect-src ${SELF} https://*.supabase.co https://api.openai.com https://generativelanguage.googleapis.com https://va.vercel-scripts.com https://vercel.live wss://*.supabase.co`,
+  `connect-src ${SELF} https://*.supabase.co wss://*.supabase.co`,
   `frame-src ${SELF} https://*.supabase.co`,
   `media-src ${SELF} data: blob:`,
   `object-src 'none'`,
@@ -69,7 +82,8 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
   "Cross-Origin-Opener-Policy": "same-origin",
-  "Cross-Origin-Embedder-Policy": "require-corp",
+  // Cross-Origin-Resource-Policy same-origin é seguro aqui: todos os assets
+  // do app são servidos pelo próprio origin.
   "Cross-Origin-Resource-Policy": "same-origin",
 };
 
@@ -120,22 +134,57 @@ type RateLimitConfig = {
 };
 
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  // Autenticação: 5 tentativas por minuto
+  // Autenticação: 5 tentativas por minuto (anti brute-force)
   auth: { maxRequests: 5, windowMs: 60_000 },
-  // Criação de agendamento público: 3 por minuto
-  public_booking: { maxRequests: 3, windowMs: 60_000 },
-  // API de IA: 20 requisições por minuto
-  ai: { maxRequests: 20, windowMs: 60_000 },
+  // Página pública /agendar/:id (GETs do HTML + assets)
+  public_booking_page: { maxRequests: 10, windowMs: 60_000 },
+  // Server functions (TODAS, autenticadas ou não): 15/min por função por IP.
+  // O bucket é por função (o pathname /_server-fn/<id> é único por função).
+  // NÃO diferenciamos por header Authorization (controlado pelo cliente — um
+  // atacante poderia adicionar um Bearer falso para trocar de bucket).
+  // Para as funções públicas (agendamento/avaliação), a defesa primária
+  // anti-spam é a validação no banco (conflito de horário, conta ativa); o
+  // rate limit é o backstop.
+  server_fn: { maxRequests: 15, windowMs: 60_000 },
   // Geral: 100 requisições por minuto
   general: { maxRequests: 100, windowMs: 60_000 },
 };
 
+// ─── IP confiável (anti-spoofing de X-Forwarded-For) ───────────────────────
+// NENHUM header de proxy é confiável se a aplicação estiver exposta direto
+// (sem proxy reverso): o atacante controla cf-connecting-ip, x-real-ip e
+// x-forwarded-for. Em produção o proxy confiável (Cloudflare/Nginx) DEVE
+// sobrescrever (não apenas acrescentar) estes headers.
+//
+// Opcional: fixar o header confiável via env RATE_LIMIT_TRUSTED_HEADER
+// (ex.: "cf-connecting-ip" se atrás do Cloudflare, "x-real-ip" se atrás de
+// Nginx). Padrão: cascata conservadora — cf-connecting-ip → x-real-ip →
+// ÚLTIMO elemento de x-forwarded-for (o proxy confiável apenda o IP real ao
+// final da cadeia; os elementos anteriores são do cliente).
 function getClientIp(request: Request): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "127.0.0.1"
-  );
+  const trustedHeader = process.env.RATE_LIMIT_TRUSTED_HEADER;
+  if (trustedHeader) {
+    const v = request.headers.get(trustedHeader);
+    if (v) return v.trim();
+  }
+
+  const cfIp = request.headers.get("cf-connecting-ip");
+  if (cfIp) return cfIp.trim();
+
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+
+  const xff = request.headers.get("x-forwarded-for");
+  if (xff) {
+    const parts = xff
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return last;
+  }
+
+  return "127.0.0.1";
 }
 
 function checkRateLimit(
@@ -160,23 +209,30 @@ function checkRateLimit(
   return { allowed: true, remaining: config.maxRequests - entry.count, retryAfter: 0 };
 }
 
-function getRateLimitConfig(pathname: string, method: string): RateLimitConfig {
+function isServerFnRequest(request: Request, pathname: string): boolean {
+  // TanStack Start marca TODAS as chamadas de server function com o header
+  // `x-tsr-serverFn: true` (independente do ID da função no pathname, que é
+  // ofuscado em produção). Fallback pelo pathname cobre SSR interno.
+  return (
+    request.headers.get("x-tsr-serverFn") === "true" ||
+    pathname.includes("/_server-fn/") ||
+    pathname.includes("/server-fn/")
+  );
+}
+
+function getRateLimitConfig(request: Request, pathname: string, method: string): RateLimitConfig {
   // Rate limit em autenticação APENAS para POST (tentativas de login)
   if ((pathname.startsWith("/auth") || pathname === "/api/auth") && method === "POST") {
     return RATE_LIMITS.auth;
   }
-  if (pathname.startsWith("/agendar/")) return RATE_LIMITS.public_booking;
-  // Server functions do TanStack Start são POSTadas em rotas do tipo /_server-fn/<id>.
-  // O id da getAiChatResponse inclui o caminho do arquivo (ai/ai-chat) — detecta
-  // tanto pelo prefixo da rota quanto pelo nome da função para aplicar o limite de IA.
-  if (
-    pathname.includes("/_server-fn/") ||
-    pathname.includes("/server-fn/") ||
-    pathname.includes("getAiChatResponse") ||
-    pathname.includes("ai-chat")
-  ) {
-    return RATE_LIMITS.ai;
+  if (pathname.startsWith("/agendar/")) return RATE_LIMITS.public_booking_page;
+
+  if (isServerFnRequest(request, pathname)) {
+    // Bucket único por função (pathname com ID único). Não confiamos na
+    // presença do header Authorization (controlado pelo cliente).
+    return RATE_LIMITS.server_fn;
   }
+
   return RATE_LIMITS.general;
 }
 
@@ -186,8 +242,11 @@ export default {
       const url = new URL(request.url);
       
       // ── Rate Limiting ────────────────────────────────────────────
+      // NOTA: limite por IP em memória. Para múltiplas instâncias em
+      // produção, migrar para um store distribuído (ex.: Redis/Upstash) —
+      // ver README/relatório de auditoria.
       const ip = getClientIp(request);
-      const rateLimitConfig = getRateLimitConfig(url.pathname, request.method);
+      const rateLimitConfig = getRateLimitConfig(request, url.pathname, request.method);
       const rateLimitKey = `${ip}:${request.method}:${url.pathname}`;
       const rateCheck = checkRateLimit(rateLimitKey, rateLimitConfig);
 

@@ -32,6 +32,19 @@ RUN bun install --frozen-lockfile
 # Copia o restante do código-fonte
 COPY . .
 
+# ── Variáveis públicas (VITE_*) no BUILD ──────────────────────────────────
+# O bundle do cliente (navegador) recebe VITE_SUPABASE_URL e
+# VITE_SUPABASE_PUBLISHABLE_KEY EM TEMPO DE BUILD (o Vite substitui
+# import.meta.env.VITE_* estaticamente). O .env está no .dockerignore, então
+# estes valores precisam vir via --build-arg (o docker-compose.yml já
+# declara os args automaticamente a partir do .env local).
+# Sem isso, o navegador carrega o app SEM configuração do Supabase e o
+# client lança "Missing Supabase environment variable(s)".
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
+    VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
+
 # Compila a aplicação para produção
 # TanStack Start + Vite gera a saída em .output/ (Nitro)
 RUN bun run build

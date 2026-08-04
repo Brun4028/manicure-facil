@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import logoIconWhite from "@/assets/logo-icon-white.png";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getDadosPublicosManicure,
+  criarAgendamentoPublico,
+  criarAvaliacaoPublica,
+} from "@/lib/public/booking.functions";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +15,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fallbackDb } from "@/lib/fallback-db";
 import {
   CalendarDays, Scissors, User, Phone, Mail, Clock, Sparkles, CheckCircle2, Star, Award, Heart, Cake, ChevronLeft, ChevronRight
 } from "lucide-react";
@@ -24,9 +27,9 @@ export const Route = createFileRoute("/agendar/$userId")({
   component: PublicAgendamentoPage,
 });
 
-type Serv = { id: string; nome: string; valor: number; custo: number; duracao_min: number; ativo: boolean };
-type Photo = { id: string; titulo: string; imagem_url: string; tags: string[] | null; publico: boolean };
-type Review = { id: string; user_id?: string; cliente_nome: string; nota: number; comentario: string | null; data: string; publico: boolean; created_at?: string };
+type Serv = { id: string; nome: string; valor: number; duracao_min: number };
+type Photo = { id: string; titulo: string; imagem_url: string; tags: string[] | null };
+type Review = { id: string; cliente_nome: string; nota: number; comentario: string | null; data: string };
 
 const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -53,107 +56,118 @@ function PublicAgendamentoPage() {
   });
   const [showReviewForm, setShowReviewForm] = useState(false);
 
-  // 1. Fetch Manicure Profile
-  const profileQuery = useQuery({
-    queryKey: ["public_profile", userId],
+  // Busca única dos dados públicos da manicure — 100% via server function
+  // no backend (service_role). O navegador nunca consulta o banco com a chave anon.
+  const publicoQuery = useQuery({
+    queryKey: ["public_manicure", userId],
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from("profiles").select("nome, avatar_url").eq("id", userId).single();
-        if (error) throw error;
-        return data;
-      } catch (e) {
-        return { nome: "Manicure Boss Studio", avatar_url: null };
-      }
+      const res = await getDadosPublicosManicure({ data: { userId } });
+      if (!res.ok) throw new Error(res.error);
+      return res.data;
     },
   });
 
-  // 2. Fetch Active Services
-  const servicesQuery = useQuery({
-    queryKey: ["public_services", userId],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from("servicos").select("*").eq("user_id", userId).eq("ativo", true).order("nome");
-        if (error) throw error;
-        return data as Serv[];
-      } catch (e) {
-        return fallbackDb.get<any>("servicos", []).filter(s => s.ativo);
-      }
-    },
-  });
-
-  // 3. Fetch Existing Bookings (to block slots)
-  const bookingsQuery = useQuery({
-    queryKey: ["public_bookings", userId],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from("agendamentos").select("data_hora, duracao_min, status").eq("user_id", userId);
-        if (error) throw error;
-        return data;
-      } catch (e) {
-        return fallbackDb.get<any>("agendamentos", []);
-      }
-    },
-  });
-
-  // 4. Fetch Loyalty Config
-  const loyaltyConfigQuery = useQuery({
-    queryKey: ["public_loyalty_config", userId],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from("fidelidade_config").select("*").eq("user_id", userId).maybeSingle();
-        if (error) throw error;
-        return data;
-      } catch (e) {
-        const local = fallbackDb.get<any>("fidelidade_config", []);
-        return local[0] || null;
-      }
-    },
-  });
-
-  // 5. Fetch Portfolio Photos
-  const portfolioQuery = useQuery({
-    queryKey: ["public_portfolio", userId],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from("portfolio").select("*").eq("user_id", userId).eq("publico", true);
-        if (error) throw error;
-        return data as Photo[];
-      } catch (e) {
-        return fallbackDb.get<any>("portfolio", []).filter(p => p.publico);
-      }
-    },
-  });
-
-  // 6. Fetch Public Feedbacks
-  const reviewsQuery = useQuery({
-    queryKey: ["public_reviews", userId],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from("avaliacoes").select("*").eq("user_id", userId).eq("publico", true);
-        if (error) throw error;
-        return data as Review[];
-      } catch (e) {
-        return fallbackDb.get<any>("avaliacoes", []).filter(r => r.publico);
-      }
-    },
-  });
-
-  const services = servicesQuery.data ?? [];
-  const bookings = bookingsQuery.data ?? [];
-  const loyaltyConfig = loyaltyConfigQuery.data;
-  const portfolio = portfolioQuery.data ?? [];
-  const reviews = reviewsQuery.data ?? [];
+  const data = publicoQuery.data;
+  const services: Serv[] = data?.servicos ?? [];
+  const bookings: { data_hora: string; duracao_min: number; status: string }[] = data?.agendamentos ?? [];
+  const loyaltyConfig = data?.fidelidade ?? null;
+  const portfolio: Photo[] = data?.portfolio ?? [];
+  const reviews: Review[] = data?.avaliacoes ?? [];
+  const perfil = data?.perfil;
+  // 🔧 NOVO: expediente e bloqueios da manicure (vindos da server function)
+  const horarios: { dia_semana: number; hora_inicio: string; hora_fim: string }[] = data?.horarios ?? [];
+  const bloqueios: {
+    data_inicio: string;
+    data_fim: string | null;
+    hora_inicio: string | null;
+    hora_fim: string | null;
+  }[] = data?.bloqueios ?? [];
 
   // Generate date options (next 10 days)
   const dateOptions = useMemo(() => {
     return Array.from({ length: 10 }, (_, i) => addDays(new Date(), i));
   }, []);
 
+  // 🔧 NOVO: helpers de expediente/bloqueio — espelham a validação do banco
+  // (agendar_servico) para que a página NÃO ofereça horários que seriam
+  // rejeitados no envio.
+  const diasComExpediente = useMemo(
+    () => new Set(horarios.map((h) => h.dia_semana)),
+    [horarios],
+  );
+
+  const slotBloqueado = useCallback(
+    (date: Date, horaInicio: string, duracaoMin: number): boolean => {
+      const [h, m] = horaInicio.split(":").map(Number);
+      const slotStart = new Date(date);
+      slotStart.setHours(h, m, 0, 0);
+      const slotEnd = slotStart.getTime() + duracaoMin * 60 * 1000;
+      const slotInicioStr = horaInicio;
+      const slotFimStr = (() => {
+        const fim = new Date(slotStart.getTime() + duracaoMin * 60 * 1000);
+        return `${String(fim.getHours()).padStart(2, "0")}:${String(fim.getMinutes()).padStart(2, "0")}`;
+      })();
+
+      const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+      for (const b of bloqueios) {
+        const inicio = b.data_inicio;
+        const fim = b.data_fim ?? b.data_inicio;
+        if (dayKey < inicio || dayKey > fim) continue;
+        // Bloqueio de dia inteiro
+        if (b.hora_inicio === null) return true;
+        // Bloqueio com janela de horário — checagem de OVERLAP
+        const bi = b.hora_inicio;
+        const bf = b.hora_fim ?? b.hora_inicio;
+        if (slotInicioStr < bf && slotFimStr > bi) return true;
+      }
+      return false;
+    },
+    [bloqueios],
+  );
+
+  const slotDentroDoExpediente = useCallback(
+    (date: Date, horaInicio: string, duracaoMin: number): boolean => {
+      // Sem expediente configurado → não restringe (comportamento antigo)
+      if (horarios.length === 0) return true;
+      const dow = date.getDay();
+      const slotFim = (() => {
+        const [h, m] = horaInicio.split(":").map(Number);
+        const fim = new Date(date);
+        fim.setHours(h, m, 0, 0);
+        fim.setTime(fim.getTime() + duracaoMin * 60 * 1000);
+        return `${String(fim.getHours()).padStart(2, "0")}:${String(fim.getMinutes()).padStart(2, "0")}`;
+      })();
+      return horarios.some(
+        (h) =>
+          h.dia_semana === dow &&
+          horaInicio >= h.hora_inicio &&
+          slotFim <= h.hora_fim,
+      );
+    },
+    [horarios],
+  );
+
+  const diaTotalmenteBloqueado = useCallback(
+    (date: Date): boolean => {
+      if (horarios.length > 0 && !diasComExpediente.has(date.getDay())) return true;
+      const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      return bloqueios.some((b) => {
+        const inicio = b.data_inicio;
+        const fim = b.data_fim ?? b.data_inicio;
+        return b.hora_inicio === null && dayKey >= inicio && dayKey <= fim;
+      });
+    },
+    [horarios, diasComExpediente, bloqueios],
+  );
+
   // Time Slot generator & overlap checker
   const timeSlots = useMemo(() => {
     if (!selectedService) return [];
     
-    // Day slots (e.g. 08:00 to 18:00 every 30 min)
+    // Janela padrão de horários (08:00–18:00 a cada 30 min). A disponibilidade
+    // real é filtrada pelo expediente da manicure (horarios_trabalho) e pelos
+    // bloqueios — espelhando a validação do banco.
     const startHour = 8;
     const endHour = 18;
     const intervalMin = 30;
@@ -177,22 +191,26 @@ function PublicAgendamentoPage() {
       const slotEnd = slotStart + (selectedService.duracao_min * 60 * 1000);
 
       // Check overlap
-      const isBooked = bookings.some((b: any) => {
+      const isBooked = bookings.some((b) => {
         if (b.status === "cancelado") return false;
         const bStart = new Date(b.data_hora).getTime();
         const bEnd = bStart + (b.duracao_min * 60 * 1000);
         return slotStart < bEnd && bStart < slotEnd;
       });
 
+      // 🔧 NOVO: fora do expediente ou bloqueado → indisponível
+      const foraDoExpediente = !slotDentroDoExpediente(selectedDate, time, selectedService.duracao_min);
+      const bloqueado = slotBloqueado(selectedDate, time, selectedService.duracao_min);
+
       // Also prevent booking past hours if selected date is today
       const isPast = isSameDay(selectedDate, new Date()) && slotStart < Date.now();
 
       return {
         time,
-        available: !isBooked && !isPast
+        available: !isBooked && !isPast && !foraDoExpediente && !bloqueado
       };
     });
-  }, [selectedService, selectedDate, bookings]);
+  }, [selectedService, selectedDate, bookings, slotDentroDoExpediente, slotBloqueado]);
 
   // Birthday discount checker (compare only month, ignore year)
   const birthdayDiscount = useMemo(() => {
@@ -224,7 +242,7 @@ function PublicAgendamentoPage() {
     return { original, final, discount };
   }, [selectedService, birthdayDiscount]);
 
-  // Booking Mutation
+  // Booking Mutation — criação via server function (validação no servidor)
   const bookingMut = useMutation({
     mutationFn: async () => {
       if (!selectedService || !selectedTime) throw new Error("Serviço e horário inválidos");
@@ -235,78 +253,19 @@ function PublicAgendamentoPage() {
       const [h, m] = selectedTime.split(":").map(Number);
       appointmentDate.setHours(h, m, 0, 0);
 
-      const clientPayload = {
-        nome: clientForm.nome.trim(),
-        telefone: clientForm.telefone.trim(),
-        email: clientForm.email.trim() || null,
-        data_nascimento: clientForm.data_nascimento || null,
-        observacoes: clientForm.observacoes.trim() || null,
-      };
-
-      try {
-        // 1. Create or Find Client in Supabase
-        // (For unauthenticated inserts, we associate with manicure userId)
-        let client_id = null;
-        
-        // Find existing client for this manicure by phone
-        const { data: existing } = await supabase
-          .from("clientes")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("telefone", clientPayload.telefone)
-          .maybeSingle();
-
-        if (existing) {
-          client_id = existing.id;
-        } else {
-          const { data: newClient, error: cliErr } = await supabase
-            .from("clientes")
-            .insert({ ...clientPayload, user_id: userId })
-            .select("id")
-            .single();
-          if (cliErr) throw cliErr;
-          client_id = newClient.id;
-        }
-
-        // 2. Insert Appointment
-        const { error: appErr } = await supabase.from("agendamentos").insert({
-          user_id: userId,
-          cliente_id: client_id,
-          servico_id: selectedService.id,
-          data_hora: appointmentDate.toISOString(),
-          duracao_min: selectedService.duracao_min,
-          valor: pricing.final,
-          custo: selectedService.custo,
-          status: "agendado",
-          pagamento: "pendente",
-        } as any);
-
-        if (appErr) throw appErr;
-
-      } catch (e) {
-        console.warn("Using local fallback for public agendamento booking", e);
-        // Fallback
-        const localClients = fallbackDb.get<any>("clientes", []);
-        let matchedClient = localClients.find((c: any) => c.telefone === clientPayload.telefone);
-        if (!matchedClient) {
-          matchedClient = fallbackDb.insert<any>("clientes", {
-            user_id: userId,
-            ...clientPayload
-          }, []);
-        }
-
-        fallbackDb.insert<any>("agendamentos", {
-          user_id: userId,
-          cliente_id: matchedClient.id,
-          servico_id: selectedService.id,
-          data_hora: appointmentDate.toISOString(),
-          duracao_min: selectedService.duracao_min,
-          valor: pricing.final,
-          custo: selectedService.custo,
-          status: "agendado",
-          pagamento: "pendente",
-        }, []);
-      }
+      const res = await criarAgendamentoPublico({
+        data: {
+          userId,
+          nome: clientForm.nome.trim(),
+          telefone: clientForm.telefone.trim(),
+          email: clientForm.email.trim() || "",
+          dataNascimento: clientForm.data_nascimento || "",
+          observacoes: clientForm.observacoes.trim() || "",
+          servicoId: selectedService.id,
+          dataHora: appointmentDate.toISOString(),
+        },
+      });
+      if (!res.ok) throw new Error(res.error);
     },
     onSuccess: () => {
       setStep(4); // Success step
@@ -314,37 +273,25 @@ function PublicAgendamentoPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Review submission Mutation
+  // Review submission Mutation — via server function (validação no servidor)
   const reviewMut = useMutation({
     mutationFn: async () => {
       if (!reviewForm.nome.trim()) throw new Error("Insira seu nome");
-      const payload = {
-        cliente_nome: reviewForm.nome.trim(),
-        nota: reviewForm.nota,
-        comentario: reviewForm.comentario.trim() || null,
-        publico: true,
-      };
-
-      try {
-        await supabase.from("avaliacoes").insert({
-          ...payload,
-          user_id: userId,
-        });
-      } catch {
-        fallbackDb.insert<Review>("avaliacoes", {
-          id: crypto.randomUUID(),
-          user_id: userId,
-          data: new Date().toISOString().split("T")[0],
-          created_at: new Date().toISOString(),
-          ...payload,
-        }, []);
-      }
+      const res = await criarAvaliacaoPublica({
+        data: {
+          userId,
+          nome: reviewForm.nome.trim(),
+          nota: reviewForm.nota,
+          comentario: reviewForm.comentario.trim() || "",
+        },
+      });
+      if (!res.ok) throw new Error(res.error);
     },
     onSuccess: () => {
       toast.success("Obrigada pelo seu feedback!");
       setShowReviewForm(false);
       setReviewForm({ nome: "", nota: 5, comentario: "" });
-      reviewsQuery.refetch();
+      publicoQuery.refetch();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -358,7 +305,7 @@ function PublicAgendamentoPage() {
             <img src={logoIconWhite} alt="Logo" className="size-5 object-contain" />
           </div>
           <div>
-            <h1 className="font-display text-xl leading-none">{profileQuery.data?.nome || "Carregando..."}</h1>
+            <h1 className="font-display text-xl leading-none">{perfil?.nome || "Carregando..."}</h1>
             <p className="text-[10px] text-muted-foreground mt-1">Agendamento Online Premium</p>
           </div>
         </div>
@@ -382,7 +329,7 @@ function PublicAgendamentoPage() {
               <h2 className="font-display text-2xl flex items-center gap-2"><Scissors className="size-5 text-purple-500" /> Escolha o Serviço</h2>
               <p className="text-xs text-muted-foreground">Selecione o procedimento desejado para continuar</p>
 
-              {servicesQuery.isLoading ? (
+              {publicoQuery.isLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}
                 </div>
@@ -425,14 +372,18 @@ function PublicAgendamentoPage() {
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                   {dateOptions.map(date => {
                     const active = isSameDay(date, selectedDate);
+                    const blocked = diaTotalmenteBloqueado(date);
                     return (
                       <button
                         key={date.toISOString()}
                         onClick={() => { setSelectedDate(date); setSelectedTime(""); }}
+                        disabled={blocked}
                         className={`px-4 py-2.5 rounded-xl text-center shrink-0 min-w-[70px] transition-all flex flex-col items-center ${
-                          active
-                            ? "gradient-primary text-primary-foreground shadow-glow"
-                            : "glass hover:bg-accent/40"
+                          blocked
+                            ? "opacity-30 cursor-not-allowed"
+                            : active
+                              ? "gradient-primary text-primary-foreground shadow-glow"
+                              : "glass hover:bg-accent/40"
                         }`}
                       >
                         <span className="text-[10px] uppercase font-bold tracking-wider">
@@ -445,6 +396,11 @@ function PublicAgendamentoPage() {
                     );
                   })}
                 </div>
+                {diaTotalmenteBloqueado(selectedDate) && (
+                  <p className="text-xs text-muted-foreground">
+                    Esta data está indisponível (fora do expediente ou bloqueada pela profissional).
+                  </p>
+                )}
               </div>
 
               {/* Hours Grid */}

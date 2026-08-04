@@ -61,17 +61,29 @@ export const auditLog = {
     detalhes?: Record<string, unknown>,
   ): Promise<void> {
     try {
+      // 🔧 FIX AUDITORIA: a política RLS `own_audit_log_insert` exige
+      // `auth.uid() = user_id`. Sem o user_id, o insert falhava silenciosamente
+      // (user_id NULL → WITH CHECK false) e NENHUM log era gravado. Agora o
+      // user_id é buscado da sessão antes do insert.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        console.warn("[AuditLog] Usuário não autenticado — auditoria ignorada");
+        return;
+      }
+
       // Usamos tipo any porque a tabela audit_log foi adicionada via migration
       // e os tipos TypeScript do Supabase ainda não foram regenerados.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from as any)("audit_log").insert({
+        user_id: user.id,
         acao,
         entidade,
         entidade_id: entidade_id ?? null,
         detalhes: detalhes ?? null,
-        // Nota: o IP real do cliente não está disponível no client-side
-        // O servidor (server.ts) é responsável por extrair o IP real via headers
+        // Nota: o IP real do cliente não está disponível no client-side.
+        // O servidor (server.ts) é responsável por extrair o IP real via headers.
         ip_address: typeof window !== "undefined" ? "client-side" : "server",
         user_agent: typeof navigator !== "undefined"
           ? navigator.userAgent.slice(0, 255)
