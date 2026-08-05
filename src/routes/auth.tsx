@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate, redirect, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { z } from "zod";
 import { Mail, ShieldAlert, KeyRound } from "lucide-react";
 import logoIconWhite from "@/assets/logo-icon-white.png";
@@ -23,16 +25,17 @@ export const Route = createFileRoute("/auth")({
       if (contaTemAcesso(conta)) throw redirect({ to: "/dashboard" });
     }
   },
-  head: () => ({ meta: [{ title: "Entrar — Manicure Fácil" }] }),
   component: AuthPage,
 });
 
 const loginSchema = z.object({
-  email: z.string().trim().email("Email inválido").max(255),
+  email: z.string().trim().email("E-mail inválido").max(255),
   password: z.string().min(6, "Mínimo 6 caracteres").max(72),
 });
 
 function AuthPage() {
+  usePageTitle("Entrar — Manicure Fácil");
+
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -223,7 +226,7 @@ function AuthPage() {
 
             <form onSubmit={handleLogin} className="space-y-5" aria-label="Formulário de login">
               <div className="space-y-1.5">
-                <Label htmlFor="login-email" className="text-sm font-medium text-[#A1A1AA]">Email</Label>
+                <Label htmlFor="login-email" className="text-sm font-medium text-[#A1A1AA]">E-mail</Label>
                 <Input id="login-email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setLoginErrors(e => { delete e.email; return {...e}; }); }} required className={`h-11 rounded-xl bg-[#1F2128] border-[#252836] text-white focus:border-[#D946EF] focus:ring-2 focus:ring-[#D946EF]/20 transition-all ${loginErrors.email ? "ring-2 ring-destructive" : ""}`} aria-invalid={!!loginErrors.email} aria-describedby={loginErrors.email ? "error-login-email" : undefined} />
                 {loginErrors.email && <span id="error-login-email" className="sr-only" role="alert">{loginErrors.email}</span>}
               </div>
@@ -279,7 +282,7 @@ function ForgotPasswordDialog() {
 
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
-    const parsed = z.string().email("Email inválido").safeParse(email);
+    const parsed = z.string().email("E-mail inválido").safeParse(email);
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
 
     setLoading(true);
@@ -315,7 +318,7 @@ function ForgotPasswordDialog() {
             </div>
             <div>
               <DialogTitle className="font-display text-xl">
-                {sent ? "Email enviado!" : "Recuperar senha"}
+                {sent ? "E-mail enviado!" : "Recuperar senha"}
               </DialogTitle>
             </div>
           </div>

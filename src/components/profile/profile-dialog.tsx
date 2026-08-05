@@ -98,7 +98,7 @@ export function ProfileDialog({
           {user?.email && (
             <div className="rounded-xl bg-muted/50 border border-border p-3 space-y-1">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
-                Email
+                E-mail
               </span>
               <p className="text-sm text-foreground">{user.email}</p>
             </div>

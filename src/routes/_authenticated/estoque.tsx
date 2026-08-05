@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,14 +16,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fallbackDb } from "@/lib/fallback-db";
-import { Plus, Pencil, Trash2, Package, ShoppingCart, ArrowUpDown, AlertTriangle, Check, Trash, Box } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, ShoppingCart, ArrowUpDown, AlertTriangle, Trash } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/estoque")({
-  head: () => ({ meta: [{ title: "Estoque & Vendas — Manicure Fácil" }] }),
   component: EstoquePage,
 });
 
@@ -72,6 +73,8 @@ const defaultMovs: Mov[] = [
 ];
 
 function EstoquePage() {
+  usePageTitle("Estoque & Vendas — Manicure Fácil");
+
   const qc = useQueryClient();
   const { confirm: confirmDelete } = useConfirm();
   const [activeTab, setActiveTab] = useState("estoque");
@@ -159,7 +162,7 @@ function EstoquePage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)] overflow-x-auto">
           <TabsTrigger value="estoque" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Package className="size-4" /> Estoque</TabsTrigger>
           <TabsTrigger value="movimentacoes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><ArrowUpDown className="size-4" /> Movimentações</TabsTrigger>
           <TabsTrigger value="vendas" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><ShoppingCart className="size-4" /> Frente de Caixa</TabsTrigger>
@@ -169,7 +172,7 @@ function EstoquePage() {
         <TabsContent value="estoque">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <h2 className="font-display text-xl">Controle de Inventário</h2>
-            <ProductDialog onSaved={invalidate} products={products} />
+            <ProductDialog onSaved={invalidate} />
           </div>
 
           {prodsQuery.isLoading ? (
@@ -194,8 +197,8 @@ function EstoquePage() {
                         <h3 className="font-medium text-base">{p.nome}</h3>
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{p.descricao || "Sem descrição"}</p>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <ProductDialog serv={p} onSaved={invalidate} products={products} trigger={
+                      <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
+                        <ProductDialog serv={p} onSaved={invalidate} trigger={
                           <Button size="icon" variant="ghost" className="hover:bg-purple-100 dark:hover:bg-purple-500/20" aria-label={`Editar ${p.nome}`}><Pencil className="size-4 text-purple-500" aria-hidden="true" /></Button>
                         } />
                         <Button size="icon" variant="ghost" className="hover:bg-red-100 dark:hover:bg-red-500/20" aria-label={`Excluir ${p.nome}`} onClick={() => {
@@ -316,7 +319,7 @@ function EstoquePage() {
 }
 
 // Dialog: Add/Edit Product
-function ProductDialog({ serv, onSaved, products, trigger }: { serv?: Prod; onSaved: () => void; products: Prod[]; trigger?: React.ReactNode }) {
+function ProductDialog({ serv, onSaved, trigger }: { serv?: Prod; onSaved: () => void; trigger?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     nome: serv?.nome ?? "",
@@ -841,7 +844,7 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
             <div className="flex-1 space-y-3 max-h-[200px] overflow-y-auto pr-1">
               {basket.length === 0 ? (
                 <div className="text-center py-10 text-muted-foreground text-sm">
-                  Carrinho vazio. Adicione produtos ao lado.
+                  Carrinho vazio. Adicione produtos do catálogo.
                 </div>
               ) : (
                 basket.map(item => (

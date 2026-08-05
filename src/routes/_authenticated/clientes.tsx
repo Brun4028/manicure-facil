@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -12,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, Search, Phone, Mail, Cake, Users, Trophy, Award, Star, History } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Phone, Mail, Cake, Users, Trophy, History } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { differenceInDays } from "date-fns";
@@ -20,7 +22,6 @@ import { ClienteHistoryDialog } from "@/components/clientes/cliente-history-dial
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/clientes")({
-  head: () => ({ meta: [{ title: "Clientes — Manicure Fácil" }] }),
   component: ClientesPage,
 });
 
@@ -33,7 +34,7 @@ type Cliente = {
 const schema = z.object({
   nome: z.string().trim().min(2, "Informe o nome").max(80),
   telefone: z.string().max(20).optional().or(z.literal("")),
-  email: z.string().email("Email inválido").max(255).optional().or(z.literal("")),
+  email: z.string().email("E-mail inválido").max(255).optional().or(z.literal("")),
   data_nascimento: z.string().optional().or(z.literal("")),
   observacoes: z.string().max(500).optional().or(z.literal("")),
   alergias: z.string().max(500).optional().or(z.literal("")),
@@ -41,6 +42,8 @@ const schema = z.object({
 });
 
 function ClientesPage() {
+  usePageTitle("Clientes — Manicure Fácil");
+
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("clientes");
@@ -118,12 +121,12 @@ function ClientesPage() {
 
       <PageHeader
         title="Clientes"
-        subtitle="Gerencie seu CRM"
+        subtitle="Gerencie suas clientes"
         actions={<ClienteDialog onSaved={() => qc.invalidateQueries({ queryKey: ["clientes"] })} />}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)] overflow-x-auto">
           <TabsTrigger value="clientes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Users className="size-4" /> Clientes</TabsTrigger>
           <TabsTrigger value="ranking" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Trophy className="size-4" /> Ranking</TabsTrigger>
         </TabsList>
@@ -162,7 +165,7 @@ function ClientesPage() {
                         </p>}
                       </div>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                       <Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" onClick={() => setHistoryCliente(c)} aria-label={`Histórico de ${c.nome}`}>
                         <History className="size-4 text-[#D946EF]" aria-hidden="true" />
                       </Button>
@@ -326,7 +329,7 @@ function ClienteDialog({ cliente, onSaved, trigger }: { cliente?: Cliente; onSav
             <div><Label htmlFor="cli-tel">Telefone</Label><Input id="cli-tel" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></div>
             <div><Label htmlFor="cli-nasc">Nascimento</Label><Input id="cli-nasc" type="date" value={form.data_nascimento} onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })} /></div>
           </div>
-          <div><Label htmlFor="cli-email">Email</Label><Input id="cli-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+          <div><Label htmlFor="cli-email">E-mail</Label><Input id="cli-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
           <div><Label htmlFor="cli-servico">Serviço favorito</Label><Input id="cli-servico" value={form.servico_favorito} onChange={(e) => setForm({ ...form, servico_favorito: e.target.value })} /></div>
           <div><Label htmlFor="cli-alergias">Alergias</Label><Textarea id="cli-alergias" value={form.alergias} onChange={(e) => setForm({ ...form, alergias: e.target.value })} rows={2} /></div>
           <div><Label htmlFor="cli-obs">Observações</Label><Textarea id="cli-obs" value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} /></div>

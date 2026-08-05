@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Trash2, Info, AlertCircle } from "lucide-react";
+import { AlertTriangle, Info, AlertCircle } from "lucide-react";
 
 type ConfirmVariant = "danger" | "warning" | "info" | "success";
 

@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,12 +17,11 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fallbackDb } from "@/lib/fallback-db";
-import { Plus, Pencil, Trash2, Award, Percent, Gift, Settings, Sparkles, Check, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Award, Percent, Gift, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/marketing")({
-  head: () => ({ meta: [{ title: "Fidelidade & Promoções — Manicure Fácil" }] }),
   component: MarketingPage,
 });
 
@@ -61,11 +62,6 @@ type Client = {
   telefone: string | null;
 };
 
-type Serv = {
-  id: string;
-  nome: string;
-};
-
 const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 // Mock defaults
@@ -86,6 +82,8 @@ const defaultPromos: Promo[] = [
 ];
 
 function MarketingPage() {
+  usePageTitle("Fidelidade & Promoções — Manicure Fácil");
+
   const qc = useQueryClient();
   const { confirm: confirmDel } = useConfirm();
   const [activeTab, setActiveTab] = useState("fidelidade");
@@ -164,24 +162,9 @@ function MarketingPage() {
     },
   });
 
-  // Query Services (for promo filtering)
-  const servicesQuery = useQuery({
-    queryKey: ["servicos-marketing"],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from("servicos").select("id, nome");
-        if (error) throw error;
-        return data as Serv[];
-      } catch (e) {
-        return [] as Serv[];
-      }
-    },
-  });
-
   const config = fidConfigQuery.data ?? defaultFidConfig;
   const promotions = promosQuery.data ?? [];
   const clients = clientsQuery.data ?? [];
-  const services = servicesQuery.data ?? [];
 
   const loyaltyPointsList = useMemo(() => {
     const rawPts = fidPointsQuery.data ?? [];
@@ -245,7 +228,7 @@ function MarketingPage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)] overflow-x-auto">
           <TabsTrigger value="fidelidade" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Award className="size-4" /> Cartão Fidelidade</TabsTrigger>
           <TabsTrigger value="promocoes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Percent className="size-4" /> Cupons & Promoções</TabsTrigger>
           <TabsTrigger value="aniversariantes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Gift className="size-4" /> Promoções de Aniversário</TabsTrigger>
@@ -341,7 +324,7 @@ function MarketingPage() {
                             <TableCell className="text-right font-display font-bold text-lg">{pts.saldo_pontos} pts</TableCell>
                             <TableCell className="text-center">
                               {canRedeem ? (
-                                <Badge variant="secondary" className="animate-pulse rounded-full text-[10px] bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-transparent">Apto a Resgatar</Badge>
+                                <Badge variant="secondary" className="animate-pulse rounded-full text-[10px] bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-transparent">Pode resgatar</Badge>
                               ) : (
                                 <Badge variant="secondary" className="rounded-full text-[10px] opacity-60">Falta {config.pontos_resgate - pts.saldo_pontos} pts</Badge>
                               )}
@@ -364,7 +347,7 @@ function MarketingPage() {
               <h2 className="font-display text-xl">Cupons de Desconto & Promoções</h2>
               <p className="text-sm text-muted-foreground">Gerencie descontos para agendamentos e vendas</p>
             </div>
-            <PromoDialog services={services} onSaved={invalidate} />
+            <PromoDialog onSaved={invalidate} />
           </div>
 
           {promosQuery.isLoading ? (
@@ -410,7 +393,7 @@ function MarketingPage() {
                       <div className="mt-4">
                         <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Desconto</span>
                         <span className="font-display text-2xl font-bold block text-primary mt-1">
-                          {promo.tipo === "desconto_porcentagem" ? `${promo.valor}% Off` : `${brl(promo.valor)} de desconto`}
+                          {`${promo.tipo === "desconto_porcentagem" ? `${promo.valor}%` : brl(promo.valor)} de desconto`}
                         </span>
                       </div>
                     </div>
@@ -639,7 +622,7 @@ function PointsAdjustmentDialog({ clients, onSaved }: { clients: Client[]; onSav
 }
 
 // Dialog: Add/Edit promotion cupom
-function PromoDialog({ services, onSaved }: { services: Serv[]; onSaved: () => void }) {
+function PromoDialog({ onSaved }: { onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     nome: "",

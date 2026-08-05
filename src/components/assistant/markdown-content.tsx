@@ -3,6 +3,8 @@
  *
  * Renderiza headings, listas, negrito, tabelas e blocos de código
  * com o estilo visual do Manicure Fácil.
+ *
+ * NOTA DE UI: apenas ajustes visuais de tipografia/legibilidade.
  */
 
 import ReactMarkdown from "react-markdown";
@@ -12,17 +14,17 @@ import type { Components } from "react-markdown";
 const components: Components = {
   // Headings
   h1: ({ children, ...props }) => (
-    <h1 className="text-lg font-bold text-card-foreground mt-4 mb-2 first:mt-0" {...props}>
+    <h1 className="text-[15px] font-bold text-card-foreground mt-4 mb-2 first:mt-0 leading-snug" {...props}>
       {children}
     </h1>
   ),
   h2: ({ children, ...props }) => (
-    <h2 className="text-base font-semibold text-card-foreground mt-3 mb-2 first:mt-0" {...props}>
+    <h2 className="text-sm font-semibold text-card-foreground mt-3 mb-2 first:mt-0 leading-snug" {...props}>
       {children}
     </h2>
   ),
   h3: ({ children, ...props }) => (
-    <h3 className="text-sm font-semibold text-card-foreground mt-3 mb-1.5 first:mt-0" {...props}>
+    <h3 className="text-[13px] font-semibold text-card-foreground mt-3 mb-1.5 first:mt-0 leading-snug" {...props}>
       {children}
     </h3>
   ),
@@ -36,12 +38,12 @@ const components: Components = {
 
   // Lists
   ul: ({ children, ...props }) => (
-    <ul className="list-disc pl-5 mb-2 space-y-1 last:mb-0" {...props}>
+    <ul className="list-disc pl-5 mb-2 space-y-1 last:mb-0 marker:text-[#D946EF]" {...props}>
       {children}
     </ul>
   ),
   ol: ({ children, ...props }) => (
-    <ol className="list-decimal pl-5 mb-2 space-y-1 last:mb-0" {...props}>
+    <ol className="list-decimal pl-5 mb-2 space-y-1 last:mb-0 marker:text-[#D946EF]" {...props}>
       {children}
     </ol>
   ),
@@ -65,11 +67,8 @@ const components: Components = {
 
   // Tables
   table: ({ children, ...props }) => (
-    <div className="overflow-x-auto mb-3 last:mb-0">
-      <table
-        className="w-full text-xs border-collapse border border-border rounded-xl overflow-hidden"
-        {...props}
-      >
+    <div className="overflow-x-auto mb-3 last:mb-0 rounded-xl border border-border">
+      <table className="w-full text-xs border-collapse" {...props}>
         {children}
       </table>
     </div>
@@ -154,7 +153,7 @@ const components: Components = {
 
 export function MarkdownContent({ content }: { content: string }) {
   return (
-    <div className="markdown-content prose prose-sm max-w-none text-muted-foreground">
+    <div className="markdown-content text-[13.5px] leading-relaxed text-muted-foreground">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>

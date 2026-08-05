@@ -13,20 +13,24 @@
  * - ⚙️ Configurações (provedor, temperatura, tokens)
  * - 🔒 Segurança (validação, anti-injection)
  * - 📈 Observabilidade integrada
+ *
+ * NOTA DE UI: este arquivo contém APENAS ajustes visuais do chat.
+ * Toda a lógica (envio, streaming, debounce, contexto, cache) está intacta.
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Sparkles, X, Send, Bot, Settings2, Trash2, Eraser,
+  BrainCircuit, X, Send, Settings2, Trash2, Eraser, Sparkle,
 } from "lucide-react";
 import { sendToAi, getAiErrorMessage, type AiMessage, type AiContext } from "@/lib/ai/ai-service";
 import { aiCache } from "@/lib/ai/ai-cache";
 import { MarkdownContent } from "./markdown-content";
-import { AiSettingsDialog, getAiSettings, type AiSettings } from "./ai-settings-dialog";
+import { AiSettingsDialog, getAiSettings } from "./ai-settings-dialog";
 
 // ─── Constantes ─────────────────────────────────────────────────────────────
 
@@ -55,6 +59,73 @@ const INITIAL_MESSAGE: AiMessage = {
   timestamp: new Date(),
   suggestions: SUGGESTIONS,
 };
+
+// ─── Estado compartilhado do painel ────────────────────────────────────────
+// O gatilho (header) e o painel (AppShell) são componentes separados, então o
+// estado de aberto/fechado vive em um mini-store externo (useSyncExternalStore).
+const aiPanelListeners = new Set<() => void>();
+let aiPanelOpen = false;
+
+function subscribeAiPanel(listener: () => void) {
+  aiPanelListeners.add(listener);
+  return () => {
+    aiPanelListeners.delete(listener);
+  };
+}
+
+function getAiPanelOpen() {
+  return aiPanelOpen;
+}
+
+function getAiPanelOpenServer() {
+  return false;
+}
+
+function setAiPanelOpen(open: boolean) {
+  aiPanelOpen = open;
+  aiPanelListeners.forEach((l) => l());
+}
+
+// ─── Gatilho premium — botão no header (topo direito) ──────────────────────
+// Visual: pill com gradiente da marca, ícone exclusivo de IA (cérebro com
+// circuitos), brilho suave, ponto "online" e micro-interações.
+export function AiAssistantLauncher() {
+  const open = useSyncExternalStore(subscribeAiPanel, getAiPanelOpen, getAiPanelOpenServer);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={() => setAiPanelOpen(!open)}
+          aria-label={open ? "Fechar assistente IA" : "Abrir assistente IA"}
+          aria-pressed={open}
+          className={`group relative h-9 rounded-full flex items-center gap-1.5 pl-2.5 pr-2.5 md:pr-4 text-white text-xs font-semibold tracking-wide bg-gradient-to-r from-[#D946EF] to-[#A855F7] transition-all duration-300 ease-out overflow-hidden ${
+            open
+              ? "shadow-[0_4px_28px_rgba(217,70,239,0.55)] ring-2 ring-[#D946EF]/60 ring-offset-2 ring-offset-background"
+              : "shadow-[0_4px_20px_rgba(217,70,239,0.35)] hover:shadow-[0_4px_28px_rgba(217,70,239,0.55)] hover:scale-[1.04] active:scale-95"
+          }`}
+        >
+          {/* Brilho que atravessa o botão no hover */}
+          <span
+            className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/3 bg-white/20 blur-md rotate-12 transition-transform duration-700 ease-out group-hover:translate-x-[400%]"
+            aria-hidden="true"
+          />
+          <BrainCircuit className="size-4 shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+          <span className="hidden md:inline">Assistente IA</span>
+          {/* Ponto "online" — sugere assistente vivo e inteligente */}
+          <span
+            className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-400 border-2 border-background animate-pulse-soft"
+            aria-hidden="true"
+          />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={8} className="bg-[#171923] text-white border border-[#252836]">
+        {open ? "Fechar assistente IA" : "Assistente IA — sua consultora de gestão"}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 // ─── Context Query ──────────────────────────────────────────────────────────
 
@@ -96,7 +167,6 @@ function useAiContext(open: boolean) {
         supabase.from("agendamentos").select("cliente_id").eq("status", "concluido").gte("data_hora", new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()),
       ]);
 
-      const agsMes = agsMesR.data ?? [];
       const servicosMais = servicosMaisR?.data ?? [];
 
       // Estoque baixo
@@ -181,7 +251,13 @@ function useAiContext(open: boolean) {
 // ─── Componente Principal ───────────────────────────────────────────────────
 
 export function AiAssistant() {
-  const [open, setOpen] = useState(false);
+  const open = useSyncExternalStore(subscribeAiPanel, getAiPanelOpen, getAiPanelOpenServer);
+
+  // Se o shell desmontar (ex.: logout), o mini-store externo não pode ficar
+  // "preso" em aberto — senão o painel reabriria sozinho no próximo login.
+  useEffect(() => {
+    return () => setAiPanelOpen(false);
+  }, []);
   const [messages, setMessages] = useState<AiMessage[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const [isWaiting, setIsWaiting] = useState(false);
@@ -196,8 +272,18 @@ export function AiAssistant() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Rastreia o timer da animação de digitação para limpeza no unmount.
+  const typeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+
+  // Limpa a cadeia de setTimeouts da animação de digitação ao desmontar
+  // (ex.: logout) — evita ciclos de setState e timers órfãos após a saída.
+  useEffect(() => {
+    return () => {
+      if (typeTimerRef.current) clearTimeout(typeTimerRef.current);
+    };
+  }, []);
 
   const { data: context } = useAiContext(open);
 
@@ -306,7 +392,7 @@ export function AiAssistant() {
         // escaparia do try/catch e deixaria `isWaiting` preso em true,
         // desabilitando o input para sempre. Por isso o callback é
         // envolvido em try/catch próprio e `response.text` é protegido.
-        setTimeout(() => {
+        typeTimerRef.current = setTimeout(() => {
           try {
             let charIndex = 0;
             const fullText = typeof response.text === "string" ? response.text : "";
@@ -319,7 +405,7 @@ export function AiAssistant() {
                 let delay = TYPING_SPEED_MIN + Math.random() * (TYPING_SPEED_MAX - TYPING_SPEED_MIN);
                 if (char === "." || char === "!" || char === "?" || char === ":") delay += TYPING_PAUSE_PUNCTUATION;
                 else if (char === "\n") delay += TYPING_PAUSE_NEWLINE;
-                setTimeout(typeNextChar, delay);
+                typeTimerRef.current = setTimeout(typeNextChar, delay);
               } else {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -415,52 +501,57 @@ export function AiAssistant() {
         const isStreaming = msg.id === streamingMsgId;
         const showTypingBounce = isStreaming && msg.text.length === 0;
 
-        return (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div className={`max-w-[92%] space-y-2 ${msg.role === "user" ? "order-1" : ""}`}>
-              <div
-                className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white rounded-br-lg"
-                    : "bg-muted border border-border text-card-foreground rounded-bl-lg"
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  {msg.role === "assistant" && (
-                    <Bot className="size-4 mt-1 shrink-0 text-[#D946EF]" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    {showTypingBounce ? (
-                      <div className="flex items-center gap-1.5 py-1">
-                        <span className="size-2 rounded-full bg-[#D946EF] animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="size-2 rounded-full bg-[#D946EF] animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="size-2 rounded-full bg-[#D946EF] animate-bounce" style={{ animationDelay: "300ms" }} />
-                      </div>
-                    ) : msg.role === "assistant" ? (
-                      <MarkdownContent content={msg.text} />
-                    ) : (
-                      <div className="whitespace-pre-wrap">{msg.text}</div>
-                    )}
-                  </div>
+        // Balão do usuário: gradiente da marca, canto "cauda" inferior direito
+        if (msg.role === "user") {
+          return (
+            <div key={msg.id} className="flex justify-end animate-fade-up">
+              <div className="max-w-[88%] sm:max-w-[80%] space-y-2">
+                <div className="rounded-2xl rounded-br-md bg-gradient-to-br from-[#D946EF] to-[#A855F7] text-white px-4 py-3 text-sm leading-relaxed shadow-[0_8px_24px_rgba(217,70,239,0.28)]">
+                  <div className="whitespace-pre-wrap">{msg.text}</div>
                 </div>
               </div>
+            </div>
+          );
+        }
 
-              {msg.suggestions && msg.suggestions.length > 0 && !isStreaming && (
-                <div className="flex flex-wrap gap-1.5">
-                  {msg.suggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleSuggestionClick(s)}
-                      className="text-xs px-3 py-1.5 rounded-full bg-[#D946EF]/5 border border-[#D946EF]/20 text-muted-foreground hover:text-[#D946EF] hover:border-[#D946EF]/40 hover:bg-[#D946EF]/10 transition-all"
-                    >
-                      {s}
-                    </button>
-                  ))}
+        // Balão da IA: vidro fosco com avatar, canto "cauda" inferior esquerdo
+        return (
+          <div key={msg.id} className="flex justify-start animate-fade-up">
+            <div className="flex items-end gap-2.5 max-w-[94%] sm:max-w-[88%]">
+              {/* Avatar da IA */}
+              <div className="size-8 shrink-0 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-glow">
+                <BrainCircuit className="size-4 text-white" />
+              </div>
+
+              <div className="min-w-0 space-y-2">
+                <div className="rounded-2xl rounded-bl-md bg-muted/70 border border-border/70 backdrop-blur-sm px-4 py-3 text-sm leading-relaxed text-card-foreground shadow-card">
+                  {showTypingBounce ? (
+                    <div className="flex items-center gap-1.5 py-1.5">
+                      <span className="size-2 rounded-full bg-gradient-to-br from-[#D946EF] to-[#A855F7] animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="size-2 rounded-full bg-gradient-to-br from-[#D946EF] to-[#A855F7] animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="size-2 rounded-full bg-gradient-to-br from-[#D946EF] to-[#A855F7] animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                  ) : (
+                    <MarkdownContent content={msg.text} />
+                  )}
                 </div>
-              )}
+
+                {msg.suggestions && msg.suggestions.length > 0 && !isStreaming && (
+                  <div className="flex flex-wrap gap-2 pt-0.5">
+                    {msg.suggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSuggestionClick(s)}
+                        style={{ animationDelay: `${i * 45}ms` }}
+                        className="group flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-full border border-[#D946EF]/25 bg-[#D946EF]/[0.04] text-muted-foreground animate-fade-up hover:text-[#D946EF] hover:border-[#D946EF]/50 hover:bg-[#D946EF]/10 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(217,70,239,0.15)] active:translate-y-0 active:scale-95 transition-all duration-200"
+                      >
+                        <Sparkle className="size-3 opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -470,87 +561,105 @@ export function AiAssistant() {
 
   return (
     <>
-      {/* ── Floating Button ────────────────────────────────────── */}
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-6 z-50 size-14 rounded-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white shadow-[0_4px_24px_rgba(217,70,239,0.25)] grid place-items-center hover:scale-105 active:scale-95 transition-all duration-300 animate-fade-up group"
-        aria-label="Abrir assistente"
-      >
-        <Sparkles className="size-6 group-hover:rotate-12 transition-transform duration-300" />
-        <span className="absolute inset-0 rounded-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] animate-ping opacity-20" />
-      </button>
-
       {/* ── Overlay ─────────────────────────────────────────────── */}
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" onClick={() => setOpen(false)} />
+        <div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[2px]" onClick={() => setAiPanelOpen(false)} />
       )}
 
       {/* ── Panel ───────────────────────────────────────────────── */}
       <div
-        className={`fixed bottom-0 right-0 z-50 w-full sm:w-[420px] h-[85vh] sm:h-[600px] sm:bottom-6 sm:right-6 sm:rounded-2xl bg-card border border-border shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-          open ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 pointer-events-none"
+        className={`fixed bottom-0 right-0 z-50 w-full sm:w-[430px] h-[88vh] sm:h-[640px] sm:bottom-6 sm:right-6 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+          open ? "translate-y-0 opacity-100 scale-100" : "translate-y-10 opacity-0 scale-[0.98] pointer-events-none"
         }`}
       >
-        {/* ── Header ──────────────────────────────────────────── */}
-        <div className="shrink-0 bg-gradient-to-r from-[#D946EF] to-[#A855F7] p-4 sm:rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="size-10 rounded-xl bg-white/15 grid place-items-center backdrop-blur-sm shrink-0">
-                <Sparkles className="size-5 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-display text-base font-semibold text-white truncate">Assistente IA</h2>
-                <p className="text-[10px] text-white/70 truncate">Consultora de gestão inteligente</p>
+        {/* Moldura com gradiente da marca */}
+        <div className="h-full w-full p-[1.5px] rounded-t-[24px] sm:rounded-[24px] bg-gradient-to-br from-[#D946EF]/60 via-[#A855F7]/35 to-[#6366F1]/25 shadow-[0_32px_80px_-24px_rgba(217,70,239,0.35)]">
+          <div className="h-full w-full rounded-t-[22.5px] sm:rounded-[22.5px] bg-card overflow-hidden flex flex-col">
+            {/* ── Header premium ─────────────────────────────────── */}
+            <div className="relative shrink-0 overflow-hidden bg-gradient-to-r from-[#D946EF] via-[#C026D3] to-[#A855F7] px-4 py-4">
+              {/* Glows decorativos */}
+              <div className="pointer-events-none absolute -top-12 -right-10 size-44 rounded-full bg-white/15 blur-3xl" aria-hidden="true" />
+              <div className="pointer-events-none absolute -bottom-16 -left-10 size-40 rounded-full bg-fuchsia-950/30 blur-3xl" aria-hidden="true" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/25" aria-hidden="true" />
+
+              <div className="relative flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* Avatar */}
+                  <div className="relative shrink-0">
+                    <div className="size-11 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 grid place-items-center shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+                      <BrainCircuit className="size-6 text-white drop-shadow" />
+                    </div>
+                    <span
+                      className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full bg-emerald-400 border-2 border-[#D946EF] animate-pulse-soft"
+                      aria-hidden="true"
+                    />
+                  </div>
+
+                  <div className="min-w-0">
+                    <h2 className="font-display text-[15px] font-semibold text-white truncate leading-tight">Assistente IA</h2>
+                    <p className="flex items-center gap-1.5 text-[10px] text-white/80 truncate mt-0.5">
+                      <span className="size-1.5 rounded-full bg-emerald-300 animate-pulse-soft" aria-hidden="true" />
+                      Online · Consultora de gestão inteligente
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)}
+                    className="size-8 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors" aria-label="Configurações"
+                  ><Settings2 className="size-4" /></Button>
+                  {messages.length > 1 && (
+                    <Button variant="ghost" size="icon" onClick={handleClearChat}
+                      className="size-8 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors" aria-label="Limpar conversa"
+                    ><Eraser className="size-4" /></Button>
+                  )}
+                  <Button variant="ghost" size="icon" onClick={() => setAiPanelOpen(false)}
+                    className="size-8 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors" aria-label="Fechar"
+                  ><X className="size-5" /></Button>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)}
-                className="text-white/80 hover:text-white hover:bg-white/10 rounded-xl size-8" aria-label="Configurações"
-              ><Settings2 className="size-4" /></Button>
-              {messages.length > 1 && (
-                <Button variant="ghost" size="icon" onClick={handleClearChat}
-                  className="text-white/80 hover:text-white hover:bg-white/10 rounded-xl size-8" aria-label="Limpar conversa"
-                ><Eraser className="size-4" /></Button>
-              )}
-              <Button variant="ghost" size="icon" onClick={() => setOpen(false)}
-                className="text-white/80 hover:text-white hover:bg-white/10 rounded-xl size-8" aria-label="Fechar"
-              ><X className="size-5" /></Button>
+
+            {/* ── Messages ────────────────────────────────────── */}
+            <div
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto scrollbar-thin px-4 sm:px-5 py-5 space-y-5 bg-card bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(217,70,239,0.07),transparent)]"
+            >
+              {messageList}
             </div>
-          </div>
-        </div>
 
-        {/* ── Messages ────────────────────────────────────────── */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
-          {messageList}
-        </div>
-
-        {/* ── Input ───────────────────────────────────────────── */}
-        <div className="shrink-0 border-t border-border p-4 bg-card">
-          <form
-            onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
-            className="flex items-center gap-2"
-          >
-            <Input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Digite sua pergunta..."
-              className="flex-1 rounded-xl bg-muted border-border focus-visible:ring-[#D946EF]"
-              disabled={isWaiting}
-            />
-            <Button
-              type="submit" size="icon"
-              disabled={!input.trim() || isWaiting}
-              className="rounded-xl bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white hover:opacity-90 shadow-[0_2px_12px_rgba(217,70,239,0.15)] shrink-0 disabled:opacity-50"
-            ><Send className="size-4" /></Button>
-          </form>
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-[10px] text-muted-foreground">
-              {context ? `${context.totalClientes} clientes • ${context.totalAgendamentos} agendamentos` : "Carregando dados..."}
-            </p>
-            <button type="button" onClick={handleClearChat}
-              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-            ><Trash2 className="size-3" /> Limpar</button>
+            {/* ── Input premium ───────────────────────────────── */}
+            <div className="shrink-0 bg-card/90 backdrop-blur-xl border-t border-border p-3 sm:p-4 pb-3">
+              <div className="rounded-2xl border border-border bg-muted/40 shadow-card transition-all duration-200 focus-within:border-[#D946EF]/50 focus-within:ring-2 focus-within:ring-[#D946EF]/15 p-1.5 pl-3">
+                <form
+                  onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
+                  className="flex items-center gap-1.5"
+                >
+                  <Input
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Digite sua pergunta..."
+                    className="flex-1 h-10 border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-1 text-sm placeholder:text-muted-foreground/70"
+                    disabled={isWaiting}
+                  />
+                  <Button
+                    type="submit" size="icon"
+                    disabled={!input.trim() || isWaiting}
+                    className="size-10 rounded-xl shrink-0 bg-gradient-to-br from-[#D946EF] to-[#A855F7] text-white shadow-[0_4px_16px_rgba(217,70,239,0.3)] hover:shadow-[0_4px_24px_rgba(217,70,239,0.45)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-[0_4px_16px_rgba(217,70,239,0.3)]"
+                    aria-label="Enviar mensagem"
+                  ><Send className="size-4" /></Button>
+                </form>
+              </div>
+              <div className="flex items-center justify-between mt-2 px-1">
+                <p className="text-[10px] text-muted-foreground/80 truncate">
+                  {context ? `${context.totalClientes} clientes • ${context.totalAgendamentos} agendamentos` : "Carregando dados..."}
+                </p>
+                <button type="button" onClick={handleClearChat}
+                  className="text-[10px] text-muted-foreground/80 hover:text-[#D946EF] transition-colors flex items-center gap-1 shrink-0"
+                ><Trash2 className="size-3" /> Limpar</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

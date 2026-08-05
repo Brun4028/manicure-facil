@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -16,7 +18,6 @@ import { z } from "zod";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/servicos")({
-  head: () => ({ meta: [{ title: "Serviços — Manicure Fácil" }] }),
   component: ServicosPage,
 });
 
@@ -35,6 +36,8 @@ const schema = z.object({
 const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function ServicosPage() {
+  usePageTitle("Serviços — Manicure Fácil");
+
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["servicos"],
@@ -74,7 +77,7 @@ function ServicosPage() {
                       <p className="text-xs text-muted-foreground mt-0.5">{s.duracao_min} min</p>
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                     <ServicoDialog serv={s} onSaved={() => qc.invalidateQueries({ queryKey: ["servicos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" aria-label={`Editar ${s.nome}`}><Pencil className="size-4 text-[#D946EF]" aria-hidden="true" /></Button>} />
                     <DeleteServ id={s.id} nome={s.nome} onDone={() => qc.invalidateQueries({ queryKey: ["servicos"] })} />
                   </div>
@@ -171,12 +174,12 @@ function ServicoDialog({ serv, onSaved, trigger }: { serv?: Serv; onSaved: () =>
             <div>
               <Label className="text-xs" htmlFor="serv-retorno">Retorno (dias)</Label>
               <Input id="serv-retorno" type="number" min="1" max="365" value={form.intervalo_recomendado} onChange={(e) => setForm({ ...form, intervalo_recomendado: Number(e.target.value) })} className="text-xs" />
-              <span className="text-[9px] text-muted-foreground mt-0.5 block">Intervalo recomendado p/ retorno</span>
+              <span className="text-[9px] text-muted-foreground mt-0.5 block">Intervalo recomendado para retorno</span>
             </div>
             <div>
               <Label className="text-xs" htmlFor="serv-manutencao">Manutenção (dias)</Label>
               <Input id="serv-manutencao" type="number" min="1" max="90" value={form.dias_manutencao} onChange={(e) => setForm({ ...form, dias_manutencao: Number(e.target.value) })} className="text-xs" />
-              <span className="text-[9px] text-muted-foreground mt-0.5 block">Janela p/ lembrete de manutenção</span>
+              <span className="text-[9px] text-muted-foreground mt-0.5 block">Janela para lembrete de manutenção</span>
             </div>
           </div>
           <div className="flex items-center justify-between pt-2"><Label htmlFor="serv-ativo">Ativo</Label><Switch id="serv-ativo" checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} /></div>

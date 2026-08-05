@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,14 +17,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { fallbackDb } from "@/lib/fallback-db";
-import { Plus, Pencil, Trash2, Image, Star, Eye, EyeOff, Sparkles, Heart, Split } from "lucide-react";
+import { Plus, Trash2, Image, Star, Eye, EyeOff, Sparkles, Heart, Split } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/portfolio")({
-  head: () => ({ meta: [{ title: "Portfólio & Avaliações — Manicure Fácil" }] }),
   component: PortfolioPage,
 });
 
@@ -106,8 +107,10 @@ const defaultReviews: Review[] = [
 ];
 
 function PortfolioPage() {
+  usePageTitle("Portfólio & Avaliações — Manicure Fácil");
+
   const qc = useQueryClient();
-  const { confirm: confirmDelPhoto, confirm: confirmDelReview, confirm: confirmDelBA } = useConfirm();
+  const { confirm: confirmDelPhoto, confirm: confirmDelReview } = useConfirm();
   const [activeTab, setActiveTab] = useState("portfolio");
 
   // Query Photos
@@ -196,7 +199,7 @@ function PortfolioPage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+        <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)] overflow-x-auto">
           <TabsTrigger value="portfolio" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Image className="size-4" /> Galeria Portfólio</TabsTrigger>
           <TabsTrigger value="antesedepois" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Split className="size-4" /> Antes & Depois</TabsTrigger>
           <TabsTrigger value="avaliacoes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Star className="size-4" /> Avaliações ({stats.total})</TabsTrigger>

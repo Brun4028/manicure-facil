@@ -110,29 +110,41 @@ Assim que a conexão for restabelecida, estarei pronta para ajudar! ✨`,
 // ─── Timeout helper ─────────────────────────────────────────────────────────
 
 function withTimeout<T>(promise: Promise<T>, ms: number, abortSignal?: AbortSignal): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      const timer = setTimeout(() => {
-        reject(new AiServiceError("timeout", `Request timed out after ${ms}ms`));
-      }, ms);
-      // Clean up timeout on abort
-      abortSignal?.addEventListener(
-        "abort",
-        () => {
-          clearTimeout(timer);
-          reject(new AiServiceError("timeout", "Request was cancelled"));
-        },
-        { once: true },
-      );
-    }),
-  ]);
+  return new Promise<T>((resolve, reject) => {
+    // Limpeza do timer e do listener quando a requisição terminar (sucesso,
+    // erro, timeout ou abort) — evita timers órfãos de 45s por chamada de IA.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const cleanup = () => {
+      if (timer) clearTimeout(timer);
+      abortSignal?.removeEventListener("abort", onAbort);
+    };
+    const onAbort = () => {
+      cleanup();
+      reject(new AiServiceError("timeout", "Request was cancelled"));
+    };
+
+    abortSignal?.addEventListener("abort", onAbort, { once: true });
+    timer = setTimeout(() => {
+      cleanup();
+      reject(new AiServiceError("timeout", `Request timed out after ${ms}ms`));
+    }, ms);
+
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 }
 
 // ─── Security helpers ───────────────────────────────────────────────────────
 
 const MAX_MESSAGE_LENGTH = 2000;
-const MAX_HISTORY_LENGTH = 20;
 
 /** Lista de padrões suspeitos de prompt injection */
 const INJECTION_PATTERNS = [

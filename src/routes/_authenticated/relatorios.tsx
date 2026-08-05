@@ -1,27 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { fallbackDb } from "@/lib/fallback-db";
 import {
-  FileText, FileSpreadsheet, Download, Upload, TrendingUp, Target, BarChart2, Award, Users, AlertCircle, RefreshCw
+  FileText, FileSpreadsheet, Download, Upload, TrendingUp, Target, Award
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfMonth, endOfMonth, differenceInDays } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
-  head: () => ({ meta: [{ title: "Relatórios & Metas — Manicure Fácil" }] }),
   component: RelatoriosPage,
 });
 
@@ -36,6 +35,8 @@ type MetaMensal = {
 const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function RelatoriosPage() {
+  usePageTitle("Relatórios & Metas — Manicure Fácil");
+
   const qc = useQueryClient();
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), "yyyy-MM"));
 
@@ -210,43 +211,6 @@ function RelatoriosPage() {
     };
   }, [currentMonthData, clients, allAgendamentos, selectedMonth]);
 
-  // Goal config updates
-  const saveGoalMut = useMutation({
-    mutationFn: async (val: { faturamento_alvo: number; lucro_alvo: number; servicos_alvo: number }) => {
-      try {
-        const user = (await supabase.auth.getUser()).data.user;
-        const currentMeta = metaQuery.data;
-        if (currentMeta) {
-          await supabase.from("metas_mensais").update(val).eq("id", currentMeta.id);
-        } else {
-          await supabase.from("metas_mensais").insert({
-            user_id: user!.id,
-            mes_ano: selectedMonth,
-            ...val
-          });
-        }
-      } catch {
-        const local = fallbackDb.get<MetaMensal>("metas_mensais", []);
-        const idx = local.findIndex(x => x.mes_ano === selectedMonth);
-        if (idx !== -1) {
-          local[idx] = { ...local[idx], ...val };
-        } else {
-          local.push({
-            id: crypto.randomUUID(),
-            mes_ano: selectedMonth,
-            ...val
-          });
-        }
-        fallbackDb.set("metas_mensais", local);
-      }
-    },
-    onSuccess: () => {
-      toast.success("Meta atualizada para " + selectedMonth);
-      qc.invalidateQueries({ queryKey: ["meta_mensal", selectedMonth] });
-    },
-    onError: (e: Error) => toast.error(e.message)
-  });
-
   // PDF Export (Native stylized print overlay)
   const exportPDF = () => {
     window.print();
@@ -260,9 +224,9 @@ function RelatoriosPage() {
     }
 
     let csvContent = "\uFEFF"; // UTF-8 BOM
-    csvContent += "Relatório Mensal de Operações - " + selectedMonth + "\n";
-    csvContent += "Faturamento Estimado;" + brl(currentMonthData.faturamentoReal) + "\n";
-    csvContent += "Lucro Estimado;" + brl(currentMonthData.lucroReal) + "\n\n";
+    csvContent += "Relatório Mensal Manicure Fácil - " + selectedMonth + "\n";
+    csvContent += "Faturamento do Mês;" + brl(currentMonthData.faturamentoReal) + "\n";
+    csvContent += "Lucro Líquido (estimado);" + brl(currentMonthData.lucroReal) + "\n\n";
 
     // Bookings section
     csvContent += "AGENDAMENTOS\n";
@@ -287,7 +251,7 @@ function RelatoriosPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `relatorio_nailboss_${selectedMonth}.csv`);
+    link.setAttribute("download", `relatorio_manicure_facil_${selectedMonth}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -307,7 +271,7 @@ function RelatoriosPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `backup_nailboss_completo.json`);
+    link.setAttribute("download", `backup_manicure_facil_completo.json`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -342,7 +306,7 @@ function RelatoriosPage() {
       <div className="print-report-container hidden print:block bg-white text-black p-8 max-w-4xl mx-auto space-y-6">
         <div className="border-b pb-4 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold font-serif">Relatório Mensal Nail Boss</h1>
+            <h1 className="text-3xl font-bold font-serif">Relatório Mensal — Manicure Fácil</h1>
             <p className="text-sm text-gray-500">Mês de Referência: {selectedMonth}</p>
           </div>
           <div className="text-right text-xs text-gray-400">Gerado em: {format(new Date(), "dd/MM/yyyy HH:mm")}</div>
@@ -385,7 +349,7 @@ function RelatoriosPage() {
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-xl">Metas do Mês</h2>
-              <MetaGoalDialog current={metaQuery.data} onSaved={() => qc.invalidateQueries({ queryKey: ["meta_mensal", selectedMonth] })} />
+              <MetaGoalDialog key={selectedMonth} current={metaQuery.data} mesAno={selectedMonth} onSaved={() => qc.invalidateQueries({ queryKey: ["meta_mensal", selectedMonth] })} />
             </div>
 
             <div className="grid md:grid-cols-3 gap-4">
@@ -504,9 +468,9 @@ function RelatoriosPage() {
                   <div className="flex justify-between items-center">
                     <h3 className="font-display text-base flex items-center gap-2">
                       <span className="size-2 rounded-full bg-gradient-to-br from-rose-400 to-red-500" />
-                      Clientes Sumidos (&gt;30 dias)
+                      Clientes Inativos (30+ dias)
                     </h3>
-                    <Badge variant="destructive" className="rounded-full text-[10px] bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-transparent">{insights.inactiveCount} Clientes</Badge>
+                    <Badge variant="destructive" className="rounded-full text-[10px] bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-transparent">{insights.inactiveCount} cliente{insights.inactiveCount !== 1 ? "s" : ""}</Badge>
                   </div>
 
                   {insights.inactiveList.length === 0 ? (
@@ -620,8 +584,9 @@ function RelatoriosPage() {
 }
 
 // Dialog: Meta Goal configure
-function MetaGoalDialog({ current, onSaved }: { current: MetaMensal | null | undefined; onSaved: () => void }) {
+function MetaGoalDialog({ current, mesAno, onSaved }: { current: MetaMensal | null | undefined; mesAno: string; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
   const [form, setForm] = useState({
     faturamento_alvo: current?.faturamento_alvo ?? 3000,
     lucro_alvo: current?.lucro_alvo ?? 2000,
@@ -644,36 +609,33 @@ function MetaGoalDialog({ current, onSaved }: { current: MetaMensal | null | und
             lucro_alvo: Number(form.lucro_alvo),
             servicos_alvo: Number(form.servicos_alvo)
           };
-          // Call direct mutation
-          const qc = useQueryClient();
           try {
             const user = (await supabase.auth.getUser()).data.user;
             if (current) {
               await supabase.from("metas_mensais").update(p).eq("id", current.id);
             } else {
-              // Get selectedMonth
-              const activeMonth = format(new Date(), "yyyy-MM");
+              // Salva no MÊS SELECIONADO (não no mês atual do calendário)
               await supabase.from("metas_mensais").insert({
                 user_id: user!.id,
-                mes_ano: activeMonth,
+                mes_ano: mesAno,
                 ...p
               });
             }
           } catch {
-            const activeMonth = format(new Date(), "yyyy-MM");
             const local = fallbackDb.get<MetaMensal>("metas_mensais", []);
-            const idx = local.findIndex(x => x.mes_ano === activeMonth);
+            const idx = local.findIndex(x => x.mes_ano === mesAno);
             if (idx !== -1) {
               local[idx] = { ...local[idx], ...p };
             } else {
               local.push({
                 id: crypto.randomUUID(),
-                mes_ano: activeMonth,
+                mes_ano: mesAno,
                 ...p
               });
             }
             fallbackDb.set("metas_mensais", local);
           }
+          qc.invalidateQueries({ queryKey: ["meta_mensal", mesAno] });
           toast.success("Metas salvas com sucesso!");
           onSaved();
           setOpen(false);

@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useMemo } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -15,14 +17,13 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Calendar, Clock, CalendarDays, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { format, addDays, subDays, subMonths, addMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday, setHours, setMinutes } from "date-fns";
+import { format, addDays, subMonths, addMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { BloqueioHorariosDialog } from "@/components/agenda/bloqueio-horarios-dialog";
 
 export const Route = createFileRoute("/_authenticated/agendamentos")({
   validateSearch: (s: Record<string, unknown>) => ({ new: s.new ? 1 : undefined }),
-  head: () => ({ meta: [{ title: "Agendamentos — Manicure Fácil" }] }),
   component: AgendamentosPage,
 });
 
@@ -42,6 +43,14 @@ const statusColor: Record<Status, string> = {
   cancelado: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
 };
 
+// Rótulos legíveis dos status (evita exibir "concluido" sem acento para a usuária)
+const statusLabel: Record<Status, string> = {
+  agendado: "Agendado",
+  confirmado: "Confirmado",
+  concluido: "Concluído",
+  cancelado: "Cancelado",
+};
+
 const schema = z.object({
   cliente_id: z.string().uuid("Selecione uma cliente"),
   servico_id: z.string().uuid("Selecione um serviço"),
@@ -56,6 +65,8 @@ const schema = z.object({
 });
 
 function AgendamentosPage() {
+  usePageTitle("Agendamentos — Manicure Fácil");
+
   const qc = useQueryClient();
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -180,7 +191,7 @@ function AgendamentosPage() {
               <div key={a.id} className="shrink-0 bg-card/80 backdrop-blur-sm border border-border/60 rounded-xl p-3 min-w-[180px]">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-semibold text-card-foreground">{format(new Date(a.data_hora), "HH:mm")}</span>
-                  <Badge variant="outline" className={`text-[9px] ${statusColor[a.status as Status]}`}>{a.status}</Badge>
+                  <Badge variant="outline" className={`text-[9px] ${statusColor[a.status as Status]}`}>{statusLabel[a.status as Status] ?? a.status}</Badge>
                 </div>
                 <p className="text-xs font-medium truncate text-card-foreground">{a.clientes?.nome ?? "Cliente"}</p>
                 <p className="text-[10px] text-muted-foreground truncate">{a.servicos?.nome ?? "Serviço"}</p>
@@ -278,7 +289,7 @@ function AgendamentosPage() {
                           draggable
                           tabIndex={0}
                           role="button"
-                          aria-label={`${format(new Date(a.data_hora), "HH:mm")} - ${a.clientes?.nome ?? "Cliente"} - ${a.status}`}
+                          aria-label={`${format(new Date(a.data_hora), "HH:mm")} - ${a.clientes?.nome ?? "Cliente"} - ${statusLabel[a.status as Status] ?? a.status}`}
                           onDragStart={(e) => handleDragStart(e, a.id, a.data_hora)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -370,9 +381,9 @@ function AgendamentosPage() {
                       <div className="text-xl font-semibold text-card-foreground">
                         {Number(a.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                       </div>
-                      <Badge variant="outline" className={statusColor[a.status as Status] + " mt-1"}>{a.status}</Badge>
+                      <Badge variant="outline" className={statusColor[a.status as Status] + " mt-1"}>{statusLabel[a.status as Status] ?? a.status}</Badge>
                     </div>
-                    <AgendamentoDialog ag={a} onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10 opacity-0 group-hover:opacity-100 transition-opacity"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
+                    <AgendamentoDialog ag={a} onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
                     <DeleteAg id={a.id} onDone={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} />
                   </div>
                 </div>
@@ -564,7 +575,7 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
       // Recurrence: save + create recorrencia
       if (!ag && recorrente) {
         // Save appointment first
-        const { data: agCriado, error: insertErr } = await supabase.from("agendamentos").insert({ ...payload, user_id: u.user!.id } as any).select("id").single();
+        const { error: insertErr } = await supabase.from("agendamentos").insert({ ...payload, user_id: u.user!.id } as any);
         if (insertErr) throw insertErr;
 
         // Create recurrence record

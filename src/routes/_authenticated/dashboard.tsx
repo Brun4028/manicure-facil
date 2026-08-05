@@ -1,3 +1,4 @@
+import { usePageTitle } from "@/hooks/use-page-title";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,14 +11,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog";
 import {
   Users, CalendarDays, Wallet, TrendingUp, CheckCircle2, Clock, Cake,
-  Sparkles, AlertTriangle, Target, ArrowUp, ArrowDown, RotateCcw,
+  AlertTriangle, Target, ArrowUp, ArrowDown, RotateCcw,
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell } from "recharts";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays, subMonths, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Menu Geral — Manicure Fácil" }] }),
   component: Dashboard,
 });
 
@@ -37,7 +37,7 @@ function SmartAssistant() {
     queryKey: ["dashboard-smart-assistant"],
     queryFn: async () => {
       const [agendamentosR, clientesR, produtosR, metasR, servicosR] = await Promise.all([
-        supabase.from("agendamentos").select("id, data_hora, valor, custo, status, servico_id").order("data_hora", { ascending: true }),
+        supabase.from("agendamentos").select("id, data_hora, valor, custo, status, servico_id, cliente_id, clientes(nome)").order("data_hora", { ascending: true }),
         supabase.from("clientes").select("id, nome, data_nascimento"),
         supabase.from("produtos").select("id, nome, quantidade, quantidade_minima"),
         supabase.from("metas_mensais").select("*").eq("mes_ano", format(now, "yyyy-MM")).maybeSingle(),
@@ -67,11 +67,11 @@ function SmartAssistant() {
     return d >= todayStart && d <= todayEnd && a.status !== "cancelado";
   });
 
-  // Next upcoming appointments
+  // Next upcoming appointments (apenas de HOJE — o card se chama "Atendimentos hoje")
   const proximos = ags
     .filter((a) => {
       const d = new Date(a.data_hora);
-      return d >= now && a.status !== "cancelado";
+      return d >= todayStart && d <= todayEnd && d >= now && a.status !== "cancelado";
     })
     .slice(0, 3);
 
@@ -145,7 +145,7 @@ function SmartAssistant() {
             <div className="mt-2 space-y-1">
               {proximos.slice(0, 2).map((a: any) => (
                 <p key={a.id} className="text-[10px] text-muted-foreground truncate">
-                  {format(new Date(a.data_hora), "HH:mm")} — {a.servico_id ? "Agendado" : "Serviço"}
+                  {format(new Date(a.data_hora), "HH:mm")} — {a.clientes?.nome ?? "Atendimento"}
                 </p>
               ))}
             </div>
@@ -258,7 +258,6 @@ function SmartAssistant() {
 /* ───── F2: Return Reminder ───── */
 function ReturnReminder() {
   const now = new Date();
-  const todayStart = startOfDay(now);
 
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-return-reminder"],
@@ -381,6 +380,8 @@ function ReturnReminder() {
 
 /* ───── Dashboard Main ───── */
 function Dashboard() {
+  usePageTitle("Menu Geral — Manicure Fácil");
+
   const { user } = useAuth();
   const nome = user?.user_metadata?.nome || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
 
@@ -504,7 +505,7 @@ function Dashboard() {
           <Card key={s.label} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300 relative">
             <div className="space-y-3">
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{s.label}</p>
-              <p className="text-[28px] font-semibold tracking-tight text-card-foreground">{s.value}</p>
+              <p className="text-xl sm:text-[28px] font-semibold tracking-tight text-card-foreground break-words">{s.value}</p>
             </div>
             <div className="absolute top-4 right-4 size-10 rounded-xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center group-hover:bg-[#D946EF]/20 transition-all duration-300">
               <s.icon className="size-[18px] text-[#D946EF]" />

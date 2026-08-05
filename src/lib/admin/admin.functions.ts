@@ -100,6 +100,18 @@ const convidarSchema = z.object({
 
 const gerarLinkSchema = z.object({ userId: z.string().uuid() });
 
+// ─── Verificação server-side: o usuário é admin? ───────────────────────────
+// Usada pelo guard de rota /admin e pelo AppShell (mostrar/ocultar o item de
+// navegação). A decisão é SEMPRE tomada no servidor (JWT + conta ativa + flag
+// no banco OU allowlist ADMIN_EMAILS) — o cliente nunca decide por conta
+// própria, então usuários comuns não sabem nem que a área existe.
+
+export const verificarAdmin = createServerFn({ method: "POST" })
+  .middleware([requireAdminAuth])
+  .handler(async (): Promise<{ ok: true }> => ({
+    ok: true,
+  }));
+
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
 export type ContaAdmin = {

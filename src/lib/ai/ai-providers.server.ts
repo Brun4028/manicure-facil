@@ -329,7 +329,6 @@ export async function callOpenAI(
 
   if (!res.ok) {
     const body = await res.text();
-    const duration = Date.now() - startTime;
     aiLogger.log(aiLogger.createLog({
       provider: "openai",
       model: config.openAiModel,

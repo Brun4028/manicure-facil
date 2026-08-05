@@ -9,9 +9,8 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
-import { Bell, X, CheckCheck, Info, AlertCircle, CheckCircle, Gift, Cake, CalendarDays, Sparkles } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { Bell, CheckCheck, Info, AlertCircle, CheckCircle, Gift, Cake, CalendarDays, Sparkles } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -104,7 +103,7 @@ export function NotificationsPopover() {
       </Button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[500px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-fade-up">
+        <div className="absolute right-0 top-full mt-2 w-[min(380px,calc(100vw_-_2rem))] max-h-[500px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-fade-up">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border/40">
             <div className="flex items-center gap-2">

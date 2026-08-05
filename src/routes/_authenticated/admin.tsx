@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,26 +17,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from "sonner";
 import {
   listarContas, atualizarConta, convidarUsuario, gerarLinkConvite,
+  verificarAdmin,
   type ContaAdmin,
 } from "@/lib/admin/admin.functions";
-import { getContaDe, STATUS_LABELS, type ContaStatus } from "@/lib/access";
+import { STATUS_LABELS, type ContaStatus } from "@/lib/access";
 import { ShieldCheck, UserPlus, Copy, Check, CalendarClock, KeyRound, Users, ShieldAlert } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   ssr: false,
   beforeLoad: async () => {
-    // UX: redireciona não-admins. A segurança real está nas server functions
-    // (middleware requireAdminAuth valida admin no servidor em cada operação).
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) throw redirect({ to: "/auth" });
-    const conta = await getContaDe(user.user.id);
-    if (!conta?.is_admin) throw redirect({ to: "/dashboard" });
+    // Guard SERVER-SIDE: valida JWT + conta ativa + admin no servidor
+    // (requireAdminAuth). Acesso direto por URL por não-admin é bloqueado
+    // aqui ANTES de qualquer dado ser carregado — e as server functions
+    // revalidam em toda operação (defesa em profundidade).
+    try {
+      await verificarAdmin();
+    } catch {
+      throw redirect({ to: "/dashboard" });
+    }
   },
-  head: () => ({ meta: [{ title: "Admin — Manicure Fácil" }] }),
   component: AdminPage,
 });
-
-const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function StatusBadge({ status }: { status: ContaStatus }) {
   const styles: Record<ContaStatus, string> = {
@@ -52,6 +54,8 @@ function StatusBadge({ status }: { status: ContaStatus }) {
 }
 
 function AdminPage() {
+  usePageTitle("Admin — Manicure Fácil");
+
   const qc = useQueryClient();
 
   const contasQuery = useQuery({

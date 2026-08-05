@@ -1,5 +1,5 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { Sparkles, CalendarDays, Users, Wallet, Check } from "lucide-react";
+import { CalendarDays, Users, Wallet, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logoIconWhite from "@/assets/logo-icon-white.png";
 import { getContaDe, contaTemAcesso } from "@/lib/access";
@@ -48,7 +48,7 @@ function Landing() {
       <section className="px-6 md:px-12 max-w-6xl mx-auto pt-10 md:pt-24 pb-20 text-center relative z-10">
         <span className="inline-flex items-center gap-2 bg-[#171923]/80 backdrop-blur-xl rounded-full px-5 py-2 text-xs text-[#A1A1AA] border border-[#252836] shadow-sm">
           <span className="size-1.5 rounded-full bg-[#D946EF]" />
-          Novo • Sistema SaaS premium
+          Novo • Sistema premium
         </span>
         
         <h1 className="text-5xl md:text-7xl mt-8 leading-tight font-semibold tracking-tight text-white">
@@ -69,7 +69,7 @@ function Landing() {
         <div className="mt-20 grid md:grid-cols-3 gap-6">
           {[
             { icon: CalendarDays, t: "Agenda inteligente", d: "Visualize seus horários e evite conflitos com nossa agenda visual." },
-            { icon: Users, t: "CRM de clientes", d: "Histórico completo, preferências e datas especiais das suas clientes." },
+            { icon: Users, t: "Gestão de clientes", d: "Histórico completo, preferências e datas especiais das suas clientes." },
             { icon: Wallet, t: "Financeiro claro", d: "Faturamento, lucro e ticket médio em tempo real para decisões certeiras." },
           ].map((f) => (
             <div key={f.t} className="group bg-[#171923]/80 backdrop-blur-xl rounded-3xl p-8 text-left border border-[#252836] hover:border-[#D946EF]/30 transition-all duration-300 hover:shadow-[0_8px_40px_rgba(217,70,239,0.06)] hover:-translate-y-1">
@@ -83,7 +83,7 @@ function Landing() {
         </div>
 
         <ul className="mt-16 flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-[#A1A1AA]">
-          {["Dark mode incluso", "100% responsivo", "Seus dados protegidos", "Acesso liberado após a compra"].map((x) => (
+          {["Modo escuro incluso", "100% responsivo", "Seus dados protegidos", "Acesso liberado após a compra"].map((x) => (
             <li key={x} className="inline-flex items-center gap-2">
               <span className="size-5 rounded-full bg-[#D946EF]/20 border border-[#D946EF]/30 grid place-items-center">
                 <Check className="size-3 text-[#D946EF]" />

@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -15,16 +17,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
-import { format, startOfMonth, endOfMonth, subMonths, parseISO, startOfDay } from "date-fns";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell, Legend } from "recharts";
+import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Wallet, TrendingUp, Receipt, BarChart3, Calculator, Plus, Pencil, Trash2, PiggyBank, ArrowDownToLine, ArrowUpFromLine, PieChart as PieChartIcon, Filter, Download, FileText, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Wallet, TrendingUp, BarChart3, Plus, Pencil, Trash2, PiggyBank, ArrowDownToLine, Download, FileText, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
-  head: () => ({ meta: [{ title: "Financeiro — Manicure Fácil" }] }),
   component: Financeiro,
 });
 
@@ -73,6 +74,8 @@ const despesaSchema = z.object({
 });
 
 function Financeiro() {
+  usePageTitle("Financeiro — Manicure Fácil");
+
   const qc = useQueryClient();
   const { confirm } = useConfirm();
   const [activeTab, setActiveTab] = useState("visao-geral");
@@ -319,7 +322,7 @@ function Financeiro() {
         <Card className="bg-card border border-border p-5 rounded-[20px] shadow-card relative overflow-hidden">
           <div className="space-y-1">
             <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Faturamento</p>
-            <p className="text-[28px] font-semibold tracking-tight text-card-foreground">{brl(faturamento)}</p>
+            <p className="text-xl sm:text-[28px] font-semibold tracking-tight text-card-foreground break-words">{brl(faturamento)}</p>
             <p className="text-[10px] text-emerald-500">{concl.length} serviços realizados</p>
           </div>
           <div className="absolute top-4 right-4 size-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 grid place-items-center">
@@ -329,7 +332,7 @@ function Financeiro() {
         <Card className="bg-card border border-border p-5 rounded-[20px] shadow-card relative overflow-hidden">
           <div className="space-y-1">
             <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Lucro Líquido</p>
-            <p className={`text-[28px] font-semibold tracking-tight ${lucroLiquido >= 0 ? "text-emerald-500" : "text-red-500"}`}>{brl(lucroLiquido)}</p>
+            <p className={`text-xl sm:text-[28px] font-semibold tracking-tight break-words ${lucroLiquido >= 0 ? "text-emerald-500" : "text-red-500"}`}>{brl(lucroLiquido)}</p>
             <p className="text-[10px] text-muted-foreground">Margem: {margemLiquida.toFixed(1)}%</p>
           </div>
           <div className="absolute top-4 right-4 size-10 rounded-xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center">
@@ -339,7 +342,7 @@ function Financeiro() {
         <Card className="bg-card border border-border p-5 rounded-[20px] shadow-card relative overflow-hidden">
           <div className="space-y-1">
             <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Despesas (Pagas)</p>
-            <p className="text-[28px] font-semibold tracking-tight text-red-500">{brl(totalDespesas)}</p>
+            <p className="text-xl sm:text-[28px] font-semibold tracking-tight text-red-500 break-words">{brl(totalDespesas)}</p>
             <p className="text-[10px] text-amber-500">{despesasPendentes.length} pendentes · {brl(totalDespesasPendentes)}</p>
           </div>
           <div className="absolute top-4 right-4 size-10 rounded-xl bg-red-500/10 border border-red-500/20 grid place-items-center">
@@ -349,7 +352,7 @@ function Financeiro() {
         <Card className="bg-card border border-border p-5 rounded-[20px] shadow-card relative overflow-hidden">
           <div className="space-y-1">
             <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">A Receber</p>
-            <p className="text-[28px] font-semibold tracking-tight text-blue-500">{brl(pendValor)}</p>
+            <p className="text-xl sm:text-[28px] font-semibold tracking-tight text-blue-500 break-words">{brl(pendValor)}</p>
             <p className="text-[10px] text-muted-foreground">{pendentes.length} cliente{pendentes.length !== 1 ? "s" : ""}</p>
           </div>
           <div className="absolute top-4 right-4 size-10 rounded-xl bg-blue-500/10 border border-blue-500/20 grid place-items-center">
@@ -521,11 +524,11 @@ function Financeiro() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs" htmlFor="desp-vencimento">Data Vencimento</Label>
+                        <Label className="text-xs" htmlFor="desp-vencimento">Data de vencimento</Label>
                         <Input id="desp-vencimento" type="date" value={despesaForm.data_vencimento} onChange={e => setDespesaForm({ ...despesaForm, data_vencimento: e.target.value })} className="h-10 rounded-xl" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs" htmlFor="desp-forma">Forma Pagamento</Label>
+                        <Label className="text-xs" htmlFor="desp-forma">Forma de pagamento</Label>
                         <Select value={despesaForm.forma_pagamento} onValueChange={v => setDespesaForm({ ...despesaForm, forma_pagamento: v })}>
                           <SelectTrigger id="desp-forma" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -616,7 +619,7 @@ function Financeiro() {
                           </button>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                             <Button size="icon" variant="ghost" className="size-7" onClick={() => openEditDespesa(d)} aria-label={`Editar despesa ${d.descricao}`}><Pencil className="size-3.5 text-muted-foreground" aria-hidden="true" /></Button>
                             <Button size="icon" variant="ghost" className="size-7" aria-label={`Excluir despesa ${d.descricao}`} onClick={() => {
                               confirm({
@@ -742,10 +745,10 @@ function Financeiro() {
             <div className="mt-6 space-y-1">
               {cashFlowData.map((d, i) => (
                 <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/20 transition-colors text-xs">
-                  <span className="font-medium text-card-foreground w-16">{d.dia}</span>
-                  <span className="text-emerald-500 w-24 text-right">{d.entradas > 0 ? brl(d.entradas) : "—"}</span>
-                  <span className="text-red-500 w-24 text-right">{d.saidas > 0 ? brl(d.saidas) : "—"}</span>
-                  <span className={`font-semibold w-24 text-right ${d.saldo >= 0 ? "text-emerald-500" : "text-red-500"}`}>{brl(d.saldo)}</span>
+                  <span className="font-medium text-card-foreground w-11 sm:w-16">{d.dia}</span>
+                  <span className="text-emerald-500 w-[64px] sm:w-24 text-right">{d.entradas > 0 ? brl(d.entradas) : "—"}</span>
+                  <span className="text-red-500 w-[64px] sm:w-24 text-right">{d.saidas > 0 ? brl(d.saidas) : "—"}</span>
+                  <span className={`font-semibold w-[64px] sm:w-24 text-right ${d.saldo >= 0 ? "text-emerald-500" : "text-red-500"}`}>{brl(d.saldo)}</span>
                 </div>
               ))}
             </div>

@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
+
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -8,18 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Building2, Clock, Bell, Palette, Globe, Save, Sparkles } from "lucide-react";
+import { Building2, Clock, Bell, Save } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
-  head: () => ({ meta: [{ title: "Configurações — Manicure Fácil" }] }),
   component: ConfiguracoesPage,
 });
 
 function ConfiguracoesPage() {
+  usePageTitle("Configurações — Manicure Fácil");
+
   const qc = useQueryClient();
 
   const { data: config, isLoading } = useQuery({
@@ -97,7 +98,7 @@ function ConfiguracoesPage() {
           <div className="grid md:grid-cols-2 gap-4">
             <div><Label className="text-xs" htmlFor="cfg-empresa-nome">Nome do Salão</Label><Input id="cfg-empresa-nome" value={form.empresa_nome} onChange={e => setForm({ ...form, empresa_nome: e.target.value })} className="h-10 rounded-xl mt-1" placeholder="Meu Salão" /></div>
             <div><Label className="text-xs" htmlFor="cfg-empresa-tel">Telefone</Label><Input id="cfg-empresa-tel" value={form.empresa_telefone} onChange={e => setForm({ ...form, empresa_telefone: e.target.value })} className="h-10 rounded-xl mt-1" placeholder="(11) 99999-9999" /></div>
-            <div><Label className="text-xs" htmlFor="cfg-empresa-email">Email</Label><Input id="cfg-empresa-email" value={form.empresa_email} onChange={e => setForm({ ...form, empresa_email: e.target.value })} className="h-10 rounded-xl mt-1" placeholder="contato@salao.com" /></div>
+            <div><Label className="text-xs" htmlFor="cfg-empresa-email">E-mail</Label><Input id="cfg-empresa-email" value={form.empresa_email} onChange={e => setForm({ ...form, empresa_email: e.target.value })} className="h-10 rounded-xl mt-1" placeholder="contato@salao.com" /></div>
             <div><Label className="text-xs" htmlFor="cfg-empresa-doc">CNPJ/CPF</Label><Input id="cfg-empresa-doc" value={form.empresa_documento} onChange={e => setForm({ ...form, empresa_documento: e.target.value })} className="h-10 rounded-xl mt-1" placeholder="00.000.000/0001-00" /></div>
           </div>
           <div className="mt-4"><Label className="text-xs" htmlFor="cfg-empresa-end">Endereço</Label><Input id="cfg-empresa-end" value={form.empresa_endereco} onChange={e => setForm({ ...form, empresa_endereco: e.target.value })} className="h-10 rounded-xl mt-1" placeholder="Rua, número, bairro" /></div>
@@ -124,7 +125,7 @@ function ConfiguracoesPage() {
           </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between"><Label htmlFor="cfg-lembrete-ativo" className="text-sm cursor-pointer">Lembretes automáticos</Label><Switch id="cfg-lembrete-ativo" checked={form.lembrete_ativo} onCheckedChange={v => setForm({ ...form, lembrete_ativo: v })} /></div>
-            <div className="flex items-center justify-between"><Label htmlFor="cfg-lembrete-email" className="text-sm cursor-pointer">Notificação por Email</Label><Switch id="cfg-lembrete-email" checked={form.lembrete_email} onCheckedChange={v => setForm({ ...form, lembrete_email: v })} /></div>
+            <div className="flex items-center justify-between"><Label htmlFor="cfg-lembrete-email" className="text-sm cursor-pointer">Notificação por e-mail</Label><Switch id="cfg-lembrete-email" checked={form.lembrete_email} onCheckedChange={v => setForm({ ...form, lembrete_email: v })} /></div>
             <div className="flex items-center justify-between"><Label htmlFor="cfg-lembrete-whats" className="text-sm cursor-pointer">Notificação WhatsApp</Label><Switch id="cfg-lembrete-whats" checked={form.lembrete_whatsapp} onCheckedChange={v => setForm({ ...form, lembrete_whatsapp: v })} /></div>
             <div className="flex items-center justify-between"><Label htmlFor="cfg-som" className="text-sm cursor-pointer">Som de notificação</Label><Switch id="cfg-som" checked={form.notificacao_sonora} onCheckedChange={v => setForm({ ...form, notificacao_sonora: v })} /></div>
             <div className="grid md:grid-cols-2 gap-4 pt-2">

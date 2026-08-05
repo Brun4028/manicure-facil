@@ -26,18 +26,6 @@ export function statusMensagem(status: ContaStatus | null | undefined, motivo?: 
   }
 }
 
-/** Busca a linha `contas` do usuário logado (RLS: apenas a própria). */
-export async function getMinhaConta(): Promise<MinhaConta | null> {
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) return null;
-  const { data } = await supabase
-    .from("contas")
-    .select("*")
-    .eq("user_id", user.user.id)
-    .maybeSingle();
-  return data ?? null;
-}
-
 /** Busca a linha `contas` de um usuário específico (RLS: própria ou service_role). */
 export async function getContaDe(userId: string): Promise<MinhaConta | null> {
   const { data } = await supabase

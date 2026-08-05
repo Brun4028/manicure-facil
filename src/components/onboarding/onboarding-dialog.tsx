@@ -14,8 +14,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Users, CalendarDays, Scissors, Wallet, Sparkles, ArrowRight, Check,
-  Package, Percent, Image as ImageIcon,
+  Users, CalendarDays, Scissors, Wallet, ArrowRight, Check,
+  Package, Percent,
 } from "lucide-react";
 
 const STORAGE_KEY = "mf-onboarding-done";

@@ -7,19 +7,17 @@ import {
   criarAgendamentoPublico,
   criarAvaliacaoPublica,
 } from "@/lib/public/booking.functions";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  CalendarDays, Scissors, User, Phone, Mail, Clock, Sparkles, CheckCircle2, Star, Award, Heart, Cake, ChevronLeft, ChevronRight
+  CalendarDays, Scissors, User, CheckCircle2, Star, Heart, Cake, ChevronLeft
 } from "lucide-react";
 import { toast } from "sonner";
-import { format, addDays, isSameDay, parse, differenceInYears } from "date-fns";
+import { format, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/agendar/$userId")({
@@ -101,7 +99,6 @@ function PublicAgendamentoPage() {
       const [h, m] = horaInicio.split(":").map(Number);
       const slotStart = new Date(date);
       slotStart.setHours(h, m, 0, 0);
-      const slotEnd = slotStart.getTime() + duracaoMin * 60 * 1000;
       const slotInicioStr = horaInicio;
       const slotFimStr = (() => {
         const fim = new Date(slotStart.getTime() + duracaoMin * 60 * 1000);
@@ -299,18 +296,18 @@ function PublicAgendamentoPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col justify-between p-4 md:p-8">
       {/* Top Header */}
-      <header className="max-w-4xl w-full mx-auto flex items-center justify-between pb-6 border-b border-border/40">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl gradient-primary grid place-items-center shadow-glow">
+      <header className="max-w-4xl w-full mx-auto flex items-center justify-between gap-3 pb-6 border-b border-border/40">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="size-10 rounded-xl gradient-primary grid place-items-center shadow-glow shrink-0">
             <img src={logoIconWhite} alt="Logo" className="size-5 object-contain" />
           </div>
-          <div>
-            <h1 className="font-display text-xl leading-none">{perfil?.nome || "Carregando..."}</h1>
-            <p className="text-[10px] text-muted-foreground mt-1">Agendamento Online Premium</p>
+          <div className="min-w-0">
+            <h1 className="font-display text-xl leading-none truncate">{perfil?.nome || "Carregando..."}</h1>
+            <p className="text-[10px] text-muted-foreground mt-1 truncate">Agendamento Online Premium</p>
           </div>
         </div>
 
-        <Button variant="ghost" size="sm" onClick={() => {
+        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => {
           if (step > 1 && step < 4) setStep(step - 1);
         }} disabled={step === 1 || step === 4}>
           <ChevronLeft className="size-4 mr-1" /> Voltar
@@ -460,7 +457,7 @@ function PublicAgendamentoPage() {
 
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs">Email (Opcional)</Label>
+                    <Label className="text-xs">E-mail (opcional)</Label>
                     <Input type="email" value={clientForm.email} placeholder="para receber confirmações" onChange={e => setClientForm({ ...clientForm, email: e.target.value })} />
                   </div>
                   <div>
@@ -471,7 +468,7 @@ function PublicAgendamentoPage() {
 
                 <div>
                   <Label className="text-xs">Observações adicionais (Opcional)</Label>
-                  <Textarea value={clientForm.observacoes} placeholder="Ex: alongamento em gel, unhas decoradas, etc..." onChange={e => setClientForm({ ...clientForm, observacoes: e.target.value })} />
+                  <Textarea value={clientForm.observacoes} placeholder="Ex: alongamento em gel, unhas decoradas, etc." onChange={e => setClientForm({ ...clientForm, observacoes: e.target.value })} />
                 </div>
 
                 {/* Birthday promo alert */}

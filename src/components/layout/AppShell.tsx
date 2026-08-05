@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState, useEffect } from "react";
 import {
   LayoutDashboard, Users, CalendarDays, Scissors, Wallet,
-  Moon, Sun, LogOut, Plus, Sparkles, Menu, X,
+  Moon, Sun, LogOut, Plus, Menu, X,
   Package, Percent, Image as ImageIcon, FileSpreadsheet, Link as LinkIcon,
   ChevronLeft, User, Settings, ShieldCheck,
 } from "lucide-react";
@@ -11,12 +11,12 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { getMinhaConta } from "@/lib/access";
+import { verificarAdmin } from "@/lib/admin/admin.functions";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet";
 import { ProfileDialog } from "@/components/profile/profile-dialog";
-import { AiAssistant } from "@/components/assistant/ai-assistant";
+import { AiAssistant, AiAssistantLauncher } from "@/components/assistant/ai-assistant";
 import { NotificationsPopover } from "@/components/notifications/notifications-popover";
 import logoIconWhite from "@/assets/logo-icon-white.png";
 
@@ -88,13 +88,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   const segments = pathname.split("/").filter(Boolean);
 
-  // Só administradores veem o item de navegação "Admin"
-  const { data: minhaConta } = useQuery({
-    queryKey: ["minha_conta"],
-    queryFn: getMinhaConta,
+  // Só administradores veem o item de navegação "Admin".
+  // A decisão é SERVER-SIDE (verificarAdmin valida JWT + conta ativa + flag
+  // is_admin no banco OU allowlist ADMIN_EMAILS). O cliente nunca decide por
+  // conta própria — usuários comuns não sabem que a área administrativa existe.
+  const { data: isAdmin } = useQuery({
+    queryKey: ["is_admin"],
+    queryFn: async () => {
+      try {
+        await verificarAdmin();
+        return true;
+      } catch {
+        return false;
+      }
+    },
     enabled: !!user,
+    staleTime: 5 * 60_000,
   });
-  const isAdmin = minhaConta?.is_admin === true;
   const navItems = (isAdmin
     ? [...nav, { to: "/admin", label: "Admin", icon: ShieldCheck }]
     : [...nav]
@@ -387,6 +397,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               {/* Right actions */}
               <div className="ml-auto flex items-center gap-1 shrink-0">
+                <AiAssistantLauncher />
                 <NotificationsPopover />
                 <Button variant="ghost" size="icon" onClick={() => navigate({ to: "/configuracoes" })} aria-label="Configurações">
                   <Settings className="size-5" />
@@ -443,7 +454,7 @@ export function PageHeader({
         <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
         {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
       </div>
-      {actions && <div className="flex gap-2 shrink-0">{actions}</div>}
+      {actions && <div className="flex flex-wrap gap-2 shrink-0">{actions}</div>}
     </div>
   );
 }

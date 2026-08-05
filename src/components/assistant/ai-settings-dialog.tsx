@@ -153,8 +153,7 @@ export function AiSettingsDialog({
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              O provider selecionado será enviado ao servidor em cada requisição.
-              Você também pode definir um provider padrão via env var <code>AI_PROVIDER</code>.
+              O provedor selecionado será usado nas suas próximas conversas.
             </p>
           </div>
 
