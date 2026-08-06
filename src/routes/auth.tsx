@@ -14,7 +14,6 @@ import {
   Loader2,
   Lock,
   Mail,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
   User,
@@ -38,19 +37,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { getContaDe, contaTemAcesso, statusMensagem, type MinhaConta } from "@/lib/access";
 import { mensagemErroAuth } from "@/lib/auth-errors";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
   beforeLoad: async () => {
-    // Se já houver sessão com acesso ativo, vai direto para o painel.
-    // Sessão com conta sem acesso (bloqueada/inativa) permanece nesta página.
+    // Sessão válida → vai direto para o painel.
     const { data } = await supabase.auth.getSession();
-    if (data.session) {
-      const conta = await getContaDe(data.session.user.id);
-      if (contaTemAcesso(conta)) throw redirect({ to: "/dashboard" });
-    }
+    if (data.session) throw redirect({ to: "/dashboard" });
   },
   component: AuthPage,
 });
@@ -93,10 +87,8 @@ function AuthPage() {
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupErrors, setSignupErrors] = useState<Record<string, string>>({});
   const [createdEmail, setCreatedEmail] = useState("");
-  const [needsConfirmation, setNeedsConfirmation] = useState(true);
 
-  // Conta logada porém sem acesso (bloqueada/inativa) → tela própria
-  const [blockedConta, setBlockedConta] = useState<MinhaConta | null>(null);
+  // Aguardando checagem inicial de sessão/OTP antes de exibir os formulários
   const [checkingBlocked, setCheckingBlocked] = useState(true);
 
   // Fluxo de convite (link do e-mail com token_hash)
@@ -106,10 +98,11 @@ function AuthPage() {
 
   useEffect(() => {
     (async () => {
-      // 1) Trata link de convite (token_hash) antes de qualquer coisa
+      // 1) Trata link de convite/recuperação/confirmação (token_hash)
       const params = new URLSearchParams(window.location.search);
       const tokenHash = params.get("token_hash");
       const type = params.get("type");
+      let inviteFlow = false;
 
       if (tokenHash && type) {
         const { data: otp, error: otpErr } = await supabase.auth.verifyOtp({
@@ -119,22 +112,27 @@ function AuthPage() {
         if (otpErr) {
           toast.error("Link inválido ou expirado. Solicite um novo convite.");
         } else if (otp.user?.email) {
-          setPendingInvite({ email: otp.user.email });
+          // Convite (definir senha) e recuperação usam a tela "Crie sua
+          // senha". Confirmação de cadastro (type=signup) segue o fluxo
+          // normal de sessão logo abaixo.
+          if (type === "invite" || type === "recovery") {
+            inviteFlow = true;
+            setPendingInvite({ email: otp.user.email });
+          }
           // Limpa o token da URL
           window.history.replaceState({}, "", "/auth");
         }
       }
 
-      // 2) Sessão existente com conta sem acesso → mostra o estado bloqueado
+      // 2) Sessão existente (ex.: confirmação de cadastro recém-feita) → painel.
       const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        const conta = await getContaDe(data.session.user.id);
-        if (!contaTemAcesso(conta)) {
-          setBlockedConta(conta);
-        }
+      if (data.session && !inviteFlow) {
+        navigate({ to: "/dashboard" });
+        return;
       }
       setCheckingBlocked(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleLogin(e: React.FormEvent) {
@@ -152,20 +150,10 @@ function AuthPage() {
     }
     setLoginErrors({});
     setLoading(true);
-    const { data: loginData, error } = await supabase.auth.signInWithPassword(parsed.data);
+    const { error } = await supabase.auth.signInWithPassword(parsed.data);
     if (error) {
       setLoading(false);
       toast.error(mensagemErroAuth(error.message));
-      return;
-    }
-
-    // ── Validação de status da conta APÓS o login ────────────────────────
-    const conta = await getContaDe(loginData.user.id);
-    if (!contaTemAcesso(conta)) {
-      await supabase.auth.signOut();
-      setBlockedConta(conta);
-      setLoading(false);
-      toast.error(statusMensagem(conta?.status, conta?.motivo_bloqueio));
       return;
     }
 
@@ -187,18 +175,7 @@ function AuthPage() {
     }
     if (res.redirected) return;
 
-    // Sessão definida — verifica se a conta tem acesso liberado
-    const { data: s } = await supabase.auth.getSession();
-    if (s.session) {
-      const conta = await getContaDe(s.session.user.id);
-      if (!contaTemAcesso(conta)) {
-        await supabase.auth.signOut();
-        setBlockedConta(conta);
-        setGoogleLoading(false);
-        toast.error(statusMensagem(conta?.status, conta?.motivo_bloqueio));
-        return;
-      }
-    }
+    // Sessão definida → painel.
     setGoogleLoading(false);
     navigate({ to: "/dashboard" });
   }
@@ -232,11 +209,17 @@ function AuthPage() {
       return;
     }
 
-    // A conta é criada como "inativa" pelo trigger handle_new_user e a
-    // liberação acontece nos bastidores (admin). Se houver confirmação de
-    // e-mail, o usuário ainda precisa confirmar antes de entrar.
+    // Toda conta criada nasce ATIVA (sem aprovação manual). Se o Auth retornar
+    // sessão imediatamente (confirmação de e-mail desligada), o usuário já
+    // entra no painel. Sem sessão, pedimos a confirmação do e-mail.
     setCreatedEmail(parsed.data.email);
-    setNeedsConfirmation(!data.session);
+
+    if (data.session) {
+      toast.success("Conta criada! Bem-vinda!");
+      navigate({ to: "/dashboard" });
+      return;
+    }
+
     setView("success");
   }
 
@@ -335,36 +318,6 @@ function AuthPage() {
           <p className="mt-1.5 text-sm text-[#A1A1AA]">Beleza inteligente para o seu salão</p>
         </div>
 
-        {/* ── Tela: conta sem acesso (bloqueada/inativa/suspensa) ── */}
-        {!checkingBlocked && blockedConta && !pendingInvite && (
-          <div className="animate-fade-up">
-            <AuthCard>
-              <div className="py-2 text-center">
-                <div className="relative mx-auto mb-6 size-16">
-                  <div className="absolute inset-0 rounded-full bg-rose-500/20 blur-xl" />
-                  <div className="relative grid size-16 place-items-center rounded-full border border-rose-500/25 bg-rose-500/10">
-                    <ShieldAlert className="size-8 text-rose-400" />
-                  </div>
-                </div>
-                <h1 className="text-2xl font-semibold text-white">Acesso não liberado</h1>
-                <p className="mt-3 text-sm leading-relaxed text-[#A1A1AA]">
-                  {statusMensagem(blockedConta?.status, blockedConta?.motivo_bloqueio)}
-                </p>
-                <Button
-                  className="mt-8 h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.06] text-white transition-all duration-300 hover:bg-white/[0.1] active:scale-[0.98]"
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    setBlockedConta(null);
-                    setView("login");
-                  }}
-                >
-                  Entrar com outra conta
-                </Button>
-              </div>
-            </AuthCard>
-          </div>
-        )}
-
         {/* ── Tela: definir senha após convite ── */}
         {pendingInvite && (
           <div className="animate-fade-up">
@@ -412,7 +365,7 @@ function AuthPage() {
         )}
 
         {/* ── Tela: login padrão / cadastro / sucesso ── */}
-        {!checkingBlocked && !blockedConta && !pendingInvite && (
+        {!checkingBlocked && !pendingInvite && (
           <div key={view} className="animate-fade-up">
             {view === "login" && (
               <AuthCard>
@@ -627,25 +580,10 @@ function AuthPage() {
                   </div>
                   <h1 className="text-2xl font-semibold text-white">Conta criada!</h1>
                   <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-[#A1A1AA]">
-                    {needsConfirmation ? (
-                      <>
-                        Enviamos um link de confirmação para{" "}
-                        <span className="font-medium text-white">{createdEmail}</span>. Confirme seu
-                        e-mail para ativar sua conta.
-                      </>
-                    ) : (
-                      "Seu cadastro foi concluído! Estamos liberando seu acesso."
-                    )}
+                    Enviamos um link de confirmação para{" "}
+                    <span className="font-medium text-white">{createdEmail}</span>. Confirme seu
+                    e-mail para ativar sua conta.
                   </p>
-                  <div className="mt-6 rounded-xl border border-[#D946EF]/15 bg-[#D946EF]/[0.06] p-3.5 text-left">
-                    <div className="flex items-start gap-2.5">
-                      <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#D946EF]" />
-                      <p className="text-[13px] leading-relaxed text-[#A1A1AA]">
-                        Assim que seu acesso for liberado, você poderá entrar normalmente com seu
-                        e-mail e senha.
-                      </p>
-                    </div>
-                  </div>
                   <Button
                     onClick={goToLogin}
                     className="mt-7 h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.06] text-white transition-all duration-300 hover:bg-white/[0.1] active:scale-[0.98]"

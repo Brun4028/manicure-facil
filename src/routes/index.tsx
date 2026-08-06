@@ -2,18 +2,13 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { CalendarDays, Users, Wallet, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logoIconWhite from "@/assets/logo-icon-white.png";
-import { getContaDe, contaTemAcesso } from "@/lib/access";
 
 export const Route = createFileRoute("/")({
   ssr: false,
   beforeLoad: async () => {
-    // Sessão com acesso ativo → vai para o painel. Contas sem acesso liberado
-    // permanecem vendo a página pública de apresentação.
+    // Sessão válida → vai para o painel.
     const { data } = await supabase.auth.getSession();
-    if (data.session) {
-      const conta = await getContaDe(data.session.user.id);
-      if (contaTemAcesso(conta)) throw redirect({ to: "/dashboard" });
-    }
+    if (data.session) throw redirect({ to: "/dashboard" });
   },
   head: () => ({
     meta: [

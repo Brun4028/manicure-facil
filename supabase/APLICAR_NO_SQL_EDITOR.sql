@@ -8,8 +8,8 @@
 --   Parte A: contas, audit_log, backup_log, despesas, horarios_trabalho,
 --            bloqueios_agenda, configuracoes, notificacoes_internas, recorrencias
 --   Parte B: handle_new_user completo + backfill (usuários atuais ficam ATIVOS)
---   Parte C: remove vazamentos públicos de RLS + políticas own_* com
---            verificar_acesso() (bloqueio instantâneo de contas inativas)
+--   Parte C: remove vazamentos públicos de RLS + políticas own_* (cada usuário
+--            acessa apenas os próprios dados — sem aprovação manual por status)
 --   Parte D: vw_dre_mensal segura + fluxo_caixa_projetado
 --   Parte E: agendar_servico/criar_avaliacao seguros (expediente + bloqueios)
 --   Parte F: definir_admin, atualizar_status_expirados, CHECKs, índices, cron
@@ -26,7 +26,7 @@ END $$;
 -- ── 2. TABELA contas ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.contas (
   user_id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  status public.conta_status NOT NULL DEFAULT 'inativo',
+  status public.conta_status NOT NULL DEFAULT 'ativo',
   is_admin BOOLEAN NOT NULL DEFAULT false,
   plano TEXT,
   fonte TEXT NOT NULL DEFAULT 'admin',
@@ -53,7 +53,10 @@ CREATE POLICY "contas_own_select" ON public.contas
   FOR SELECT TO authenticated
   USING (auth.uid() = user_id);
 
--- ── 3. verificar_acesso() — fonte da verdade de acesso ─────────────────────
+-- ── 3. verificar_acesso() — mantida para compatibilidade das políticas ──────
+-- Aprovação manual e bloqueio por status foram removidos: todo usuário
+-- autenticado acessa os próprios dados. A função segue existindo apenas
+-- porque as políticas own_* a referenciam e agora sempre retorna true.
 CREATE OR REPLACE FUNCTION public.verificar_acesso()
 RETURNS boolean
 LANGUAGE sql
@@ -61,12 +64,7 @@ STABLE
 SECURITY INVOKER
 SET search_path = public
 AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.contas c
-    WHERE c.user_id = auth.uid()
-      AND c.status = 'ativo'
-      AND (c.acesso_termina_em IS NULL OR c.acesso_termina_em > now())
-  );
+  SELECT true;
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.verificar_acesso() FROM PUBLIC;
@@ -308,6 +306,8 @@ DROP TRIGGER IF EXISTS trg_recorrencias_u ON public.recorrencias;
 CREATE TRIGGER trg_recorrencias_u BEFORE UPDATE ON public.recorrencias FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ── 12. handle_new_user COMPLETO (trigger on_auth_user_created JA existe) ──
+-- Toda conta criada nasce ATIVA — não existe aprovação manual. O status é
+-- apenas informativo; nenhuma regra de acesso depende dele.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -335,9 +335,10 @@ BEGIN
     (NEW.id, 5, '08:00', '18:00')
   ON CONFLICT (user_id, dia_semana) DO NOTHING;
 
-  -- Conta nasce SEM acesso (status 'inativo') até ser liberada
-  INSERT INTO public.contas (user_id, status, fonte)
-  VALUES (NEW.id, 'inativo'::public.conta_status, 'admin')
+  -- Conta nasce ATIVA para qualquer método de cadastro (e-mail, Google,
+  -- convite do admin etc.). Sem aprovação manual.
+  INSERT INTO public.contas (user_id, status)
+  VALUES (NEW.id, 'ativo'::public.conta_status)
   ON CONFLICT (user_id) DO NOTHING;
 
   RETURN NEW;
@@ -396,7 +397,9 @@ REVOKE ALL ON public.recorrencias FROM anon;
 REVOKE ALL ON public.audit_log FROM anon;
 REVOKE ALL ON public.backup_log FROM anon;
 
--- ── 15. REFORÇAR POLÍTICAS own_* COM verificar_acesso() ────────────────────
+-- ── 15. POLÍTICAS own_* (isolamento de dados por usuário) ──────────────────
+-- Cada usuário acessa apenas os próprios dados. verificar_acesso() é mantida
+-- por compatibilidade e sempre retorna true (sem aprovação manual por status).
 DO $$
 DECLARE
   t text;

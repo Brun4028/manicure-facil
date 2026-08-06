@@ -10,9 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
@@ -74,20 +71,11 @@ function AdminPage() {
   const emTrial = contas.filter(c => c.status === "ativo" && c.trial_fim && new Date(c.trial_fim).getTime() > Date.now()).length;
   const expiradas = contas.filter(c => c.status === "ativo" && c.acesso_termina_em && new Date(c.acesso_termina_em).getTime() < Date.now()).length;
 
-  const ativarMut = useMutation({
-    mutationFn: async ({ userId, status }: { userId: string; status: ContaStatus }) => {
-      const res = await atualizarConta({ data: { userId, status } });
-      if (!res.ok) throw new Error(res.error);
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin_contas"] }); toast.success("Conta atualizada!"); },
-    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
-  });
-
   // ── Diálogo de edição ──
   const [editing, setEditing] = useState<ContaAdmin | null>(null);
   const [editForm, setEditForm] = useState<{
-    status: ContaStatus; plano: string; trialFim: string; acessoTerminaEm: string; motivoBloqueio: string;
-  }>({ status: "ativo", plano: "", trialFim: "", acessoTerminaEm: "", motivoBloqueio: "" });
+    plano: string; trialFim: string; acessoTerminaEm: string; motivoBloqueio: string;
+  }>({ plano: "", trialFim: "", acessoTerminaEm: "", motivoBloqueio: "" });
 
   const saveEditMut = useMutation({
     mutationFn: async () => {
@@ -95,7 +83,6 @@ function AdminPage() {
       const res = await atualizarConta({
         data: {
           userId: editing.user_id,
-          status: editForm.status,
           plano: editForm.plano,
           trialFim: editForm.trialFim,
           acessoTerminaEm: editForm.acessoTerminaEm,
@@ -146,7 +133,6 @@ function AdminPage() {
   function openEdit(c: ContaAdmin) {
     setEditing(c);
     setEditForm({
-      status: c.status,
       plano: c.plano ?? "",
       trialFim: c.trial_fim ? c.trial_fim.slice(0, 10) : "",
       acessoTerminaEm: c.acesso_termina_em ? c.acesso_termina_em.slice(0, 10) : "",
@@ -251,18 +237,6 @@ function AdminPage() {
 
                 <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                   <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => openEdit(c)}>Editar</Button>
-                  {c.status !== "ativo" && (
-                    <Button size="sm" variant="outline" className="text-xs h-8 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10"
-                      onClick={() => ativarMut.mutate({ userId: c.user_id, status: "ativo" })}>
-                      Ativar
-                    </Button>
-                  )}
-                  {c.status === "ativo" && (
-                    <Button size="sm" variant="outline" className="text-xs h-8 text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
-                      onClick={() => ativarMut.mutate({ userId: c.user_id, status: "bloqueado" })}>
-                      Bloquear
-                    </Button>
-                  )}
                   <Button size="sm" variant="ghost" className="text-xs h-8" title="Renovar acesso por 30 dias" onClick={() => renovar30(c)}>
                     +30 dias
                   </Button>
@@ -289,18 +263,6 @@ function AdminPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div>
-              <Label className="text-xs">Status</Label>
-              <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v as ContaStatus })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="inativo">Inativo</SelectItem>
-                  <SelectItem value="bloqueado">Bloqueado</SelectItem>
-                  <SelectItem value="suspenso">Suspenso</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Plano</Label>
@@ -337,7 +299,7 @@ function AdminPage() {
               <UserPlus className="size-5 text-primary" /> Convidar cliente
             </DialogTitle>
             <DialogDescription>
-              Um e-mail de convite é enviado com o link para a cliente criar sua conta (e definir a senha). A conta nasce <b>inativa</b> — libere o acesso quando quiser (ou após o pagamento na Kirvano).
+              Um e-mail de convite é enviado com o link para a cliente criar sua conta (e definir a senha). A conta já nasce ativa — a cliente pode usar o sistema assim que definir a senha.
             </DialogDescription>
           </DialogHeader>
 

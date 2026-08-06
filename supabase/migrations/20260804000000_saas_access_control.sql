@@ -3,14 +3,13 @@
 -- Date: 2026-08-04
 --
 -- OBJETIVOS:
---   1. Status de conta (ativo/inativo/bloqueado/suspenso) com validação NO BANCO
---   2. Bloqueio imediato: qualquer conta não-'ativo' perde acesso aos dados
---      instantaneamente via RLS (verificar_acesso em todas as políticas own_*)
---   3. Corrigir VAZAMENTOS críticos de RLS (dados de todos os usuários legíveis
+--   1. Status de conta (ativo/inativo/bloqueado/suspenso) apenas INFORMATIVO —
+--      nenhuma aprovação manual ou bloqueio por status é exigido para acessar
+--   2. Corrigir VAZAMENTOS críticos de RLS (dados de todos os usuários legíveis
 --      publicamente) e inserts anônimos sem validação
---   4. Estrutura pronta para Kirvano (plano, fonte, transação, trial, renovação)
---   5. Reconstruir vw_dre_mensal com security_invoker (antes ignorava RLS)
---   6. Funções de agendamento/avaliação públicas agora exigem conta ativa
+--   3. Estrutura pronta para Kirvano (plano, fonte, transação, trial, renovação)
+--   4. Reconstruir vw_dre_mensal com security_invoker (antes ignorava RLS)
+--   5. Funções de agendamento/avaliação públicas exigem conta cadastrada
 --
 -- NOTA: Nenhuma política pública (anon) é necessária: a página pública de
 -- agendamento passou a usar server functions (service_role) no backend.
@@ -26,8 +25,8 @@ CREATE TYPE public.conta_status AS ENUM ('ativo', 'inativo', 'bloqueado', 'suspe
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.contas (
   user_id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  -- Status de acesso: 'ativo' = pode usar o sistema
-  status public.conta_status NOT NULL DEFAULT 'inativo',
+  -- Status informativo (sem bloqueio de acesso). Toda conta nasce 'ativo'.
+  status public.conta_status NOT NULL DEFAULT 'ativo',
   -- Administradora do SaaS (dona do produto)
   is_admin BOOLEAN NOT NULL DEFAULT false,
   -- Plano/assinatura futura (ex.: 'mensal', 'anual', 'vitalicio')
@@ -69,8 +68,11 @@ CREATE POLICY "contas_own_select" ON public.contas
   USING (auth.uid() = user_id);
 
 -- =============================================================================
--- 3. FUNÇÃO verificar_acesso() — fonte da verdade de acesso
+-- 3. FUNÇÃO verificar_acesso() — mantida para compatibilidade das políticas
 -- =============================================================================
+-- Aprovação manual e bloqueio por status foram REMOVIDOS: todo usuário
+-- autenticado acessa os próprios dados. A função segue existindo apenas
+-- porque as políticas own_* a referenciam e agora sempre retorna true.
 CREATE OR REPLACE FUNCTION public.verificar_acesso()
 RETURNS boolean
 LANGUAGE sql
@@ -78,12 +80,7 @@ STABLE
 SECURITY INVOKER
 SET search_path = public
 AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.contas c
-    WHERE c.user_id = auth.uid()
-      AND c.status = 'ativo'
-      AND (c.acesso_termina_em IS NULL OR c.acesso_termina_em > now())
-  );
+  SELECT true;
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.verificar_acesso() FROM PUBLIC;
@@ -100,10 +97,10 @@ FROM auth.users
 ON CONFLICT (user_id) DO NOTHING;
 
 -- =============================================================================
--- 5. TRIGGER handle_new_user: cria a linha de contas (status 'inativo')
+-- 5. TRIGGER handle_new_user: cria a linha de contas
 -- =============================================================================
--- Novos usuários (convidados) NASCEM sem acesso. A liberação é feita pelo
--- painel admin ou pelo futuro webhook da Kirvano.
+-- Toda conta criada nasce ATIVA — não existe aprovação manual. O status é
+-- apenas informativo; nenhuma regra de acesso depende dele.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -131,9 +128,10 @@ BEGIN
     (NEW.id, 5, '08:00', '18:00')
   ON CONFLICT (user_id, dia_semana) DO NOTHING;
 
-  -- Conta nasce SEM acesso (status 'inativo') até ser liberada
-  INSERT INTO public.contas (user_id, status, fonte)
-  VALUES (NEW.id, 'inativo'::public.conta_status, 'admin')
+  -- Conta nasce ATIVA para qualquer método de cadastro (e-mail, Google,
+  -- convite do admin etc.). Sem aprovação manual.
+  INSERT INTO public.contas (user_id, status)
+  VALUES (NEW.id, 'ativo'::public.conta_status)
   ON CONFLICT (user_id) DO NOTHING;
 
   RETURN NEW;
@@ -190,10 +188,11 @@ REVOKE ALL ON public.audit_log FROM anon;
 REVOKE ALL ON public.backup_log FROM anon;
 
 -- =============================================================================
--- 7. REFORÇAR POLÍTICAS own_* COM verificar_acesso() (BLOQUEIO IMEDIATO)
+-- 7. POLÍTICAS own_* (isolamento de dados por usuário)
 -- =============================================================================
--- Qualquer conta com status != 'ativo' (ou expirada) deixa de ENXERGAR e
--- MODIFICAR os próprios dados no mesmo instante, mesmo com sessão ativa.
+-- As políticas garantem que cada usuário acessa APENAS os próprios dados.
+-- verificar_acesso() é mantida por compatibilidade e sempre retorna true
+-- (aprovação manual / bloqueio por status removidos).
 DO $$
 DECLARE
   t text;

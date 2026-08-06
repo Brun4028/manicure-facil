@@ -5,8 +5,8 @@
  * (que ignora RLS de propósito, pois é o caminho de administração).
  *
  * Segurança:
- * - Middleware `requireAdminAuth`: valida o JWT, o status da conta ('ativo')
- *   e o papel de admin (coluna `contas.is_admin` OU e-mail na env ADMIN_EMAILS)
+ * - Middleware `requireAdminAuth`: valida o JWT e o papel de admin (coluna
+ *   `contas.is_admin` OU e-mail na env ADMIN_EMAILS)
  * - As funções nunca são chamáveis por usuários comuns: falham no middleware
  * - Pronto para a Kirvano: `atualizarConta` aceita plano/fonte/transação, e o
  *   futuro webhook só precisa chamar a mesma lógica com service_role
@@ -48,17 +48,15 @@ export const requireAdminAuth = createMiddleware({ type: "function" }).server(
     }
     const userId = data.claims.sub;
 
-    // 1) Conta deve estar ATIVA e não expirada
+    // A conta deve existir (a linha `contas` é criada no cadastro). Nenhuma
+    // aprovação manual/status é exigida.
     const { data: conta } = await supabase
       .from("contas")
-      .select("status, is_admin, acesso_termina_em")
+      .select("is_admin")
       .eq("user_id", userId)
       .maybeSingle();
-    if (!conta || conta.status !== "ativo") {
-      throw new Error("Conta sem acesso ativo");
-    }
-    if (conta.acesso_termina_em && new Date(conta.acesso_termina_em).getTime() < Date.now()) {
-      throw new Error("Acesso expirado");
+    if (!conta) {
+      throw new Error("Conta não encontrada");
     }
 
     // 2) Deve ser admin (flag no banco OU allowlist por e-mail)
@@ -204,7 +202,7 @@ export const atualizarConta = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ─── Convidar novo cliente (fluxo Kirvano / liberação manual) ──────────────
+// ─── Convidar novo cliente (fluxo Kirvano) ─────────────────────────────────
 
 export const convidarUsuario = createServerFn({ method: "POST" })
   .middleware([requireAdminAuth])
@@ -226,14 +224,12 @@ export const convidarUsuario = createServerFn({ method: "POST" })
 
     const userId = convite.user.id;
 
-    // O trigger handle_new_user criou a linha de `contas` com status 'inativo'.
-    // Registramos a origem (admin agora; 'kirvano' no futuro) e o plano.
+    // O trigger handle_new_user já cria a conta ATIVA (sem aprovação manual).
+    // Aqui apenas registramos o plano informado pelo admin.
     const { error: updErr } = await supabaseAdmin
       .from("contas")
       .update({
-        fonte: "admin",
         plano: data.plano || null,
-        status: "inativo",
         atualizado_em: new Date().toISOString(),
       })
       .eq("user_id", userId);
