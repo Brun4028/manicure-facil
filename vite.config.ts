@@ -71,17 +71,28 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // ── Build de produção (Docker/VPS) ───────────────────────────────────────
+  // ── Preset de deploy (selecionado por ambiente) ──────────────────────────
   // Fora do sandbox Lovable, o plugin nitro NÃO roda por padrão (a config
-  // detecta "No Lovable context" e pula o deploy build). Isso quebraria o
-  // Dockerfile, que espera `.output/server/index.mjs`. Forçamos o preset
-  // node-server para que `vite build` gere o servidor Node standalone que o
-  // Docker executa (`bun .output/server/index.mjs`).
+  // detecta "No Lovable context" e pula o deploy build) — passar `nitro: {...}`
+  // força o plugin a rodar no `vite build`.
+  //
+  // Docker/VPS: o Dockerfile espera `.output/server/index.mjs`, então fora da
+  // Vercel o preset padrão é `node-server` (servidor Node standalone que o
+  // Docker executa com `bun .output/server/index.mjs`).
+  //
+  // Vercel: a Vercel define `VERCEL=1` em todo build. Nesse caso usamos o
+  // preset oficial `vercel` do Nitro, que gera o Build Output API em
+  // `.vercel/output` (mesmo mecanismo zero-config do exemplo oficial
+  // Vercel/TanStack Start). `NITRO_PRESET` permite um override explícito
+  // (ex.: NITRO_PRESET=vercel) em qualquer ambiente.
+  //
   // No sandbox Lovable Cloud o preset é sobrescrito para cloudflare-module
   // automaticamente (comportamento da própria config) — deploy na nuvem
   // continua funcionando sem alterações.
   nitro: {
-    preset: "node-server",
+    preset:
+      process.env.NITRO_PRESET ||
+      (process.env.VERCEL ? "vercel" : "node-server"),
   },
   vite: {
     build: {
