@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useState, useEffect } from "react";
+import { lazy, Suspense, type ReactNode, useState, useEffect } from "react";
 import {
   LayoutDashboard, Users, CalendarDays, Scissors, Wallet,
   Moon, Sun, LogOut, Plus, Menu, X,
@@ -16,9 +16,16 @@ import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet";
 import { ProfileDialog } from "@/components/profile/profile-dialog";
-import { AiAssistant, AiAssistantLauncher } from "@/components/assistant/ai-assistant";
+import { AiAssistantLauncher } from "@/components/assistant/ai-assistant-launcher";
 import { NotificationsPopover } from "@/components/notifications/notifications-popover";
 import logoIconWhite from "@/assets/logo-icon-white.png";
+
+// O painel do Assistente IA puxa o react-markdown (~150 KB). Carregamos de
+// forma LAZY (dynamic import) para que o bundle inicial do AppShell não inclua
+// essa dependência pesada — ela só é baixada quando o painel for usado.
+const AiAssistant = lazy(() =>
+  import("@/components/assistant/ai-assistant").then((m) => ({ default: m.AiAssistant })),
+);
 
 const nav = [
   { to: "/dashboard", label: "Menu Geral", icon: LayoutDashboard },
@@ -433,8 +440,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Profile Dialog */}
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
 
-      {/* AI Assistant */}
-      <AiAssistant />
+      {/* AI Assistant (lazy — react-markdown só baixa quando usado) */}
+      <Suspense fallback={null}>
+        <AiAssistant />
+      </Suspense>
     </TooltipProvider>
   );
 }
