@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Scissors } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { z } from "zod";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
@@ -110,7 +111,7 @@ function ServicosPage() {
                   <Label className="text-xs text-[#A1A1AA]">Serviço ativo</Label>
                   <Switch checked={s.ativo} onCheckedChange={async (v) => {
                     const { error } = await supabase.from("servicos").update({ ativo: v }).eq("id", s.id);
-                    if (error) toast.error(error.message);
+                    if (error) toast.error(mensagemErroAmigavel(error.message));
                     else { toast.success(v ? "Ativado" : "Desativado"); qc.invalidateQueries({ queryKey: ["servicos"] }); }
                   }} />
                 </div>
@@ -128,7 +129,7 @@ function DeleteServ({ id, onDone, nome }: { id: string; onDone: () => void; nome
   const mut = useMutation({
     mutationFn: async () => { const { error } = await supabase.from("servicos").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { toast.success("Serviço removido"); onDone(); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
   return <Button size="icon" variant="ghost" className="hover:bg-red-100 dark:hover:bg-red-500/20" aria-label={`Excluir ${nome || "serviço"}`} onClick={() => {
     confirm({
@@ -155,7 +156,7 @@ function ServicoDialog({ serv, onSaved, trigger }: { serv?: Serv; onSaved: () =>
       else { const { data: u } = await supabase.auth.getUser(); const { error } = await supabase.from("servicos").insert({ ...parsed.data, user_id: u.user!.id }); if (error) throw error; }
     },
     onSuccess: () => { toast.success(serv ? "Atualizado" : "Criado"); onSaved(); setOpen(false); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (

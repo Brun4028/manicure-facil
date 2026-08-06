@@ -19,6 +19,7 @@ import { fallbackDb } from "@/lib/fallback-db";
 import { Plus, Pencil, Trash2, Package, ShoppingCart, ArrowUpDown, AlertTriangle, Trash } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -151,7 +152,7 @@ function EstoquePage() {
       toast.success("Produto removido com sucesso");
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (
@@ -417,7 +418,7 @@ function ProductDialog({ serv, onSaved, trigger }: { serv?: Prod; onSaved: () =>
       onSaved();
       setOpen(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (
@@ -534,7 +535,7 @@ function MovementDialog({ products, onSaved }: { products: Prod[]; onSaved: () =
       setOpen(false);
       setForm({ produto_id: "", tipo: "entrada", quantidade: 1, motivo: "" });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (

@@ -13,6 +13,8 @@ import { Bell, CheckCheck, Info, AlertCircle, CheckCircle, Gift, Cake, CalendarD
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 
 type Notificacao = {
   id: string;
@@ -74,6 +76,7 @@ export function NotificationsPopover() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notificacoes"] }),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   const markAllReadMut = useMutation({
@@ -82,6 +85,7 @@ export function NotificationsPopover() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notificacoes"] }),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   function handleAction(n: Notificacao) {

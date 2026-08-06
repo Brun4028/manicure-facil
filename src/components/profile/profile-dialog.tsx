@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { User, Sparkles } from "lucide-react";
+import { mensagemErroAuth } from "@/lib/auth-errors";
 
 export function ProfileDialog({
   open,
@@ -49,7 +50,7 @@ export function ProfileDialog({
     setSaving(false);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(mensagemErroAuth(error.message));
       return;
     }
 

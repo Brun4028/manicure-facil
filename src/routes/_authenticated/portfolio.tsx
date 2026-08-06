@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { fallbackDb } from "@/lib/fallback-db";
 import { Plus, Trash2, Image, Star, Eye, EyeOff, Sparkles, Heart, Split } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -172,7 +173,7 @@ function PortfolioPage() {
       toast.success("Foto removida da galeria");
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   const deleteReviewMut = useMutation({
@@ -188,7 +189,7 @@ function PortfolioPage() {
       toast.success("Avaliação excluída");
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (
@@ -403,6 +404,7 @@ function PortfolioPage() {
 /* ───── F7: Before/After Card ───── */
 function BeforeAfterCard({ photo, onDelete }: { photo: Photo; onDelete: () => void }) {
   const [sliderPos, setSliderPos] = useState(50);
+  const { confirm } = useConfirm();
   
   return (
     <Card className="glass border-0 rounded-3xl overflow-hidden shadow-card">
@@ -441,15 +443,22 @@ function BeforeAfterCard({ photo, onDelete }: { photo: Photo; onDelete: () => vo
             </div>
           )}
         </div>
-        <Button size="icon" variant="ghost" className="shrink-0 text-destructive hover:bg-destructive/10" onClick={async () => {
-          if (!confirm("Remover este comparativo?")) return;
-          try {
-            await supabase.from("portfolio").update({ foto_antes_url: null }).eq("id", photo.id);
-          } catch {
-            fallbackDb.update<Photo>("portfolio", photo.id, { foto_antes_url: null }, defaultPhotos);
-          }
-          toast.success("Comparativo removido");
-          onDelete();
+        <Button size="icon" variant="ghost" className="shrink-0 text-destructive hover:bg-destructive/10" onClick={() => {
+          confirm({
+            title: "Remover comparativo?",
+            description: "Deseja mesmo remover este comparativo Antes & Depois?",
+            confirmText: "Remover",
+            variant: "danger",
+            onConfirm: async () => {
+              try {
+                await supabase.from("portfolio").update({ foto_antes_url: null }).eq("id", photo.id);
+              } catch {
+                fallbackDb.update<Photo>("portfolio", photo.id, { foto_antes_url: null }, defaultPhotos);
+              }
+              toast.success("Comparativo removido");
+              onDelete();
+            },
+          });
         }}>
           <Trash2 className="size-4" />
         </Button>

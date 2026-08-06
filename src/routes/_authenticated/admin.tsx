@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import {
   listarContas, atualizarConta, convidarUsuario, gerarLinkConvite,
   verificarAdmin,
@@ -79,7 +80,7 @@ function AdminPage() {
       if (!res.ok) throw new Error(res.error);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin_contas"] }); toast.success("Conta atualizada!"); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   // ── Diálogo de edição ──
@@ -108,7 +109,7 @@ function AdminPage() {
       setEditing(null);
       toast.success("Conta atualizada!");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   // ── Convidar cliente ──
@@ -131,7 +132,7 @@ function AdminPage() {
       setInviteLink(link);
       toast.success("Convite enviado por e-mail e link gerado!");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   function copyLink() {
@@ -160,7 +161,8 @@ function AdminPage() {
       : new Date();
     const fim = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
     atualizarConta({ data: { userId: c.user_id, status: "ativo", acessoTerminaEm: fim } })
-      .then((r) => { if (r.ok) { qc.invalidateQueries({ queryKey: ["admin_contas"] }); toast.success("Acesso renovado por 30 dias"); } else toast.error(r.error); });
+      .then((r) => { if (r.ok) { qc.invalidateQueries({ queryKey: ["admin_contas"] }); toast.success("Acesso renovado por 30 dias"); } else toast.error(mensagemErroAmigavel(r.error)); })
+      .catch((e: Error) => toast.error(mensagemErroAmigavel(e.message)));
   }
 
   function trial7(c: ContaAdmin) {
@@ -172,12 +174,14 @@ function AdminPage() {
         trialFim: fim.toISOString(), acessoTerminaEm: fim.toISOString(),
       },
     })
-      .then((r) => { if (r.ok) { qc.invalidateQueries({ queryKey: ["admin_contas"] }); toast.success("Trial de 7 dias ativado"); } else toast.error(r.error); });
+      .then((r) => { if (r.ok) { qc.invalidateQueries({ queryKey: ["admin_contas"] }); toast.success("Trial de 7 dias ativado"); } else toast.error(mensagemErroAmigavel(r.error)); })
+      .catch((e: Error) => toast.error(mensagemErroAmigavel(e.message)));
   }
 
   function vitalicio(c: ContaAdmin) {
     atualizarConta({ data: { userId: c.user_id, status: "ativo", acessoTerminaEm: "", trialFim: "" } })
-      .then((r) => { if (r.ok) { qc.invalidateQueries({ queryKey: ["admin_contas"] }); toast.success("Acesso vitalício liberado"); } else toast.error(r.error); });
+      .then((r) => { if (r.ok) { qc.invalidateQueries({ queryKey: ["admin_contas"] }); toast.success("Acesso vitalício liberado"); } else toast.error(mensagemErroAmigavel(r.error)); })
+      .catch((e: Error) => toast.error(mensagemErroAmigavel(e.message)));
   }
 
   return (

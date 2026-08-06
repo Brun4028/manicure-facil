@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Pencil, Trash2, Search, Phone, Mail, Cake, Users, Trophy, History } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { z } from "zod";
 import { differenceInDays } from "date-fns";
 import { ClienteHistoryDialog } from "@/components/clientes/cliente-history-dialog";
@@ -261,7 +262,7 @@ function DeleteBtn({ id, onDone, nome }: { id: string; onDone: () => void; nome?
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Cliente removida"); onDone(); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
   return (
     <Button size="icon" variant="ghost" aria-label={`Excluir ${nome || "cliente"}`} onClick={() => {
@@ -313,7 +314,7 @@ function ClienteDialog({ cliente, onSaved, trigger }: { cliente?: Cliente; onSav
       }
     },
     onSuccess: () => { toast.success(cliente ? "Cliente atualizada" : "Cliente cadastrada"); onSaved(); setOpen(false); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (

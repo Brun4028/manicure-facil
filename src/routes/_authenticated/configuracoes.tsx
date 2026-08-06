@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { Building2, Clock, Bell, Save } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -74,7 +75,7 @@ function ConfiguracoesPage() {
       toast.success("Configurações salvas!");
       qc.invalidateQueries({ queryKey: ["configuracoes"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   if (isLoading) {

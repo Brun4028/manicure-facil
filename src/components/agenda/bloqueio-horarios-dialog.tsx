@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { CalendarOff, Plus, Trash2, Pencil, Umbrella, Sun, Coffee, CalendarX } from "lucide-react";
 import { format } from "date-fns";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -95,7 +96,7 @@ export function BloqueioHorariosDialog() {
       setFormOpen(false);
       resetForm();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   const deleteMut = useMutation({
@@ -104,7 +105,7 @@ export function BloqueioHorariosDialog() {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Bloqueio removido"); qc.invalidateQueries({ queryKey: ["bloqueios-agenda"] }); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   function resetForm() {

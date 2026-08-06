@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Calendar, Clock, CalendarDays, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { z } from "zod";
 import { format, addDays, subMonths, addMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -84,7 +85,7 @@ function AgendamentosPage() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["agendamentos"] }); toast.success("Agendamento movido!"); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   useEffect(() => { if (search.new) { setOpenNew(true); navigate({ to: "/agendamentos", search: {} as never, replace: true }); } }, [search.new, navigate]);
@@ -401,7 +402,7 @@ function DeleteAg({ id, onDone }: { id: string; onDone: () => void }) {
   const mut = useMutation({
     mutationFn: async () => { const { error } = await supabase.from("agendamentos").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { toast.success("Agendamento removido"); onDone(); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
   return (
     <Button
@@ -606,7 +607,7 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
       }
     },
     onSuccess: () => { toast.success(ag ? "Agendamento atualizado" : "Agendamento criado"); onSaved(); setOpen(false); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (

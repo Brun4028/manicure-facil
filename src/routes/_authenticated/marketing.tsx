@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { fallbackDb } from "@/lib/fallback-db";
 import { Plus, Trash2, Award, Percent, Gift, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/marketing")({
@@ -201,7 +202,7 @@ function MarketingPage() {
       toast.success("Configurações salvas com sucesso!");
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   const deletePromoMut = useMutation({
@@ -217,7 +218,7 @@ function MarketingPage() {
       toast.success("Promoção excluída");
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (

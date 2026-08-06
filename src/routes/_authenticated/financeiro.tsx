@@ -23,6 +23,7 @@ import { ptBR } from "date-fns/locale";
 import { Wallet, TrendingUp, BarChart3, Plus, Pencil, Trash2, PiggyBank, ArrowDownToLine, Download, FileText, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
@@ -242,7 +243,7 @@ function Financeiro() {
       setDespesaDialogOpen(false);
       resetForm();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   const deleteDespesaMut = useMutation({
@@ -251,7 +252,7 @@ function Financeiro() {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Despesa excluída"); qc.invalidateQueries({ queryKey: ["despesas"] }); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   const togglePagoMut = useMutation({
@@ -263,7 +264,7 @@ function Financeiro() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["despesas"] }); toast.success("Status atualizado"); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   function resetForm() {

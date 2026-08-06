@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
 import { getContaDe, contaTemAcesso, statusMensagem, type MinhaConta } from "@/lib/access";
+import { mensagemErroAuth } from "@/lib/auth-errors";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -100,7 +101,7 @@ function AuthPage() {
     const { data: loginData, error } = await supabase.auth.signInWithPassword(parsed.data);
     if (error) {
       setLoading(false);
-      toast.error(error.message);
+      toast.error(mensagemErroAuth(error.message));
       return;
     }
 
@@ -145,7 +146,7 @@ function AuthPage() {
     setSavingPassword(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setSavingPassword(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(mensagemErroAuth(error.message)); return; }
     setPendingInvite(null);
     setNewPassword("");
     setConfirmPassword("");
@@ -292,7 +293,7 @@ function ForgotPasswordDialog() {
     setLoading(false);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(mensagemErroAuth(error.message));
       return;
     }
 

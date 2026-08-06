@@ -17,6 +17,7 @@ import {
   CalendarDays, Scissors, User, CheckCircle2, Star, Heart, Cake, ChevronLeft
 } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { format, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -66,6 +67,13 @@ function PublicAgendamentoPage() {
   });
 
   const data = publicoQuery.data;
+  // 🔧 UX: link com ID inválido/inativo → mostra a mensagem amigável do
+  // servidor ("Perfil indisponível no momento.") em vez de uma tela vazia.
+  const erroPublico = publicoQuery.isError
+    ? publicoQuery.error instanceof Error
+      ? publicoQuery.error.message
+      : "Perfil indisponível no momento."
+    : null;
   const services: Serv[] = data?.servicos ?? [];
   const bookings: { data_hora: string; duracao_min: number; status: string }[] = data?.agendamentos ?? [];
   const loyaltyConfig = data?.fidelidade ?? null;
@@ -267,7 +275,7 @@ function PublicAgendamentoPage() {
     onSuccess: () => {
       setStep(4); // Success step
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   // Review submission Mutation — via server function (validação no servidor)
@@ -290,7 +298,7 @@ function PublicAgendamentoPage() {
       setReviewForm({ nome: "", nota: 5, comentario: "" });
       publicoQuery.refetch();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (
@@ -302,7 +310,7 @@ function PublicAgendamentoPage() {
             <img src={logoIconWhite} alt="Logo" className="size-5 object-contain" />
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-xl leading-none truncate">{perfil?.nome || "Carregando..."}</h1>
+            <h1 className="font-display text-xl leading-none truncate">{erroPublico ? "Perfil indisponível" : perfil?.nome || "Carregando..."}</h1>
             <p className="text-[10px] text-muted-foreground mt-1 truncate">Agendamento Online Premium</p>
           </div>
         </div>
@@ -330,6 +338,8 @@ function PublicAgendamentoPage() {
                 <div className="space-y-2">
                   {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}
                 </div>
+              ) : erroPublico ? (
+                <p className="text-sm text-center py-6 text-muted-foreground">{mensagemErroAmigavel(erroPublico)}</p>
               ) : services.length === 0 ? (
                 <p className="text-sm text-center py-6 text-muted-foreground">Nenhum serviço disponível no momento.</p>
               ) : (
