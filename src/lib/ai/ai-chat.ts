@@ -27,11 +27,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { aiLogger } from "./ai-logger";
-import {
-  AiServiceError,
-  mensagemAmigavel,
-  type AiErrorCode,
-} from "./ai-errors";
+import { AiServiceError, mensagemAmigavel, type AiErrorCode } from "./ai-errors";
 
 // ─── Limites de segurança ───────────────────────────────────────────────────
 
@@ -87,11 +83,14 @@ const contextSchema = z.object({
 });
 
 // Configurações opcionais do cliente (override das env vars)
-const settingsSchema = z.object({
-  provider: z.enum(["openai", "gemini"]).optional(),
-  temperature: z.number().min(0).max(2).optional(),
-  maxTokens: z.number().int().min(1024).max(8192).optional(),
-}).optional().default({});
+const settingsSchema = z
+  .object({
+    provider: z.enum(["openai", "gemini"]).optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().int().min(1024).max(8192).optional(),
+  })
+  .optional()
+  .default({});
 
 const inputSchema = z.object({
   message: messageSchema,
@@ -117,18 +116,11 @@ export type AiChatFailure = {
 
 export type AiChatResponse = AiChatSuccess | AiChatFailure;
 
-function success(
-  text: string,
-  suggestions?: string[],
-): AiChatSuccess {
+function success(text: string, suggestions?: string[]): AiChatSuccess {
   return { ok: true, text, suggestions };
 }
 
-function failure(
-  code: AiErrorCode,
-  message: string,
-  userMessage?: string,
-): AiChatFailure {
+function failure(code: AiErrorCode, message: string, userMessage?: string): AiChatFailure {
   return { ok: false, code, message, userMessage: userMessage ?? mensagemAmigavel(code) };
 }
 
@@ -195,17 +187,19 @@ function logServerError(meta: LogMeta, error: unknown): void {
   const isWarn = normalized.code === "rate-limit";
 
   try {
-    aiLogger.log(aiLogger.createLog({
-      provider: meta.provider,
-      model: meta.model,
-      startTime: meta.startTime,
-      messageLength: meta.messageLength,
-      responseLength: 0,
-      success: false,
-      warn: isWarn,
-      error: `${normalized.code}: ${normalized.message}`,
-      cached: false,
-    }));
+    aiLogger.log(
+      aiLogger.createLog({
+        provider: meta.provider,
+        model: meta.model,
+        startTime: meta.startTime,
+        messageLength: meta.messageLength,
+        responseLength: 0,
+        success: false,
+        warn: isWarn,
+        error: `${normalized.code}: ${normalized.message}`,
+        cached: false,
+      }),
+    );
   } catch {
     /* logging nunca deve quebrar a request */
   }
@@ -253,189 +247,216 @@ export const getAiChatResponse = createServerFn({ method: "POST" })
     }
   });
 
+// ─── Diagnóstico de configuração (pós-deploy) ───────────────────────────────
+// Permite ao usuário verificar, na interface, se as variáveis de IA realmente
+// chegaram ao servidor (ex.: após adicionar GEMINI_API_KEY na Vercel).
+// NUNCA retorna segredos — apenas flags booleanas + nomes de configuração.
+
+export const getAiConfigStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(
+    async (): Promise<{
+      provider: string;
+      geminiConfigured: boolean;
+      openaiConfigured: boolean;
+      nodeEnv: string;
+    }> => {
+      const { getServerEnv } = await import("../config.server");
+      return {
+        provider: getServerEnv("AI_PROVIDER") ?? "openai",
+        geminiConfigured: Boolean(getServerEnv("GEMINI_API_KEY")),
+        openaiConfigured: Boolean(getServerEnv("OPENAI_API_KEY")),
+        nodeEnv: getServerEnv("NODE_ENV") ?? "development",
+      };
+    },
+  );
+
 // Corpo principal da server function (era o corpo do handler acima).
 async function handleAiChat(
   data: z.infer<typeof inputSchema>,
   context: unknown,
 ): Promise<AiChatResponse> {
-    const userId = (context as { userId?: string } | undefined)?.userId ?? "unknown";
-    const startTime = Date.now();
+  const userId = (context as { userId?: string } | undefined)?.userId ?? "unknown";
+  const startTime = Date.now();
 
-    const { callOpenAI, callGemini, buildSystemPrompt } = await import(
-      "./ai-providers.server"
+  const { callOpenAI, callGemini, buildSystemPrompt } = await import("./ai-providers.server");
+
+  const { message, history, context: aiContext, settings } = data;
+  const effectiveSettings = settings ?? {};
+
+  // ── Verificação de prompt injection ──────────────────────────
+  if (detectPromptInjection(message)) {
+    const result = failure(
+      "content-filter",
+      "Prompt injection detected in message",
+      "🚫 Sua pergunta foi bloqueada pelos filtros de segurança. Reformule de outra forma, por favor.",
     );
-
-    const { message, history, context: aiContext, settings } = data;
-    const effectiveSettings = settings ?? {};
-
-    // ── Verificação de prompt injection ──────────────────────────
-    if (detectPromptInjection(message)) {
-      const result = failure(
-        "content-filter",
-        "Prompt injection detected in message",
-        "🚫 Sua pergunta foi bloqueada pelos filtros de segurança. Reformule de outra forma, por favor.",
-      );
-      logServerError({ provider: "openai", model: "n/a", startTime, messageLength: message.length, userId }, {
+    logServerError(
+      { provider: "openai", model: "n/a", startTime, messageLength: message.length, userId },
+      {
         code: result.code,
         message: result.message,
-      });
-      return result;
-    }
+      },
+    );
+    return result;
+  }
 
-    for (const h of history) {
-      if (detectPromptInjection(h.text)) {
-        const result = failure(
-          "content-filter",
-          "Prompt injection detected in history",
-          "🚫 Detectamos um padrão suspeito no histórico da conversa. Vamos começar uma nova conversa.",
-        );
-        logServerError({ provider: "openai", model: "n/a", startTime, messageLength: message.length, userId }, {
+  for (const h of history) {
+    if (detectPromptInjection(h.text)) {
+      const result = failure(
+        "content-filter",
+        "Prompt injection detected in history",
+        "🚫 Detectamos um padrão suspeito no histórico da conversa. Vamos começar uma nova conversa.",
+      );
+      logServerError(
+        { provider: "openai", model: "n/a", startTime, messageLength: message.length, userId },
+        {
           code: result.code,
           message: result.message,
-        });
-        return result;
-      }
-    }
-
-    // ── Cache server-side (economia de chamadas à API) ──────────
-    // Perguntas genéricas de "como fazer" são compartilhadas entre usuários;
-    // perguntas sobre dados do negócio são cacheadas por usuário (segurança:
-    // nunca misturar dados de contas diferentes).
-    const { aiServerCache, buildCacheKey, classifyQuestionScope } = await import(
-      "./ai-cache.server"
-    );
-    const cacheScope = classifyQuestionScope(message);
-    // 🔒 SEGURANÇA: perguntas de conhecimento geral (escopo `shared`) NÃO
-    // incluem o histórico na chave do cache — o histórico contém dados do
-    // usuário (respostas anteriores com nomes, valores, datas) e não pode
-    // influenciar uma resposta que será compartilhada entre usuários. Bônus:
-    // usuários diferentes com a MESMA pergunta genérica batem na mesma
-    // entrada (economia máxima da cota).
-    const cacheKey = buildCacheKey(
-      message,
-      cacheScope === "shared" ? [] : history,
-    );
-    const cachedHit =
-      cacheScope === "shared"
-        ? aiServerCache.get("shared", userId, cacheKey)
-        : aiServerCache.get("user", userId, cacheKey);
-    if (cachedHit) {
-      console.log(
-        `[AI CACHE] ${cacheScope} hit para "${message.slice(0, 50)}" (${cacheKey})`,
+        },
       );
-      return success(cachedHit.text, cachedHit.suggestions);
+      return result;
     }
+  }
 
-    // ── Monta mensagens para a IA ────────────────────────────────
-    // 🔒 SEGURANÇA: perguntas de conhecimento geral (escopo `shared` do
-    // cache) NÃO recebem os dados do negócio no prompt — a resposta nasce
-    // sem nomes, valores, datas ou qualquer dado do banco, e pode ser
-    // compartilhada entre usuários sem risco de vazamento.
-    const systemPrompt = buildSystemPrompt(
-      cacheScope === "shared" ? null : aiContext,
-    );
-    const chatMessages: { role: string; content: string }[] = [
-      { role: "system", content: systemPrompt },
-    ];
+  // ── Cache server-side (economia de chamadas à API) ──────────
+  // Perguntas genéricas de "como fazer" são compartilhadas entre usuários;
+  // perguntas sobre dados do negócio são cacheadas por usuário (segurança:
+  // nunca misturar dados de contas diferentes).
+  const { aiServerCache, buildCacheKey, classifyQuestionScope } = await import("./ai-cache.server");
+  const cacheScope = classifyQuestionScope(message);
+  // 🔒 SEGURANÇA: perguntas de conhecimento geral (escopo `shared`) NÃO
+  // incluem o histórico na chave do cache — o histórico contém dados do
+  // usuário (respostas anteriores com nomes, valores, datas) e não pode
+  // influenciar uma resposta que será compartilhada entre usuários. Bônus:
+  // usuários diferentes com a MESMA pergunta genérica batem na mesma
+  // entrada (economia máxima da cota).
+  const cacheKey = buildCacheKey(message, cacheScope === "shared" ? [] : history);
+  const cachedHit =
+    cacheScope === "shared"
+      ? aiServerCache.get("shared", userId, cacheKey)
+      : aiServerCache.get("user", userId, cacheKey);
+  if (cachedHit) {
+    console.log(`[AI CACHE] ${cacheScope} hit para "${message.slice(0, 50)}" (${cacheKey})`);
+    return success(cachedHit.text, cachedHit.suggestions);
+  }
 
-    // 🔒 SEGURANÇA (regra absoluta do usuário): o histórico NÃO é enviado ao
-    // modelo em perguntas de conhecimento geral (escopo `shared`) — o
-    // histórico pode conter dados do banco (respostas anteriores com nomes,
-    // valores, percentuais, datas, telefones) e a IA poderia citá-los na
-    // resposta, que seria cacheada COMPARTILHADA. Perguntas de
-    // acompanhamento ("E depois?") são classificadas como escopo `user` e
-    // recebem o histórico completo normalmente.
-    if (cacheScope !== "shared") {
-      for (const h of history) {
-        chatMessages.push({ role: h.role, content: h.text });
+  // ── Monta mensagens para a IA ────────────────────────────────
+  // 🔒 SEGURANÇA: perguntas de conhecimento geral (escopo `shared` do
+  // cache) NÃO recebem os dados do negócio no prompt — a resposta nasce
+  // sem nomes, valores, datas ou qualquer dado do banco, e pode ser
+  // compartilhada entre usuários sem risco de vazamento.
+  const systemPrompt = buildSystemPrompt(cacheScope === "shared" ? null : aiContext);
+  const chatMessages: { role: string; content: string }[] = [
+    { role: "system", content: systemPrompt },
+  ];
+
+  // 🔒 SEGURANÇA (regra absoluta do usuário): o histórico NÃO é enviado ao
+  // modelo em perguntas de conhecimento geral (escopo `shared`) — o
+  // histórico pode conter dados do banco (respostas anteriores com nomes,
+  // valores, percentuais, datas, telefones) e a IA poderia citá-los na
+  // resposta, que seria cacheada COMPARTILHADA. Perguntas de
+  // acompanhamento ("E depois?") são classificadas como escopo `user` e
+  // recebem o histórico completo normalmente.
+  if (cacheScope !== "shared") {
+    for (const h of history) {
+      chatMessages.push({ role: h.role, content: h.text });
+    }
+  }
+
+  chatMessages.push({ role: "user", content: message });
+
+  // ── Determina provedor: client setting > env var > openai ────
+  const { getServerEnv } = await import("../config.server");
+  const provider =
+    effectiveSettings.provider ??
+    ((getServerEnv("AI_PROVIDER") ?? "openai") as "openai" | "gemini");
+
+  // Prepara overrides de configuração
+  const configOverrides = {
+    temperature: effectiveSettings.temperature,
+    maxTokens: effectiveSettings.maxTokens,
+  };
+
+  // ── Executa com fallback ──────────────────────────────────────
+  const cacheSuccess = (result: { text: string; suggestions?: string[] }) => {
+    // Guarda a resposta de sucesso no cache (por escopo). Respostas
+    // curtas (ex: "ok") não valem a pena serem cacheadas.
+    if (result.text.length >= 30) {
+      if (cacheScope === "shared") {
+        aiServerCache.set("shared", userId, cacheKey, result);
+      } else {
+        aiServerCache.set("user", userId, cacheKey, result);
       }
     }
+    return success(result.text, result.suggestions);
+  };
 
-    chatMessages.push({ role: "user", content: message });
-
-    // ── Determina provedor: client setting > env var > openai ────
-    const { getServerEnv } = await import("../config.server");
-    const provider = effectiveSettings.provider ??
-      ((getServerEnv("AI_PROVIDER") ?? "openai") as "openai" | "gemini");
-
-    // Prepara overrides de configuração
-    const configOverrides = {
-      temperature: effectiveSettings.temperature,
-      maxTokens: effectiveSettings.maxTokens,
-    };
-
-    // ── Executa com fallback ──────────────────────────────────────
-    const cacheSuccess = (result: { text: string; suggestions?: string[] }) => {
-      // Guarda a resposta de sucesso no cache (por escopo). Respostas
-      // curtas (ex: "ok") não valem a pena serem cacheadas.
-      if (result.text.length >= 30) {
-        if (cacheScope === "shared") {
-          aiServerCache.set("shared", userId, cacheKey, result);
-        } else {
-          aiServerCache.set("user", userId, cacheKey, result);
-        }
-      }
-      return success(result.text, result.suggestions);
-    };
-
-    try {
-      if (provider === "gemini") {
-        const result = await callGemini(chatMessages, configOverrides);
-        return cacheSuccess(result);
-      }
-      const result = await callOpenAI(chatMessages, configOverrides);
+  try {
+    if (provider === "gemini") {
+      const result = await callGemini(chatMessages, configOverrides);
       return cacheSuccess(result);
-    } catch (primaryError: any) {
-      // Se o provedor primário falhar (rate-limit, api-error ou chave não
-      // configurada), tenta o outro provedor — assim, mesmo com apenas uma
-      // chave configurada (ex: só Gemini), a IA continua funcionando.
-      const isRetryable =
-        primaryError &&
-        typeof primaryError === "object" &&
-        "code" in primaryError &&
-        typeof primaryError.code === "string" &&
-        ["rate-limit", "api-error", "server-error"].includes(primaryError.code);
+    }
+    const result = await callOpenAI(chatMessages, configOverrides);
+    return cacheSuccess(result);
+  } catch (primaryError: any) {
+    // Se o provedor primário falhar (rate-limit, api-error ou chave não
+    // configurada), tenta o outro provedor — assim, mesmo com apenas uma
+    // chave configurada (ex: só Gemini), a IA continua funcionando.
+    const isRetryable =
+      primaryError &&
+      typeof primaryError === "object" &&
+      "code" in primaryError &&
+      typeof primaryError.code === "string" &&
+      ["rate-limit", "api-error", "server-error"].includes(primaryError.code);
 
-      if (isRetryable) {
-        const fallbackProvider = provider === "gemini" ? "openai" : "gemini";
-        // Só tenta o fallback se o outro provedor tiver uma chave configurada.
-        // Caso contrário, pular direto evita erro enganoso do tipo
-        // "OPENAI_API_KEY não configurada" quando o problema real foi o Gemini
-        // falhar temporariamente (rate-limit, instabilidade da API etc).
-        const fallbackHasKey = fallbackProvider === "gemini"
+    if (isRetryable) {
+      const fallbackProvider = provider === "gemini" ? "openai" : "gemini";
+      // Só tenta o fallback se o outro provedor tiver uma chave configurada.
+      // Caso contrário, pular direto evita erro enganoso do tipo
+      // "OPENAI_API_KEY não configurada" quando o problema real foi o Gemini
+      // falhar temporariamente (rate-limit, instabilidade da API etc).
+      const fallbackHasKey =
+        fallbackProvider === "gemini"
           ? Boolean(getServerEnv("GEMINI_API_KEY"))
           : Boolean(getServerEnv("OPENAI_API_KEY"));
-        if (fallbackHasKey) {
-          try {
-            const result = fallbackProvider === "gemini"
+      if (fallbackHasKey) {
+        try {
+          const result =
+            fallbackProvider === "gemini"
               ? await callGemini(chatMessages, configOverrides)
               : await callOpenAI(chatMessages, configOverrides);
-            return cacheSuccess(result);
-          } catch (fallbackError) {
-            logServerError(
-              {
-                provider: fallbackProvider,
-                model: "fallback",
-                startTime,
-                messageLength: message.length,
-                userId,
-              },
-              fallbackError,
-            );
-            logServerError({ provider, model: "primary", startTime, messageLength: message.length, userId }, primaryError);
+          return cacheSuccess(result);
+        } catch (fallbackError) {
+          logServerError(
+            {
+              provider: fallbackProvider,
+              model: "fallback",
+              startTime,
+              messageLength: message.length,
+              userId,
+            },
+            fallbackError,
+          );
+          logServerError(
+            { provider, model: "primary", startTime, messageLength: message.length, userId },
+            primaryError,
+          );
 
-            // Ambos falharam — reporta o erro do provedor PRIMÁRIO (o real),
-            // que é o mais relevante para o usuário.
-            return toFailureEnvelope(primaryError);
-          }
+          // Ambos falharam — reporta o erro do provedor PRIMÁRIO (o real),
+          // que é o mais relevante para o usuário.
+          return toFailureEnvelope(primaryError);
         }
-        // Sem chave no fallback: cai para o reporte do erro primário abaixo.
       }
-
-      logServerError({ provider, model: "primary", startTime, messageLength: message.length, userId }, primaryError);
-
-      // Converte qualquer erro (AiServiceError ou não) em envelope
-      return toFailureEnvelope(primaryError);
+      // Sem chave no fallback: cai para o reporte do erro primário abaixo.
     }
-}
 
+    logServerError(
+      { provider, model: "primary", startTime, messageLength: message.length, userId },
+      primaryError,
+    );
+
+    // Converte qualquer erro (AiServiceError ou não) em envelope
+    return toFailureEnvelope(primaryError);
+  }
+}

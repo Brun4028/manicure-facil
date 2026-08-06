@@ -12,9 +12,8 @@
  */
 
 import { useState, useEffect } from "react";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { useQuery } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -22,8 +21,19 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { aiCache } from "@/lib/ai/ai-cache";
 import { aiLogger } from "@/lib/ai/ai-logger";
+import { getAiConfigStatus } from "@/lib/ai/ai-chat";
 import {
-  Settings2, Brain, Thermometer, Ruler, BarChart3, RotateCcw, Trash2,
+  Settings2,
+  Brain,
+  Thermometer,
+  Ruler,
+  BarChart3,
+  RotateCcw,
+  Trash2,
+  ServerCog,
+  CheckCircle2,
+  XCircle,
+  Loader2,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -64,14 +74,18 @@ function loadSettings(): AiSettings {
         }
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return DEFAULT_SETTINGS;
 }
 
 function saveSettings(settings: AiSettings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...settings, __version: STORAGE_VERSION }));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Lê as configurações atuais (para uso fora do dialog) */
@@ -82,7 +96,8 @@ export function getAiSettings(): AiSettings {
 // ─── Componente ─────────────────────────────────────────────────────────────
 
 export function AiSettingsDialog({
-  open, onOpenChange,
+  open,
+  onOpenChange,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -93,6 +108,18 @@ export function AiSettingsDialog({
   useEffect(() => {
     if (open) setSettings(loadSettings());
   }, [open]);
+
+  // Diagnóstico de configuração do servidor (verifica se as env vars de IA
+  // realmente chegaram ao runtime — essencial após o deploy na Vercel).
+  const configStatus = useQuery({
+    queryKey: ["ai-config-status"],
+    queryFn: async () => {
+      const res = await getAiConfigStatus({ data: undefined });
+      return res;
+    },
+    enabled: open,
+    staleTime: 30_000,
+  });
 
   const updateSetting = <K extends keyof AiSettings>(key: K, value: AiSettings[K]) => {
     const next = { ...settings, [key]: value };
@@ -164,12 +191,16 @@ export function AiSettingsDialog({
                 <Thermometer className="size-4 text-[#D946EF]" />
                 Temperatura
               </Label>
-              <span className="text-xs font-mono text-muted-foreground">{settings.temperature.toFixed(1)}</span>
+              <span className="text-xs font-mono text-muted-foreground">
+                {settings.temperature.toFixed(1)}
+              </span>
             </div>
             <Slider
               value={[settings.temperature]}
               onValueChange={([v]) => updateSetting("temperature", Math.round(v * 10) / 10)}
-              min={0} max={2} step={0.1}
+              min={0}
+              max={2}
+              step={0.1}
               className="[&_[role=slider]]:bg-[#D946EF]"
             />
             <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -185,14 +216,18 @@ export function AiSettingsDialog({
                 <Ruler className="size-4 text-[#D946EF]" />
                 Tamanho máximo
               </Label>
-              <span className="text-xs font-mono text-muted-foreground">{settings.maxTokens} tok</span>
+              <span className="text-xs font-mono text-muted-foreground">
+                {settings.maxTokens} tok
+              </span>
             </div>
             <Slider
               value={[settings.maxTokens]}
               onValueChange={([v]) => updateSetting("maxTokens", v)}
               // Mínimo 1024: modelos atuais (ex: gemini-flash-latest) gastam
               // tokens em raciocínio — valores muito baixos geram resposta vazia.
-              min={1024} max={8192} step={256}
+              min={1024}
+              max={8192}
+              step={256}
               className="[&_[role=slider]]:bg-[#D946EF]"
             />
             <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -201,10 +236,70 @@ export function AiSettingsDialog({
             </div>
           </div>
 
+          {/* Status do servidor (diagnóstico pós-deploy) */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <ServerCog className="size-4 text-[#D946EF]" />
+              Configuração do servidor
+            </Label>
+            {configStatus.isLoading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                <Loader2 className="size-3.5 animate-spin text-[#D946EF]" />
+                Verificando variáveis de ambiente no servidor...
+              </div>
+            ) : configStatus.isError || !configStatus.data ? (
+              <p className="text-xs text-muted-foreground bg-muted/50 border border-border rounded-xl p-3">
+                Não foi possível verificar a configuração do servidor. Se a IA estiver apresentando
+                erro, adicione a chave e faça o deploy novamente.
+              </p>
+            ) : (
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center justify-between bg-muted/50 border border-border rounded-xl px-3 py-2">
+                  <span className="text-muted-foreground">Provedor no servidor (AI_PROVIDER)</span>
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {configStatus.data.provider}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between bg-muted/50 border border-border rounded-xl px-3 py-2">
+                  <span className="text-muted-foreground">Chave Gemini (GEMINI_API_KEY)</span>
+                  {configStatus.data.geminiConfigured ? (
+                    <span className="flex items-center gap-1 text-emerald-500 font-medium">
+                      <CheckCircle2 className="size-3.5" /> Configurada
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-rose-500 font-medium">
+                      <XCircle className="size-3.5" /> Ausente no servidor
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between bg-muted/50 border border-border rounded-xl px-3 py-2">
+                  <span className="text-muted-foreground">Chave OpenAI (OPENAI_API_KEY)</span>
+                  {configStatus.data.openaiConfigured ? (
+                    <span className="flex items-center gap-1 text-emerald-500 font-medium">
+                      <CheckCircle2 className="size-3.5" /> Configurada
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <XCircle className="size-3.5" /> Não configurada (opcional)
+                    </span>
+                  )}
+                </div>
+                {!configStatus.data.geminiConfigured && (
+                  <p className="text-[10px] text-rose-500/90 leading-relaxed">
+                    A chave do Gemini não chegou ao servidor. Adicione a GEMINI_API_KEY em Settings
+                    → Environment Variables na Vercel (e no .env local) e faça o deploy novamente.
+                    Após o deploy, este aviso some quando a chave for lida.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Estatísticas */}
           <div>
             <Button
-              variant="ghost" size="sm"
+              variant="ghost"
+              size="sm"
               onClick={() => setShowStats(!showStats)}
               className="text-xs text-muted-foreground hover:text-foreground w-full justify-start"
             >
@@ -221,20 +316,29 @@ export function AiSettingsDialog({
                   </div>
                   <div>
                     <p className="text-muted-foreground">Cache</p>
-                    <p className="text-lg font-semibold text-card-foreground">{cacheStats.size} itens</p>
+                    <p className="text-lg font-semibold text-card-foreground">
+                      {cacheStats.size} itens
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Tempo médio</p>
-                    <p className="text-lg font-semibold text-card-foreground">{stats.avgDurationMs.toFixed(0)}ms</p>
+                    <p className="text-lg font-semibold text-card-foreground">
+                      {stats.avgDurationMs.toFixed(0)}ms
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Custo est.</p>
-                    <p className="text-lg font-semibold text-card-foreground">${stats.totalEstimatedCostUsd.toFixed(4)}</p>
+                    <p className="text-lg font-semibold text-card-foreground">
+                      ${stats.totalEstimatedCostUsd.toFixed(4)}
+                    </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <Badge variant="outline" className="text-[10px] bg-emerald-500/5 border-emerald-500/20">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-emerald-500/5 border-emerald-500/20"
+                  >
                     {(stats.successRate * 100).toFixed(0)}% sucesso
                   </Badge>
                   <Badge variant="outline" className="text-[10px] bg-blue-500/5 border-blue-500/20">
@@ -243,12 +347,28 @@ export function AiSettingsDialog({
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => { aiCache.clear(); setSettings({ ...settings }); }}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      aiCache.clear();
+                      setSettings({ ...settings });
+                    }}
                     className="text-xs h-7 px-2"
-                  ><Trash2 className="size-3 mr-1" /> Limpar cache</Button>
-                  <Button variant="outline" size="sm" onClick={() => { aiLogger.clearLogs(); setSettings({ ...settings }); }}
+                  >
+                    <Trash2 className="size-3 mr-1" /> Limpar cache
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      aiLogger.clearLogs();
+                      setSettings({ ...settings });
+                    }}
                     className="text-xs h-7 px-2"
-                  ><RotateCcw className="size-3 mr-1" /> Limpar logs</Button>
+                  >
+                    <RotateCcw className="size-3 mr-1" /> Limpar logs
+                  </Button>
                 </div>
               </Card>
             )}

@@ -15,6 +15,7 @@
 
 import { AiServiceError } from "./ai-errors";
 import { aiLogger } from "./ai-logger";
+import { getServerEnv } from "../config.server";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -111,13 +112,15 @@ export function buildSystemPrompt(context?: AiContextData | null): string {
 ## 🎯 SEU PAPEL
 Você é uma **consultora sênior de gestão** para salões de beleza. Sua missão é ajudar a profissional a administrar melhor o negócio como uma CEO, aumentando lucro, fidelizando clientes e otimizando processos.
 
-${hasContext
-  ? `## 📊 CONTEXTO ATUAL DO NEGÓCIO
+${
+  hasContext
+    ? `## 📊 CONTEXTO ATUAL DO NEGÓCIO
 ${contexto}
 
 **IMPORTANTE:** Use esses dados para enriquecer suas respostas com informações reais. Quando detectar oportunidades ou problemas (ex: estoque baixo, clientes inativas, baixa ocupação), aponte proativamente e sugira ações.`
-  : `## 📌 CONHECIMENTO GERAL DO SISTEMA
-Esta é uma pergunta de conhecimento geral do sistema. Responda APENAS com base no guia abaixo, de forma genérica e didática. NÃO invente, cite nem faça referência a dados específicos de nenhum salão, cliente, funcionária, serviço cadastrado, valor, percentual, data, telefone ou e-mail — nenhum dado do banco está disponível nesta pergunta.`}
+    : `## 📌 CONHECIMENTO GERAL DO SISTEMA
+Esta é uma pergunta de conhecimento geral do sistema. Responda APENAS com base no guia abaixo, de forma genérica e didática. NÃO invente, cite nem faça referência a dados específicos de nenhum salão, cliente, funcionária, serviço cadastrado, valor, percentual, data, telefone ou e-mail — nenhum dado do banco está disponível nesta pergunta.`
+}
 
 ## 📚 GUIA COMPLETO DO MANICURE FÁCIL
 Conheça todas as funcionalidades para ensinar a usuária com precisão:
@@ -195,8 +198,9 @@ Conheça todas as funcionalidades para ensinar a usuária com precisão:
 - Métricas: ticket médio, ocupação da agenda, clientes inativas
 ${hasContext ? "- Use esses números para sugerir melhorias concretas" : ""}
 
-${hasContext
-  ? `## 🤖 INTELIGÊNCIA DE NEGÓCIO
+${
+  hasContext
+    ? `## 🤖 INTELIGÊNCIA DE NEGÓCIO
 Sempre que os dados indicarem oportunidades, sugira PROATIVAMENTE:
 - 🎯 **Promoções** e campanhas para clientes inativas
 - 💰 **Aumento de preço** se o ticket médio estiver baixo
@@ -204,17 +208,20 @@ Sempre que os dados indicarem oportunidades, sugira PROATIVAMENTE:
 - 📅 **Clientes que precisam retornar** com base no intervalo recomendado
 - ✂️ **Novos serviços** para oferecer com base nos mais vendidos
 - 📉 **Redução de custos** se a margem estiver apertada`
-  : ""}
+    : ""
+}
 
-${hasContext
-  ? `## 🧠 MEMÓRIA DE CONTEXTO
+${
+  hasContext
+    ? `## 🧠 MEMÓRIA DE CONTEXTO
 - Você recebe o **histórico da conversa** junto com cada pergunta
 - **Sempre considere as mensagens anteriores** para entender o contexto
 - Exemplo: se a usuária perguntou "Como cadastro uma cliente?" e depois "E depois?", você deve CONTINUAR explicando o cadastro, não recomeçar do zero
 - Use pronomes de referência ("você", "a tela de clientes") ligados ao assunto anterior
 - Se a pergunta for ambígua, releia o histórico para desambiguar antes de responder`
-  : `## 🧠 PERGUNTA INDEPENDENTE
-Esta é uma pergunta de conhecimento geral **independente** — nenhum histórico de conversa anterior está incluído nesta solicitação. Responda apenas com base no guia do sistema e na pergunta atual.`}
+    : `## 🧠 PERGUNTA INDEPENDENTE
+Esta é uma pergunta de conhecimento geral **independente** — nenhum histórico de conversa anterior está incluído nesta solicitação. Responda apenas com base no guia do sistema e na pergunta atual.`
+}
 
 ## ✅ REGRAS OBRIGATÓRIAS
 1. **Sempre responda em português do Brasil**, com tom amigável, profissional e acolhedor
@@ -226,9 +233,11 @@ Esta é uma pergunta de conhecimento geral **independente** — nenhum históric
 7. Se um dado não estiver disponível, informe educadamente
 8. Sempre que possível, relacione suas sugestões aos dados reais do negócio
 9. Para perguntas "como faço X?", responda com **passo a passo numerado** e diga em qual tela acessar
-${hasContext
-  ? "10. Quando perguntarem sobre números do negócio, use o contexto real fornecido (faturamento, clientes, estoque, etc.)"
-  : "10. Para perguntas de conhecimento geral, responda apenas com o guia do sistema — nunca cite dados reais de clientes, funcionárias, serviços, valores, percentuais, datas, telefones ou e-mails."}
+${
+  hasContext
+    ? "10. Quando perguntarem sobre números do negócio, use o contexto real fornecido (faturamento, clientes, estoque, etc.)"
+    : "10. Para perguntas de conhecimento geral, responda apenas com o guia do sistema — nunca cite dados reais de clientes, funcionárias, serviços, valores, percentuais, datas, telefones ou e-mails."
+}
 
 ## 📝 FORMATO DA RESPOSTA
 Responda em markdown. Se quiser sugerir perguntas de acompanhamento, INCLUA um bloco JSON no FINAL da sua resposta:
@@ -265,30 +274,16 @@ function parseSuggestions(text: string): { text: string; suggestions?: string[] 
 // ─── Obter configurações do servidor ────────────────────────────────────────
 
 function getServerConfig() {
-  const getEnv = (key: string): string | undefined => {
-    if (typeof process !== "undefined" && process.env && process.env[key]) {
-      return process.env[key];
-    }
-    // Fallback para import.meta.env (Vite define env vars no build)
-    try {
-      const meta = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
-      if (meta && meta[key]) return meta[key];
-    } catch {
-      /* ignore */
-    }
-    return undefined;
-  };
-
   return {
-    provider: (getEnv("AI_PROVIDER") ?? "openai").toLowerCase() as "openai" | "gemini",
-    openAiKey: getEnv("OPENAI_API_KEY"),
-    openAiModel: getEnv("OPENAI_MODEL") ?? "gpt-4o-mini",
-    openAiTemperature: Number(getEnv("OPENAI_TEMPERATURE") ?? "0.7"),
-    openAiMaxTokens: Number(getEnv("OPENAI_MAX_TOKENS") ?? "2048"),
-    geminiKey: getEnv("GEMINI_API_KEY"),
-    geminiModel: getEnv("GEMINI_MODEL") ?? "gemini-flash-latest",
-    geminiTemperature: Number(getEnv("GEMINI_TEMPERATURE") ?? "0.7"),
-    geminiMaxTokens: Number(getEnv("GEMINI_MAX_OUTPUT_TOKENS") ?? "2048"),
+    provider: (getServerEnv("AI_PROVIDER") ?? "openai").toLowerCase() as "openai" | "gemini",
+    openAiKey: getServerEnv("OPENAI_API_KEY"),
+    openAiModel: getServerEnv("OPENAI_MODEL") ?? "gpt-4o-mini",
+    openAiTemperature: Number(getServerEnv("OPENAI_TEMPERATURE") ?? "0.7"),
+    openAiMaxTokens: Number(getServerEnv("OPENAI_MAX_TOKENS") ?? "2048"),
+    geminiKey: getServerEnv("GEMINI_API_KEY"),
+    geminiModel: getServerEnv("GEMINI_MODEL") ?? "gemini-flash-latest",
+    geminiTemperature: Number(getServerEnv("GEMINI_TEMPERATURE") ?? "0.7"),
+    geminiMaxTokens: Number(getServerEnv("GEMINI_MAX_OUTPUT_TOKENS") ?? "2048"),
   };
 }
 
@@ -306,10 +301,14 @@ export async function callOpenAI(
   const maxTokens = configOverrides?.maxTokens ?? config.openAiMaxTokens;
 
   if (!config.openAiKey) {
+    console.error(
+      "[AI CONFIG] OPENAI_API_KEY ausente no servidor (process.env + .env verificados). " +
+        `AI_PROVIDER=${config.provider}, GEMINI_API_KEY=${config.geminiKey ? "configurada" : "ausente"}`,
+    );
     throw new AiServiceError(
       "server-error",
       "OPENAI_API_KEY não configurada",
-      "O assistente não foi configurado com uma chave de IA (OPENAI_API_KEY). Verifique o arquivo .env e reinicie o servidor.",
+      "O assistente não foi configurado com uma chave de IA (OPENAI_API_KEY). Adicione a OPENAI_API_KEY no arquivo .env (local) e em Settings → Environment Variables do projeto na Vercel, depois reinicie o servidor e faça o deploy novamente.",
     );
   }
 
@@ -329,18 +328,20 @@ export async function callOpenAI(
 
   if (!res.ok) {
     const body = await res.text();
-    aiLogger.log(aiLogger.createLog({
-      provider: "openai",
-      model: config.openAiModel,
-      startTime,
-      messageLength: messages.reduce((s, m) => s + m.content.length, 0),
-      responseLength: 0,
-      success: false,
-      // Limite de cota não é erro crítico
-      warn: res.status === 429,
-      error: `HTTP ${res.status}: ${body.slice(0, 200)}`,
-      cached: false,
-    }));
+    aiLogger.log(
+      aiLogger.createLog({
+        provider: "openai",
+        model: config.openAiModel,
+        startTime,
+        messageLength: messages.reduce((s, m) => s + m.content.length, 0),
+        responseLength: 0,
+        success: false,
+        // Limite de cota não é erro crítico
+        warn: res.status === 429,
+        error: `HTTP ${res.status}: ${body.slice(0, 200)}`,
+        cached: false,
+      }),
+    );
 
     if (res.status === 401 || res.status === 403) {
       throw new AiServiceError(
@@ -376,17 +377,19 @@ export async function callOpenAI(
   const result = parseSuggestions(text);
 
   // Log de observabilidade
-  aiLogger.log(aiLogger.createLog({
-    provider: "openai",
-    model: config.openAiModel,
-    startTime,
-    messageLength: messages.reduce((s, m) => s + m.content.length, 0),
-    responseLength: result.text.length,
-    success: true,
-    cached: false,
-    promptTokens: json.usage?.prompt_tokens,
-    completionTokens: json.usage?.completion_tokens,
-  }));
+  aiLogger.log(
+    aiLogger.createLog({
+      provider: "openai",
+      model: config.openAiModel,
+      startTime,
+      messageLength: messages.reduce((s, m) => s + m.content.length, 0),
+      responseLength: result.text.length,
+      success: true,
+      cached: false,
+      promptTokens: json.usage?.prompt_tokens,
+      completionTokens: json.usage?.completion_tokens,
+    }),
+  );
 
   return result;
 }
@@ -405,10 +408,14 @@ export async function callGemini(
   const maxTokens = configOverrides?.maxTokens ?? config.geminiMaxTokens;
 
   if (!config.geminiKey) {
+    console.error(
+      "[AI CONFIG] GEMINI_API_KEY ausente no servidor (process.env + .env verificados). " +
+        `AI_PROVIDER=${config.provider}, OPENAI_API_KEY=${config.openAiKey ? "configurada" : "ausente"}, GEMINI_MODEL=${config.geminiModel}`,
+    );
     throw new AiServiceError(
       "server-error",
       "GEMINI_API_KEY não configurada",
-      "O assistente não foi configurado com uma chave de IA (GEMINI_API_KEY). Verifique o arquivo .env e reinicie o servidor.",
+      "O assistente não foi configurado com uma chave de IA (GEMINI_API_KEY). Adicione a GEMINI_API_KEY no arquivo .env (local) e em Settings → Environment Variables do projeto na Vercel (crie em aistudio.google.com/apikey), depois reinicie o servidor e faça o deploy novamente.",
     );
   }
 
@@ -455,24 +462,28 @@ export async function callGemini(
       break;
     }
     retry += 1;
-    console.error(`[AI] Gemini HTTP ${res.status} — instabilidade transitória, nova tentativa (${retry}/1)`);
+    console.error(
+      `[AI] Gemini HTTP ${res.status} — instabilidade transitória, nova tentativa (${retry}/1)`,
+    );
     await new Promise((r) => setTimeout(r, 1_200));
   }
 
   if (!res.ok) {
     const body = await res.text();
-    aiLogger.log(aiLogger.createLog({
-      provider: "gemini",
-      model: config.geminiModel,
-      startTime,
-      messageLength: messages.reduce((s, m) => s + m.content.length, 0),
-      responseLength: 0,
-      success: false,
-      // Limite de cota (429) não é erro crítico
-      warn: res.status === 429,
-      error: `HTTP ${res.status}: ${body.slice(0, 200)}`,
-      cached: false,
-    }));
+    aiLogger.log(
+      aiLogger.createLog({
+        provider: "gemini",
+        model: config.geminiModel,
+        startTime,
+        messageLength: messages.reduce((s, m) => s + m.content.length, 0),
+        responseLength: 0,
+        success: false,
+        // Limite de cota (429) não é erro crítico
+        warn: res.status === 429,
+        error: `HTTP ${res.status}: ${body.slice(0, 200)}`,
+        cached: false,
+      }),
+    );
 
     if (res.status === 400 && body.includes("API key")) {
       throw new AiServiceError(
@@ -501,7 +512,11 @@ export async function callGemini(
           ? `🔄 O limite gratuito da IA (Gemini) foi atingido. Tente novamente em ~${Math.min(retrySecs, 3600)}s — ou aumente a cota em aistudio.google.com.`
           : "🔄 O limite gratuito da IA (Gemini) foi atingido. Tente novamente mais tarde ou aumente a cota em aistudio.google.com."
         : "🔄 Você já fez muitas perguntas seguidas! Aguarde um momento e tente novamente.";
-      throw new AiServiceError("rate-limit", `Gemini rate limit: ${body.slice(0, 300)}`, userMessage);
+      throw new AiServiceError(
+        "rate-limit",
+        `Gemini rate limit: ${body.slice(0, 300)}`,
+        userMessage,
+      );
     }
     throw new AiServiceError("api-error", `Gemini error ${res.status}: ${body.slice(0, 300)}`);
   }
@@ -526,24 +541,23 @@ export async function callGemini(
   const result = parseSuggestions(text);
 
   // Log de observabilidade
-  const promptTokens =
-    json.usageMetadata?.promptTokenCount ??
-    json.usageMetadata?.prompt_tokens;
+  const promptTokens = json.usageMetadata?.promptTokenCount ?? json.usageMetadata?.prompt_tokens;
   const completionTokens =
-    json.usageMetadata?.candidatesTokenCount ??
-    json.usageMetadata?.completion_tokens;
+    json.usageMetadata?.candidatesTokenCount ?? json.usageMetadata?.completion_tokens;
 
-  aiLogger.log(aiLogger.createLog({
-    provider: "gemini",
-    model: config.geminiModel,
-    startTime,
-    messageLength: messages.reduce((s, m) => s + m.content.length, 0),
-    responseLength: result.text.length,
-    success: true,
-    cached: false,
-    promptTokens,
-    completionTokens,
-  }));
+  aiLogger.log(
+    aiLogger.createLog({
+      provider: "gemini",
+      model: config.geminiModel,
+      startTime,
+      messageLength: messages.reduce((s, m) => s + m.content.length, 0),
+      responseLength: result.text.length,
+      success: true,
+      cached: false,
+      promptTokens,
+      completionTokens,
+    }),
+  );
 
   return result;
 }
