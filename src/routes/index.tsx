@@ -6,6 +6,12 @@ import logoIconWhite from "@/assets/logo-icon-white.png";
 export const Route = createFileRoute("/")({
   ssr: false,
   beforeLoad: async () => {
+    // Se o Supabase não está configurado → wizard de setup
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!url || !key || !url.includes("supabase.co") || key.length < 20) {
+      throw redirect({ to: "/setup" });
+    }
     // Sessão válida → vai para o painel.
     const { data } = await supabase.auth.getSession();
     if (data.session) throw redirect({ to: "/dashboard" });
