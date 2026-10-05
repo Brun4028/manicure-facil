@@ -2,10 +2,26 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, type ReactNode, useState, useEffect } from "react";
 import {
-  LayoutDashboard, Users, CalendarDays, Scissors, Wallet,
-  Moon, Sun, LogOut, Plus, Menu, X,
-  Package, Percent, Image as ImageIcon, FileSpreadsheet, Link as LinkIcon,
-  ChevronLeft, User, Settings, ShieldCheck,
+  LayoutDashboard,
+  Users,
+  CalendarDays,
+  Scissors,
+  Wallet,
+  Moon,
+  Sun,
+  LogOut,
+  Plus,
+  Menu,
+  X,
+  Package,
+  Percent,
+  Image as ImageIcon,
+  FileSpreadsheet,
+  Link as LinkIcon,
+  ChevronLeft,
+  User,
+  Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
@@ -40,9 +56,15 @@ const nav = [
 ] as const;
 
 const labels: Record<string, string> = {
-  dashboard: "Menu Geral", clientes: "Clientes", agendamentos: "Agendamentos",
-  servicos: "Serviços", financeiro: "Financeiro", estoque: "Estoque & Vendas",
-  marketing: "Marketing", portfolio: "Galeria & Feedbacks", relatorios: "Relatórios & Backup",
+  dashboard: "Menu Geral",
+  clientes: "Clientes",
+  agendamentos: "Agendamentos",
+  servicos: "Serviços",
+  financeiro: "Financeiro",
+  estoque: "Estoque & Vendas",
+  marketing: "Marketing",
+  portfolio: "Galeria & Feedbacks",
+  relatorios: "Relatórios & Backup",
   configuracoes: "Configurações",
 };
 
@@ -68,7 +90,10 @@ function SidebarNavItem({
           : "text-[#A1A1AA] hover:text-white hover:bg-[#1F2128]"
       } ${collapsed ? "justify-center px-2" : ""}`}
     >
-      <item.icon className={`size-[18px] shrink-0 ${active ? "text-white" : "text-[#A1A1AA] group-hover:text-white"}`} aria-hidden="true" />
+      <item.icon
+        className={`size-[18px] shrink-0 ${active ? "text-white" : "text-[#A1A1AA] group-hover:text-white"}`}
+        aria-hidden="true"
+      />
       {!collapsed && item.label}
     </Link>
   );
@@ -77,7 +102,11 @@ function SidebarNavItem({
     return (
       <Tooltip>
         <TooltipTrigger asChild>{link}</TooltipTrigger>
-        <TooltipContent side="right" sideOffset={12} className="bg-[#171923] text-white border border-[#252836]">
+        <TooltipContent
+          side="right"
+          sideOffset={12}
+          className="bg-[#171923] text-white border border-[#252836]"
+        >
           {item.label}
         </TooltipContent>
       </Tooltip>
@@ -114,8 +143,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   });
   const navItems = (isAdmin
     ? [...nav, { to: "/admin", label: "Admin", icon: ShieldCheck }]
-    : [...nav]
-  ) as unknown as typeof nav;
+    : [...nav]) as unknown as typeof nav;
 
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -143,28 +171,47 @@ export function AppShell({ children }: { children: ReactNode }) {
           }`}
         >
           {/* Logo */}
-          <div className={`flex items-center gap-3 px-5 py-6 ${desktopCollapsed ? "justify-center px-0" : ""}`}>
+          <div
+            className={`flex items-center gap-3 px-5 py-6 ${desktopCollapsed ? "justify-center px-0" : ""}`}
+          >
             <div className="size-9 min-w-9 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)]">
-              <img src={logoIconWhite} alt="Manicure Fácil Logo" className="size-[18px] object-contain" />
+              <img
+                src={logoIconWhite}
+                alt="Manicure Fácil Logo"
+                className="size-[18px] object-contain"
+              />
             </div>
             <div
               className={`overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
                 desktopCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
               }`}
             >
-              <div className="text-sm font-semibold leading-none whitespace-nowrap text-white">Manicure Fácil</div>
+              <div className="text-sm font-semibold leading-none whitespace-nowrap text-white">
+                Manicure Fácil
+              </div>
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="px-3 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden" role="navigation" aria-label="Navegação principal">
+          <nav
+            className="px-3 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden"
+            role="navigation"
+            aria-label="Navegação principal"
+          >
             {navItems.map((n) => (
-              <SidebarNavItem key={n.to} item={n} pathname={pathname} collapsed={desktopCollapsed} />
+              <SidebarNavItem
+                key={n.to}
+                item={n}
+                pathname={pathname}
+                collapsed={desktopCollapsed}
+              />
             ))}
           </nav>
 
           {/* Bottom area */}
-          <div className={`border-t border-[#252836] space-y-2 p-4 ${desktopCollapsed ? "px-2.5" : ""}`}>
+          <div
+            className={`border-t border-[#252836] space-y-2 p-4 ${desktopCollapsed ? "px-2.5" : ""}`}
+          >
             {user && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -179,7 +226,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                       toast.success("Link de agendamento copiado com sucesso!");
                     }}
                   >
-                    <LinkIcon className={`shrink-0 text-primary ${desktopCollapsed ? "size-4" : "size-3.5 mr-2"}`} />
+                    <LinkIcon
+                      className={`shrink-0 text-primary ${desktopCollapsed ? "size-4" : "size-3.5 mr-2"}`}
+                    />
                     {!desktopCollapsed && "Copiar Link Público"}
                   </Button>
                 </TooltipTrigger>
@@ -267,14 +316,24 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="px-6 py-6 flex items-center justify-between border-b border-[#252836]">
                 <div className="flex items-center gap-2">
                   <div className="size-9 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_4px_24px_rgba(217,70,239,0.15)]">
-                    <img src={logoIconWhite} alt="Manicure Fácil Logo" className="size-5 object-contain" />
+                    <img
+                      src={logoIconWhite}
+                      alt="Manicure Fácil Logo"
+                      className="size-5 object-contain"
+                    />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-white leading-none">Manicure Fácil</div>
+                    <div className="text-sm font-semibold text-white leading-none">
+                      Manicure Fácil
+                    </div>
                   </div>
                 </div>
                 <SheetClose asChild>
-                  <Button variant="ghost" size="icon" className="-mr-2 text-[#A1A1AA]/60 hover:text-[#A1A1AA]">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="-mr-2 text-[#A1A1AA]/60 hover:text-[#A1A1AA]"
+                  >
                     <X className="size-5" />
                   </Button>
                 </SheetClose>
@@ -323,7 +382,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                   variant="ghost"
                   size="sm"
                   className="w-full justify-start text-[#A1A1AA] hover:text-white hover:bg-[#1F2128]"
-                  onClick={() => { setMobileOpen(false); setProfileOpen(true); }}
+                  onClick={() => {
+                    setMobileOpen(false);
+                    setProfileOpen(true);
+                  }}
                 >
                   <User className="size-4 mr-2" />
                   Meu Perfil
@@ -370,9 +432,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 variant="ghost"
                 size="icon"
                 onClick={() =>
-                  window.history.length > 1
-                    ? window.history.back()
-                    : navigate({ to: "/dashboard" })
+                  window.history.length > 1 ? window.history.back() : navigate({ to: "/dashboard" })
                 }
                 aria-label="Voltar"
                 className="shrink-0"
@@ -382,10 +442,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               {/* Breadcrumbs */}
               <nav className="flex items-center gap-1.5 text-sm text-muted-foreground overflow-x-auto min-w-0">
-                <Link
-                  to="/dashboard"
-                  className="hover:text-foreground whitespace-nowrap shrink-0"
-                >
+                <Link to="/dashboard" className="hover:text-foreground whitespace-nowrap shrink-0">
                   Início
                 </Link>
                 {segments.map((s, i) => (
@@ -406,7 +463,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="ml-auto flex items-center gap-1 shrink-0">
                 <AiAssistantLauncher />
                 <NotificationsPopover />
-                <Button variant="ghost" size="icon" onClick={() => navigate({ to: "/configuracoes" })} aria-label="Configurações">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate({ to: "/configuracoes" })}
+                  aria-label="Configurações"
+                >
                   <Settings className="size-5" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={toggle} aria-label="Alternar tema">
@@ -460,7 +522,9 @@ export function PageHeader({
   return (
     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-2 mb-8">
       <div className="space-y-1">
-        <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+        <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">
+          {title}
+        </h1>
         {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2 shrink-0">{actions}</div>}

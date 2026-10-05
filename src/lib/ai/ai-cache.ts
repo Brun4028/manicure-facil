@@ -98,10 +98,7 @@ class AiCache {
    * Estatísticas do cache.
    */
   stats(): { size: number; hitRate: number } {
-    const totalHits = Array.from(this.cache.values()).reduce(
-      (sum, e) => sum + e.hitCount,
-      0,
-    );
+    const totalHits = Array.from(this.cache.values()).reduce((sum, e) => sum + e.hitCount, 0);
     return {
       size: this.cache.size,
       hitRate: totalHits > 0 ? totalHits / this.cache.size : 0,

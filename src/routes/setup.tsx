@@ -137,7 +137,9 @@ HOST=0.0.0.0
           <h1 className="mt-4 text-2xl font-semibold tracking-tight text-white">
             Configuração Inicial
           </h1>
-          <p className="mt-1.5 text-sm text-[#A1A1AA]">Vamos configurar seu sistema em poucos passos</p>
+          <p className="mt-1.5 text-sm text-[#A1A1AA]">
+            Vamos configurar seu sistema em poucos passos
+          </p>
         </div>
 
         {/* Progress bar */}
@@ -151,7 +153,7 @@ HOST=0.0.0.0
                     ? "bg-emerald-500 text-white"
                     : i === currentIdx
                       ? "bg-gradient-to-br from-[#D946EF] to-[#A855F7] text-white shadow-[0_4px_20px_rgba(217,70,239,0.3)]"
-                      : "bg-white/[0.06] text-[#52525B] border border-white/[0.06]"
+                      : "bg-white/[0.06] text-[#52525B] border border-white/[0.06]",
                 )}
               >
                 {i < currentIdx ? <Check className="size-4" /> : i + 1}
@@ -160,7 +162,7 @@ HOST=0.0.0.0
                 <div
                   className={cn(
                     "h-0.5 flex-1 rounded-full transition-all duration-500",
-                    i < currentIdx ? "bg-emerald-500" : "bg-white/[0.06]"
+                    i < currentIdx ? "bg-emerald-500" : "bg-white/[0.06]",
                   )}
                 />
               )}
@@ -180,10 +182,13 @@ HOST=0.0.0.0
                   <div className="mx-auto mb-5 size-16 rounded-2xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center shadow-[0_8px_30px_rgba(217,70,239,0.35)]">
                     <Rocket className="size-7 text-white" />
                   </div>
-                  <h2 className="text-2xl font-semibold text-white">Bem-vinda ao Manicure Fácil!</h2>
+                  <h2 className="text-2xl font-semibold text-white">
+                    Bem-vinda ao Manicure Fácil!
+                  </h2>
                   <p className="mt-2 text-sm text-[#A1A1AA] leading-relaxed">
                     Para usar o sistema, você precisa de uma conta gratuita no{" "}
-                    <strong className="text-white">Supabase</strong> (banco de dados + autenticação).
+                    <strong className="text-white">Supabase</strong> (banco de dados +
+                    autenticação).
                     <br />
                     Vamos te guiar passo a passo — é rápido e fácil!
                   </p>
@@ -191,13 +196,33 @@ HOST=0.0.0.0
 
                 <div className="space-y-3 mb-6">
                   {[
-                    { icon: Database, text: "Criar conta no Supabase (gratuito)", color: "text-emerald-400" },
+                    {
+                      icon: Database,
+                      text: "Criar conta no Supabase (gratuito)",
+                      color: "text-emerald-400",
+                    },
                     { icon: Key, text: "Colar as 3 chaves no formulário", color: "text-[#D946EF]" },
-                    { icon: Terminal, text: "Rodar o script SQL (copiar e colar)", color: "text-amber-400" },
-                    { icon: Brain, text: "Configurar IA opcional (gratuita)", color: "text-[#A855F7]" },
+                    {
+                      icon: Terminal,
+                      text: "Rodar o script SQL (copiar e colar)",
+                      color: "text-amber-400",
+                    },
+                    {
+                      icon: Brain,
+                      text: "Configurar IA opcional (gratuita)",
+                      color: "text-[#A855F7]",
+                    },
                   ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-                      <div className={cn("size-9 rounded-lg bg-white/[0.06] grid place-items-center shrink-0", item.color)}>
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]"
+                    >
+                      <div
+                        className={cn(
+                          "size-9 rounded-lg bg-white/[0.06] grid place-items-center shrink-0",
+                          item.color,
+                        )}
+                      >
                         <item.icon className="size-4.5" />
                       </div>
                       <span className="text-sm text-[#D4D4D8]">{item.text}</span>
@@ -234,7 +259,9 @@ HOST=0.0.0.0
                     <div className="flex items-start gap-3">
                       <Shield className="size-5 text-amber-400 shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-amber-300">Criar conta gratuita no Supabase</p>
+                        <p className="text-sm font-medium text-amber-300">
+                          Criar conta gratuita no Supabase
+                        </p>
                         <p className="text-xs text-amber-200/70 mt-1 leading-relaxed">
                           1. Acesse{" "}
                           <a
@@ -258,9 +285,7 @@ HOST=0.0.0.0
 
                 <div className="space-y-4">
                   <div>
-                    <Label className="text-[13px] font-medium text-[#D4D4D8]">
-                      URL do Projeto
-                    </Label>
+                    <Label className="text-[13px] font-medium text-[#D4D4D8]">URL do Projeto</Label>
                     <p className="text-[11px] text-[#52525B] mb-1.5">
                       Ex: https://abc123.supabase.co
                     </p>
@@ -356,7 +381,9 @@ HOST=0.0.0.0
                       <Terminal className="size-5 text-amber-400" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-white">Configurar o banco de dados</h2>
+                      <h2 className="text-lg font-semibold text-white">
+                        Configurar o banco de dados
+                      </h2>
                       <p className="text-xs text-[#A1A1AA]">Passo 2 de 3</p>
                     </div>
                   </div>
@@ -364,8 +391,8 @@ HOST=0.0.0.0
                   <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-4 mb-5">
                     <p className="text-sm text-[#D4D4D8] leading-relaxed">
                       <strong className="text-white">Copie o script SQL abaixo</strong> e cole no{" "}
-                      <strong className="text-white">SQL Editor</strong> do Supabase, depois clique em{" "}
-                      <strong className="text-white">Run</strong>.
+                      <strong className="text-white">SQL Editor</strong> do Supabase, depois clique
+                      em <strong className="text-white">Run</strong>.
                     </p>
                   </div>
                 </div>
@@ -381,9 +408,13 @@ HOST=0.0.0.0
                       className="h-7 text-[11px] text-[#A1A1AA] hover:text-white"
                     >
                       {copied === "full-sql" ? (
-                        <><Check className="size-3 mr-1 text-emerald-400" /> Copiado!</>
+                        <>
+                          <Check className="size-3 mr-1 text-emerald-400" /> Copiado!
+                        </>
                       ) : (
-                        <><Copy className="size-3 mr-1" /> Copiar tudo</>
+                        <>
+                          <Copy className="size-3 mr-1" /> Copiar tudo
+                        </>
                       )}
                     </Button>
                   </div>
@@ -404,10 +435,12 @@ HOST=0.0.0.0
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => copyToClipboard(
-                        `SELECT public.definir_admin('${adminEmail}');`,
-                        "admin-sql"
-                      )}
+                      onClick={() =>
+                        copyToClipboard(
+                          `SELECT public.definir_admin('${adminEmail}');`,
+                          "admin-sql",
+                        )
+                      }
                       className="h-8 shrink-0"
                     >
                       {copied === "admin-sql" ? (
@@ -421,9 +454,9 @@ HOST=0.0.0.0
 
                 <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 mb-5">
                   <p className="text-xs text-emerald-300 leading-relaxed">
-                    💡 <strong>Dica:</strong> No Supabase, vá em{" "}
-                    <strong>SQL Editor</strong> (menu lateral esquerdo) → cole o script → clique em{" "}
-                    <strong>Run</strong>. Repita para o comando de admin.
+                    💡 <strong>Dica:</strong> No Supabase, vá em <strong>SQL Editor</strong> (menu
+                    lateral esquerdo) → cole o script → clique em <strong>Run</strong>. Repita para
+                    o comando de admin.
                   </p>
                 </div>
 
@@ -454,7 +487,9 @@ HOST=0.0.0.0
                       <Brain className="size-5 text-[#A855F7]" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-white">Assistente de IA (opcional)</h2>
+                      <h2 className="text-lg font-semibold text-white">
+                        Assistente de IA (opcional)
+                      </h2>
                       <p className="text-xs text-[#A1A1AA]">Passo 3 de 3</p>
                     </div>
                   </div>
@@ -533,7 +568,8 @@ HOST=0.0.0.0
                   <h2 className="text-2xl font-semibold text-white">Tudo pronto! 🎉</h2>
                   <p className="mt-2 text-sm text-[#A1A1AA] leading-relaxed">
                     Agora você precisa{" "}
-                    <strong className="text-white">aplicar as configurações</strong> no seu ambiente.
+                    <strong className="text-white">aplicar as configurações</strong> no seu
+                    ambiente.
                   </p>
                 </div>
 
@@ -543,9 +579,9 @@ HOST=0.0.0.0
                     <Sparkles className="size-4 text-[#D946EF]" /> Baixar arquivo de configuração
                   </h3>
                   <p className="text-xs text-[#A1A1AA] mb-4 leading-relaxed">
-                    Clique abaixo para baixar o arquivo <code className="text-[#D946EF]">.env</code> com
-                    todas as suas credenciais preenchidas. Coloque este arquivo na pasta raiz do projeto
-                    antes de rodar <code className="text-[#D946EF]">npm run dev</code>.
+                    Clique abaixo para baixar o arquivo <code className="text-[#D946EF]">.env</code>{" "}
+                    com todas as suas credenciais preenchidas. Coloque este arquivo na pasta raiz do
+                    projeto antes de rodar <code className="text-[#D946EF]">npm run dev</code>.
                   </p>
                   <Button
                     onClick={downloadEnv}
@@ -560,7 +596,9 @@ HOST=0.0.0.0
                   <h3 className="text-sm font-semibold text-white mb-3">Opções de deploy:</h3>
                   <div className="space-y-3">
                     <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-3">
-                      <p className="text-xs font-semibold text-white mb-1">🖥️ Local (recomendado para começar)</p>
+                      <p className="text-xs font-semibold text-white mb-1">
+                        🖥️ Local (recomendado para começar)
+                      </p>
                       <code className="text-[11px] text-[#A1A1AA] font-mono">
                         npm install && npm run dev
                       </code>
@@ -568,7 +606,8 @@ HOST=0.0.0.0
                     <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-3">
                       <p className="text-xs font-semibold text-white mb-1">☁️ Vercel (gratuito)</p>
                       <p className="text-[11px] text-[#A1A1AA]">
-                        Suba o código no GitHub → vercel.com → Import → Configure as env vars → Deploy
+                        Suba o código no GitHub → vercel.com → Import → Configure as env vars →
+                        Deploy
                       </p>
                     </div>
                     <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-3">
@@ -581,7 +620,7 @@ HOST=0.0.0.0
                 </div>
 
                 <Button
-                  onClick={() => window.location.href = "/auth"}
+                  onClick={() => (window.location.href = "/auth")}
                   className="w-full h-12 rounded-xl bg-gradient-to-r from-[#D946EF] via-[#C026D3] to-[#A855F7] text-[15px] font-semibold text-white shadow-[0_8px_30px_rgba(217,70,239,0.25)] hover:shadow-[0_12px_44px_rgba(217,70,239,0.42)]"
                 >
                   <span className="flex items-center gap-2">
@@ -596,7 +635,10 @@ HOST=0.0.0.0
         {/* Help link */}
         <p className="mt-6 text-center text-[11px] text-[#52525B]">
           Precisa de ajuda?{" "}
-          <a href="mailto:suporte@manicurefacil.com" className="text-[#A855F7] hover:text-[#D946EF] underline">
+          <a
+            href="mailto:suporte@manicurefacil.com"
+            className="text-[#A855F7] hover:text-[#D946EF] underline"
+          >
             Fale conosco
           </a>
         </p>

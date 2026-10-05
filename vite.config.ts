@@ -90,9 +90,7 @@ export default defineConfig({
   // automaticamente (comportamento da própria config) — deploy na nuvem
   // continua funcionando sem alterações.
   nitro: {
-    preset:
-      process.env.NITRO_PRESET ||
-      (process.env.VERCEL ? "vercel" : "node-server"),
+    preset: process.env.NITRO_PRESET || (process.env.VERCEL ? "vercel" : "node-server"),
   },
   vite: {
     build: {

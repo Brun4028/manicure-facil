@@ -6,7 +6,10 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  // Não lintar artefatos gerados: dist, build do Nitro/Vite, cache de rotas do
+  // TanStack e o bundle que a Vercel monta em .vercel/output (que tem um
+  // node_modules embutido — o lint acabava rodando em código compilado).
+  { ignores: ["dist", ".output", ".vinxi", ".vercel", ".tanstack"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

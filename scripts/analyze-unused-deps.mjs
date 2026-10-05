@@ -46,7 +46,10 @@ for (const [dep] of Object.entries(allDeps)) {
   }
   // Heuristic: also match bare name appearing after "from \"" or "import \"" (loose)
   if (!found && !scoped) {
-    const re = new RegExp(`from ['"]${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(/[^'"]*)?['"]`, "g");
+    const re = new RegExp(
+      `from ['"]${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(/[^'"]*)?['"]`,
+      "g",
+    );
     if (re.test(srcText)) found = true;
   }
   if (found) {

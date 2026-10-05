@@ -60,10 +60,7 @@ function estimateCost(
 ): number | undefined {
   const rates = COST_TABLE[model];
   if (!rates) return undefined;
-  return (
-    (promptTokens / 1000) * rates.input +
-    (completionTokens / 1000) * rates.output
-  );
+  return (promptTokens / 1000) * rates.input + (completionTokens / 1000) * rates.output;
 }
 
 export class AiLogger {
@@ -88,9 +85,7 @@ export class AiLogger {
     // Limite de cota (warn) não deve poluir os logs como erro crítico.
     const level = entry.success ? "info" : entry.warn ? "warn" : "error";
     const durationStr = `${entry.durationMs.toFixed(0)}ms`;
-    const costStr = entry.estimatedCostUsd
-      ? `$${entry.estimatedCostUsd.toFixed(6)}`
-      : "N/A";
+    const costStr = entry.estimatedCostUsd ? `$${entry.estimatedCostUsd.toFixed(6)}` : "N/A";
     const cachedStr = entry.cached ? " [CACHED]" : "";
 
     const logFn = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
@@ -101,10 +96,7 @@ export class AiLogger {
     // Erros críticos vão também para console.error com o objeto completo;
     // avisos (cota 429 etc.) não são tratados como falha crítica.
     if (!entry.success && entry.error && !entry.warn) {
-      console.error(
-        `[AI ERROR] ${entry.provider}/${entry.model}: ${entry.error}`,
-        fullEntry,
-      );
+      console.error(`[AI ERROR] ${entry.provider}/${entry.model}: ${entry.error}`, fullEntry);
     }
   }
 
@@ -127,8 +119,7 @@ export class AiLogger {
   }): AiLogEntry {
     const durationMs = Date.now() - params.startTime;
 
-    const promptTokens =
-      params.promptTokens ?? estimateTokens(String(params.messageLength));
+    const promptTokens = params.promptTokens ?? estimateTokens(String(params.messageLength));
     const completionTokens =
       params.completionTokens ?? estimateTokens(String(params.responseLength));
 
@@ -144,11 +135,7 @@ export class AiLogger {
         completion: completionTokens,
         total: promptTokens + completionTokens,
       },
-      estimatedCostUsd: estimateCost(
-        params.model,
-        promptTokens,
-        completionTokens,
-      ),
+      estimatedCostUsd: estimateCost(params.model, promptTokens, completionTokens),
       success: params.success,
       error: params.error,
       cached: params.cached,
@@ -194,10 +181,7 @@ export class AiLogger {
     const successful = this.logs.filter((l) => l.success).length;
     const cachedCalls = this.logs.filter((l) => l.cached).length;
     const totalDuration = this.logs.reduce((s, l) => s + l.durationMs, 0);
-    const totalCost = this.logs.reduce(
-      (s, l) => s + (l.estimatedCostUsd ?? 0),
-      0,
-    );
+    const totalCost = this.logs.reduce((s, l) => s + (l.estimatedCostUsd ?? 0), 0);
 
     return {
       totalCalls: total,

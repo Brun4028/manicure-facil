@@ -18,23 +18,41 @@ import { traduzErroAuth } from "./auth-errors";
 // mensagemErroAmigavel() — evitando duplicar as regex de auth aqui.)
 const PADROES_TECNICOS: Array<[RegExp, string]> = [
   // ── Sessão / token ──────────────────────────────────────────────────────
-  [/token has expired|jwt (has )?expired|auth session missing|no session found|invalid token|invalid jwt|session.*expired|unauthorized/i, "Sua sessão expirou. Faça login novamente."],
-  [/too many requests|too many attempts/i, "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente."],
+  [
+    /token has expired|jwt (has )?expired|auth session missing|no session found|invalid token|invalid jwt|session.*expired|unauthorized/i,
+    "Sua sessão expirou. Faça login novamente.",
+  ],
+  [
+    /too many requests|too many attempts/i,
+    "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.",
+  ],
   [/invalid api key|invalid credentials/i, "Credenciais inválidas. Saia e entre novamente."],
 
   // ── Permissão / RLS ─────────────────────────────────────────────────────
-  [/row-level security|permission denied|violates .*policy|forbidden|not authorized|insufficient/i, "Você não tem permissão para realizar esta ação. Se o problema persistir, entre em contato com o suporte."],
+  [
+    /row-level security|permission denied|violates .*policy|forbidden|not authorized|insufficient/i,
+    "Você não tem permissão para realizar esta ação. Se o problema persistir, entre em contato com o suporte.",
+  ],
 
   // ── Rede / conexão ──────────────────────────────────────────────────────
-  [/failed to fetch|network request failed|fetch failed|load failed|econnrefused|enotfound|etimedout|networkerror|no internet|unable to connect|connection refused/i, "Não foi possível conectar ao servidor. Verifique sua conexão com a internet e tente novamente."],
+  [
+    /failed to fetch|network request failed|fetch failed|load failed|econnrefused|enotfound|etimedout|networkerror|no internet|unable to connect|connection refused/i,
+    "Não foi possível conectar ao servidor. Verifique sua conexão com a internet e tente novamente.",
+  ],
   [/timed out|timeout|took too long/i, "A operação demorou demais. Tente novamente."],
 
   // ── Banco de dados / API ────────────────────────────────────────────────
-  [/database error|db error|error saving|insert.*failed|update.*failed|query failed|pgrst|database connection/i, "Ocorreu um erro ao acessar os dados. Tente novamente em instantes."],
+  [
+    /database error|db error|error saving|insert.*failed|update.*failed|query failed|pgrst|database connection/i,
+    "Ocorreu um erro ao acessar os dados. Tente novamente em instantes.",
+  ],
   [/duplicate key|already exists/i, "Este registro já existe. Verifique e tente novamente."],
 
   // ── Erros técnicos genéricos (JS / serialização) ───────────────────────
-  [/syntax error|unexpected token|json|typeerror|referenceerror|cannot read|is not a function|undefined/i, "Não foi possível concluir a ação. Tente novamente em instantes."],
+  [
+    /syntax error|unexpected token|json|typeerror|referenceerror|cannot read|is not a function|undefined/i,
+    "Não foi possível concluir a ação. Tente novamente em instantes.",
+  ],
 ];
 
 // Marcas que indicam que a mensagem JÁ está em português (vinda do próprio app).

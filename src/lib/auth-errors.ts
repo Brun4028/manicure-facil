@@ -8,16 +8,25 @@
  */
 const AUTH_ERROR_MAP: Array<[RegExp, string]> = [
   [/invalid login credentials/i, "E-mail ou senha incorretos. Verifique e tente novamente."],
-  [/email not confirmed/i, "Seu e-mail ainda não foi confirmado. Confira o link enviado para sua caixa de entrada."],
+  [
+    /email not confirmed/i,
+    "Seu e-mail ainda não foi confirmado. Confira o link enviado para sua caixa de entrada.",
+  ],
   [/user already registered/i, "Este e-mail já está cadastrado. Faça login ou recupere sua senha."],
   [/password should be at least/i, "A senha precisa ter pelo menos 6 caracteres."],
-  [/rate limit exceeded/i, "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente."],
+  [
+    /rate limit exceeded/i,
+    "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.",
+  ],
   [/token has expired or is invalid/i, "Este link expirou ou é inválido. Solicite um novo."],
   [/unable to validate email address/i, "E-mail inválido. Verifique o endereço digitado."],
   [/invalid email/i, "E-mail inválido. Verifique o endereço digitado."],
   [/user not found/i, "Nenhuma conta encontrada com este e-mail."],
   [/for security purposes/i, "Por segurança, aguarde alguns minutos antes de tentar novamente."],
-  [/database error saving new user/i, "Não foi possível criar a conta. Tente novamente em instantes."],
+  [
+    /database error saving new user/i,
+    "Não foi possível criar a conta. Tente novamente em instantes.",
+  ],
 ];
 
 /**

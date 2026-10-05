@@ -126,6 +126,7 @@ const GENERIC_HOWTO_PATTERNS: RegExp[] = [
   /^onde\s+(fica|encontro|acesso)/i,
   /^para que serve/i,
   /^como\s+(funciona|usar)\s+o sistema/i,
+  /^(oi|oii|oiii|ola|olá|oie|oiee|bom dia|boa tarde|boa noite|tudo bem|tudo bom|obrigad[ao]|valeu|quem e voce|quem é você)/i,
 ];
 
 /**
@@ -153,10 +154,7 @@ export function classifyQuestionScope(message: string): CacheScope {
 
 // ─── Chave de cache ─────────────────────────────────────────────────────────
 
-export function buildCacheKey(
-  message: string,
-  history: { role: string; text: string }[],
-): string {
+export function buildCacheKey(message: string, history: { role: string; text: string }[]): string {
   const histStr = history
     .slice(-4)
     .map((h) => `${h.role}:${h.text.trim().slice(0, 80)}`)

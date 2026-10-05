@@ -19,7 +19,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Manicure Fácil — Agenda, clientes e finanças em um só lugar" },
-      { name: "description", content: "Sistema premium para manicures e pequenos salões. Gerencie sua agenda, clientes, serviços e financeiro." },
+      {
+        name: "description",
+        content:
+          "Sistema premium para manicures e pequenos salões. Gerencie sua agenda, clientes, serviços e financeiro.",
+      },
     ],
   }),
   component: Landing,
@@ -41,7 +45,10 @@ function Landing() {
           </div>
           <span className="text-xl font-semibold text-white">Manicure Fácil</span>
         </div>
-        <Link to="/auth" className="rounded-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white px-6 py-2.5 text-sm font-medium shadow-[0_4px_24px_rgba(217,70,239,0.15)] hover:shadow-[0_8px_32px_rgba(217,70,239,0.25)] transition-all">
+        <Link
+          to="/auth"
+          className="rounded-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white px-6 py-2.5 text-sm font-medium shadow-[0_4px_24px_rgba(217,70,239,0.15)] hover:shadow-[0_8px_32px_rgba(217,70,239,0.25)] transition-all"
+        >
           Entrar
         </Link>
       </header>
@@ -51,29 +58,54 @@ function Landing() {
           <span className="size-1.5 rounded-full bg-[#D946EF]" />
           Novo • Sistema premium
         </span>
-        
+
         <h1 className="text-5xl md:text-7xl mt-8 leading-tight font-semibold tracking-tight text-white">
-          Organize sua <span className="bg-gradient-to-r from-[#D946EF] to-[#A855F7] bg-clip-text text-transparent">agenda</span>,<br />
-          clientes e <span className="bg-gradient-to-r from-[#D946EF] to-[#A855F7] bg-clip-text text-transparent">finanças</span>
+          Organize sua{" "}
+          <span className="bg-gradient-to-r from-[#D946EF] to-[#A855F7] bg-clip-text text-transparent">
+            agenda
+          </span>
+          ,<br />
+          clientes e{" "}
+          <span className="bg-gradient-to-r from-[#D946EF] to-[#A855F7] bg-clip-text text-transparent">
+            finanças
+          </span>
         </h1>
-        
+
         <p className="text-lg md:text-xl text-[#A1A1AA] mt-6 max-w-2xl mx-auto leading-relaxed">
           Tudo em um só lugar. Elegante, simples e feito para você que ama o que faz.
         </p>
-        
+
         <div className="mt-10 flex items-center justify-center gap-4">
-          <Link to="/auth" className="rounded-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white px-8 py-3.5 text-base font-medium shadow-[0_4px_24px_rgba(217,70,239,0.15)] hover:shadow-[0_8px_32px_rgba(217,70,239,0.25)] transition-all inline-flex items-center gap-2">
+          <Link
+            to="/auth"
+            className="rounded-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-white px-8 py-3.5 text-base font-medium shadow-[0_4px_24px_rgba(217,70,239,0.15)] hover:shadow-[0_8px_32px_rgba(217,70,239,0.25)] transition-all inline-flex items-center gap-2"
+          >
             Entrar no sistema <span className="text-lg">→</span>
           </Link>
         </div>
 
         <div className="mt-20 grid md:grid-cols-3 gap-6">
           {[
-            { icon: CalendarDays, t: "Agenda inteligente", d: "Visualize seus horários e evite conflitos com nossa agenda visual." },
-            { icon: Users, t: "Gestão de clientes", d: "Histórico completo, preferências e datas especiais das suas clientes." },
-            { icon: Wallet, t: "Financeiro claro", d: "Faturamento, lucro e ticket médio em tempo real para decisões certeiras." },
+            {
+              icon: CalendarDays,
+              t: "Agenda inteligente",
+              d: "Visualize seus horários e evite conflitos com nossa agenda visual.",
+            },
+            {
+              icon: Users,
+              t: "Gestão de clientes",
+              d: "Histórico completo, preferências e datas especiais das suas clientes.",
+            },
+            {
+              icon: Wallet,
+              t: "Financeiro claro",
+              d: "Faturamento, lucro e ticket médio em tempo real para decisões certeiras.",
+            },
           ].map((f) => (
-            <div key={f.t} className="group bg-[#171923]/80 backdrop-blur-xl rounded-3xl p-8 text-left border border-[#252836] hover:border-[#D946EF]/30 transition-all duration-300 hover:shadow-[0_8px_40px_rgba(217,70,239,0.06)] hover:-translate-y-1">
+            <div
+              key={f.t}
+              className="group bg-[#171923]/80 backdrop-blur-xl rounded-3xl p-8 text-left border border-[#252836] hover:border-[#D946EF]/30 transition-all duration-300 hover:shadow-[0_8px_40px_rgba(217,70,239,0.06)] hover:-translate-y-1"
+            >
               <div className="size-12 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center mb-5">
                 <f.icon className="size-6 text-[#D946EF]" />
               </div>
@@ -84,7 +116,12 @@ function Landing() {
         </div>
 
         <ul className="mt-16 flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-[#A1A1AA]">
-          {["Modo escuro incluso", "100% responsivo", "Seus dados protegidos", "Acesso liberado após a compra"].map((x) => (
+          {[
+            "Modo escuro incluso",
+            "100% responsivo",
+            "Seus dados protegidos",
+            "Acesso liberado após a compra",
+          ].map((x) => (
             <li key={x} className="inline-flex items-center gap-2">
               <span className="size-5 rounded-full bg-[#D946EF]/20 border border-[#D946EF]/30 grid place-items-center">
                 <Check className="size-3 text-[#D946EF]" />

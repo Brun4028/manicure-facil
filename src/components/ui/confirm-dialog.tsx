@@ -41,11 +41,14 @@ export function useConfirm() {
   return useContext(ConfirmContext);
 }
 
-const variantConfig: Record<ConfirmVariant, {
-  icon: typeof AlertTriangle;
-  buttonClass: string;
-  iconColor: string;
-}> = {
+const variantConfig: Record<
+  ConfirmVariant,
+  {
+    icon: typeof AlertTriangle;
+    buttonClass: string;
+    iconColor: string;
+  }
+> = {
   danger: {
     icon: AlertTriangle,
     buttonClass: "bg-red-500 hover:bg-red-600 text-white",
@@ -102,15 +105,24 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
-      <Dialog open={open} onOpenChange={(v) => { if (!v) handleCancel(); }}>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) handleCancel();
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
-              <div className={`size-10 rounded-xl bg-current/10 border border-current/20 grid place-items-center shrink-0 ${config.iconColor}`}>
+              <div
+                className={`size-10 rounded-xl bg-current/10 border border-current/20 grid place-items-center shrink-0 ${config.iconColor}`}
+              >
                 <IconComponent className="size-5" />
               </div>
               <div>
-                <DialogTitle className="font-display text-lg">{options?.title ?? "Confirmação"}</DialogTitle>
+                <DialogTitle className="font-display text-lg">
+                  {options?.title ?? "Confirmação"}
+                </DialogTitle>
               </div>
             </div>
             <DialogDescription className="text-sm text-muted-foreground">
@@ -149,7 +161,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
  */
 export function useConfirmDelete() {
   const { confirm } = useConfirm();
-  
+
   return useCallback(
     (onDelete: () => void | Promise<void>, entidade: string, nome?: string) => {
       confirm({

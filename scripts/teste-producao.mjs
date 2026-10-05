@@ -13,7 +13,7 @@ import fs from "node:fs";
 
 const env = fs.readFileSync(".env", "utf8");
 const get = (k) => {
-  const m = env.match(new RegExp("^" + k + "=\\s*\"?([^\"\\r\\n]+)", "m"));
+  const m = env.match(new RegExp("^" + k + '=\\s*"?([^"\\r\\n]+)', "m"));
   return m ? m[1].replace(/"$/, "").trim() : null;
 };
 
@@ -28,7 +28,11 @@ const check = (name, pass, detail) => results.push({ name, pass, detail });
 async function main() {
   // 1. RPC verificar_acesso() existe e é executável
   {
-    const r = await fetch(`${base}/rpc/verificar_acesso`, { method: "POST", headers: H, body: "{}" });
+    const r = await fetch(`${base}/rpc/verificar_acesso`, {
+      method: "POST",
+      headers: H,
+      body: "{}",
+    });
     // Sem sessão, auth.uid() é null → deve retornar false (não erro de função)
     const body = await r.text();
     check("RPC verificar_acesso()", r.status === 200, `HTTP ${r.status}: ${body.slice(0, 120)}`);
@@ -53,8 +57,16 @@ async function main() {
       }),
     });
     const body = await r.text();
-    const okShape = body.includes("success") || body.includes("error") || body.includes("Serviço") || body.includes("encontrado");
-    check("RPC agendar_servico (assinatura ok)", r.status === 200 && okShape, `HTTP ${r.status}: ${body.slice(0, 160)}`);
+    const okShape =
+      body.includes("success") ||
+      body.includes("error") ||
+      body.includes("Serviço") ||
+      body.includes("encontrado");
+    check(
+      "RPC agendar_servico (assinatura ok)",
+      r.status === 200 && okShape,
+      `HTTP ${r.status}: ${body.slice(0, 160)}`,
+    );
   }
 
   // 3. RPC criar_avaliacao existe
@@ -71,7 +83,11 @@ async function main() {
     });
     const body = await r.text();
     const okShape = body.includes("success") || body.includes("error") || body.includes("erro");
-    check("RPC criar_avaliacao (assinatura ok)", r.status === 200 && okShape, `HTTP ${r.status}: ${body.slice(0, 160)}`);
+    check(
+      "RPC criar_avaliacao (assinatura ok)",
+      r.status === 200 && okShape,
+      `HTTP ${r.status}: ${body.slice(0, 160)}`,
+    );
   }
 
   // 4. Tabelas-chave acessíveis via service_role
@@ -84,12 +100,18 @@ async function main() {
   {
     const env2 = fs.readFileSync(".env.local", "utf8");
     const get2 = (k) => {
-      const m = env2.match(new RegExp("^" + k + "=\\s*\"?([^\"\\r\\n]+)", "m"));
+      const m = env2.match(new RegExp("^" + k + '=\\s*"?([^"\\r\\n]+)', "m"));
       return m ? m[1].replace(/"$/, "").trim() : null;
     };
     const ANON = get2("VITE_SUPABASE_PUBLISHABLE_KEY");
-    const r = await fetch(`${base}/contas?select=*&limit=1`, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } });
-    check("anon SEM acesso a contas", r.status === 401 || r.status === 403, `HTTP ${r.status}: ${(await r.text()).slice(0, 100)}`);
+    const r = await fetch(`${base}/contas?select=*&limit=1`, {
+      headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
+    });
+    check(
+      "anon SEM acesso a contas",
+      r.status === 401 || r.status === 403,
+      `HTTP ${r.status}: ${(await r.text()).slice(0, 100)}`,
+    );
   }
 
   for (const r of results) {

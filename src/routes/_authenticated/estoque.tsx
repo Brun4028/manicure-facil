@@ -9,14 +9,43 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { fallbackDb } from "@/lib/fallback-db";
-import { Plus, Pencil, Trash2, Package, ShoppingCart, ArrowUpDown, AlertTriangle, Trash } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Package,
+  ShoppingCart,
+  ArrowUpDown,
+  AlertTriangle,
+  Trash,
+} from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
@@ -57,20 +86,112 @@ type Client = {
   telefone: string | null;
 };
 
-const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+// Linhas usadas apenas pelo fallback local (espelho do que vai para o Supabase)
+type VendaLocal = {
+  id: string;
+  user_id: string;
+  cliente_id: string | null;
+  total: number;
+  pagamento_metodo: string;
+  data_venda: string;
+  created_at: string;
+};
+
+type FidConfigLocal = { user_id?: string; ativo?: boolean; pontos_por_real?: number };
+
+type FidPontoLocal = {
+  id: string;
+  user_id?: string;
+  cliente_id: string;
+  saldo_pontos: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type FidHistoricoLocal = {
+  id?: string;
+  user_id: string;
+  cliente_id: string;
+  pontos: number;
+  tipo: string;
+  descricao: string;
+  data?: string;
+};
+
+const brl = (n: number) =>
+  Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 // Default Mock Data
 const defaultProds: Prod[] = [
-  { id: "p1", nome: "Base Fortalecedora Premium", descricao: "Base de tratamento nutritiva para unhas fracas", preco_venda: 18.00, preco_custo: 6.00, quantidade: 15, quantidade_minima: 5, created_at: new Date().toISOString() },
-  { id: "p2", nome: "Esmalte Gel Rosé Luxo", descricao: "Esmalte gel de alta durabilidade cor Rosé", preco_venda: 28.00, preco_custo: 12.00, quantidade: 3, quantidade_minima: 5, created_at: new Date().toISOString() },
-  { id: "p3", nome: "Óleo de Cutículas Champagne", descricao: "Hidratante com fragrância suave e brilho dourado", preco_venda: 15.00, preco_custo: 5.00, quantidade: 25, quantidade_minima: 8, created_at: new Date().toISOString() },
+  {
+    id: "p1",
+    nome: "Base Fortalecedora Premium",
+    descricao: "Base de tratamento nutritiva para unhas fracas",
+    preco_venda: 18.0,
+    preco_custo: 6.0,
+    quantidade: 15,
+    quantidade_minima: 5,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "p2",
+    nome: "Esmalte Gel Rosé Luxo",
+    descricao: "Esmalte gel de alta durabilidade cor Rosé",
+    preco_venda: 28.0,
+    preco_custo: 12.0,
+    quantidade: 3,
+    quantidade_minima: 5,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "p3",
+    nome: "Óleo de Cutículas Champagne",
+    descricao: "Hidratante com fragrância suave e brilho dourado",
+    preco_venda: 15.0,
+    preco_custo: 5.0,
+    quantidade: 25,
+    quantidade_minima: 8,
+    created_at: new Date().toISOString(),
+  },
 ];
 
 const defaultMovs: Mov[] = [
-  { id: "m1", produto_id: "p1", tipo: "entrada", quantidade: 15, motivo: "Estoque Inicial", data: new Date().toISOString(), created_at: new Date().toISOString() },
-  { id: "m2", produto_id: "p2", tipo: "entrada", quantidade: 5, motivo: "Estoque Inicial", data: new Date().toISOString(), created_at: new Date().toISOString() },
-  { id: "m3", produto_id: "p3", tipo: "entrada", quantidade: 25, motivo: "Estoque Inicial", data: new Date().toISOString(), created_at: new Date().toISOString() },
-  { id: "m4", produto_id: "p2", tipo: "saida", quantidade: 2, motivo: "Venda PDV", data: new Date().toISOString(), created_at: new Date().toISOString() },
+  {
+    id: "m1",
+    produto_id: "p1",
+    tipo: "entrada",
+    quantidade: 15,
+    motivo: "Estoque Inicial",
+    data: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "m2",
+    produto_id: "p2",
+    tipo: "entrada",
+    quantidade: 5,
+    motivo: "Estoque Inicial",
+    data: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "m3",
+    produto_id: "p3",
+    tipo: "entrada",
+    quantidade: 25,
+    motivo: "Estoque Inicial",
+    data: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "m4",
+    produto_id: "p2",
+    tipo: "saida",
+    quantidade: 2,
+    motivo: "Venda PDV",
+    data: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  },
 ];
 
 function EstoquePage() {
@@ -100,7 +221,10 @@ function EstoquePage() {
     queryKey: ["movimentacoes_estoque"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from("movimentacoes_estoque").select("*").order("data", { ascending: false });
+        const { data, error } = await supabase
+          .from("movimentacoes_estoque")
+          .select("*")
+          .order("data", { ascending: false });
         if (error) throw error;
         return data as Mov[];
       } catch (e) {
@@ -115,7 +239,10 @@ function EstoquePage() {
     queryKey: ["clientes-pos"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from("clientes").select("id, nome, telefone").order("nome");
+        const { data, error } = await supabase
+          .from("clientes")
+          .select("id, nome, telefone")
+          .order("nome");
         if (error) throw error;
         return data as Client[];
       } catch (e) {
@@ -127,9 +254,9 @@ function EstoquePage() {
   const products = prodsQuery.data ?? [];
   const movements = useMemo(() => {
     const rawMovs = movsQuery.data ?? [];
-    return rawMovs.map(m => ({
+    return rawMovs.map((m) => ({
       ...m,
-      produto_nome: products.find(p => p.id === m.produto_id)?.nome ?? "Produto desconhecido",
+      produto_nome: products.find((p) => p.id === m.produto_id)?.nome ?? "Produto desconhecido",
     }));
   }, [movsQuery.data, products]);
 
@@ -164,9 +291,24 @@ function EstoquePage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)] overflow-x-auto">
-          <TabsTrigger value="estoque" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Package className="size-4" /> Estoque</TabsTrigger>
-          <TabsTrigger value="movimentacoes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><ArrowUpDown className="size-4" /> Movimentações</TabsTrigger>
-          <TabsTrigger value="vendas" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><ShoppingCart className="size-4" /> Frente de Caixa</TabsTrigger>
+          <TabsTrigger
+            value="estoque"
+            className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"
+          >
+            <Package className="size-4" /> Estoque
+          </TabsTrigger>
+          <TabsTrigger
+            value="movimentacoes"
+            className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"
+          >
+            <ArrowUpDown className="size-4" /> Movimentações
+          </TabsTrigger>
+          <TabsTrigger
+            value="vendas"
+            className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"
+          >
+            <ShoppingCart className="size-4" /> Frente de Caixa
+          </TabsTrigger>
         </TabsList>
 
         {/* TAB 1: ESTOQUE */}
@@ -178,7 +320,9 @@ function EstoquePage() {
 
           {prodsQuery.isLoading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-36 rounded-2xl" />)}
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-36 rounded-2xl" />
+              ))}
             </div>
           ) : products.length === 0 ? (
             <Card className="bg-white dark:bg-card border-0 rounded-2xl p-12 text-center shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
@@ -189,27 +333,50 @@ function EstoquePage() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {products.map(p => {
+              {products.map((p) => {
                 const lowStock = p.quantidade <= p.quantidade_minima;
                 return (
-                  <Card key={p.id} className={`group bg-white dark:bg-card border-0 rounded-2xl p-5 shadow-[0_2px_16px_rgba(91,30,140,0.04)] hover:shadow-[0_8px_30px_rgba(122,44,191,0.08)] transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden ${lowStock ? "border-l-4 border-l-red-400" : ""}`}>
+                  <Card
+                    key={p.id}
+                    className={`group bg-white dark:bg-card border-0 rounded-2xl p-5 shadow-[0_2px_16px_rgba(91,30,140,0.04)] hover:shadow-[0_8px_30px_rgba(122,44,191,0.08)] transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden ${lowStock ? "border-l-4 border-l-red-400" : ""}`}
+                  >
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="font-medium text-base">{p.nome}</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{p.descricao || "Sem descrição"}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                          {p.descricao || "Sem descrição"}
+                        </p>
                       </div>
                       <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
-                        <ProductDialog serv={p} onSaved={invalidate} trigger={
-                          <Button size="icon" variant="ghost" className="hover:bg-purple-100 dark:hover:bg-purple-500/20" aria-label={`Editar ${p.nome}`}><Pencil className="size-4 text-purple-500" aria-hidden="true" /></Button>
-                        } />
-                        <Button size="icon" variant="ghost" className="hover:bg-red-100 dark:hover:bg-red-500/20" aria-label={`Excluir ${p.nome}`} onClick={() => {
-                          confirmDelete({
-                            title: "Excluir produto?",
-                            description: `Deseja mesmo excluir "${p.nome}"?`,
-                            confirmText: "Excluir", variant: "danger",
-                            onConfirm: () => deleteProdMut.mutate(p.id),
-                          });
-                        }}>
+                        <ProductDialog
+                          serv={p}
+                          onSaved={invalidate}
+                          trigger={
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="hover:bg-purple-100 dark:hover:bg-purple-500/20"
+                              aria-label={`Editar ${p.nome}`}
+                            >
+                              <Pencil className="size-4 text-purple-500" aria-hidden="true" />
+                            </Button>
+                          }
+                        />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="hover:bg-red-100 dark:hover:bg-red-500/20"
+                          aria-label={`Excluir ${p.nome}`}
+                          onClick={() => {
+                            confirmDelete({
+                              title: "Excluir produto?",
+                              description: `Deseja mesmo excluir "${p.nome}"?`,
+                              confirmText: "Excluir",
+                              variant: "danger",
+                              onConfirm: () => deleteProdMut.mutate(p.id),
+                            });
+                          }}
+                        >
                           <Trash2 className="size-4 text-destructive" aria-hidden="true" />
                         </Button>
                       </div>
@@ -217,13 +384,19 @@ function EstoquePage() {
 
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <div className="bg-gradient-to-b from-purple-50/50 to-transparent dark:from-purple-500/5 dark:to-transparent rounded-xl p-3 text-center">
-                        <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">Estoque</span>
-                        <span className={`font-display text-2xl font-bold mt-1 block ${lowStock ? "text-red-500" : ""}`}>
+                        <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">
+                          Estoque
+                        </span>
+                        <span
+                          className={`font-display text-2xl font-bold mt-1 block ${lowStock ? "text-red-500" : ""}`}
+                        >
                           {p.quantidade}
                         </span>
                       </div>
                       <div className="bg-gradient-to-b from-pink-50/50 to-transparent dark:from-pink-500/5 dark:to-transparent rounded-xl p-3 text-center">
-                        <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">Preço Venda</span>
+                        <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">
+                          Preço Venda
+                        </span>
                         <span className="font-display text-xl text-purple-600 dark:text-purple-400 font-bold mt-1 block">
                           {brl(p.preco_venda)}
                         </span>
@@ -231,8 +404,12 @@ function EstoquePage() {
                     </div>
 
                     <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground border-t border-purple-100/50 dark:border-purple-400/10 pt-3">
-                      <span>Custo: <span className="font-medium">{brl(p.preco_custo)}</span></span>
-                      <span>Mínimo: <span className="font-medium">{p.quantidade_minima} un</span></span>
+                      <span>
+                        Custo: <span className="font-medium">{brl(p.preco_custo)}</span>
+                      </span>
+                      <span>
+                        Mínimo: <span className="font-medium">{p.quantidade_minima} un</span>
+                      </span>
                     </div>
 
                     {lowStock && (
@@ -253,7 +430,9 @@ function EstoquePage() {
           <div className="flex items-center justify-between gap-4 mb-4">
             <div>
               <h2 className="font-display text-xl">Histórico de Movimentações</h2>
-              <p className="text-sm text-muted-foreground">Entradas e saídas de estoque registradas</p>
+              <p className="text-sm text-muted-foreground">
+                Entradas e saídas de estoque registradas
+              </p>
             </div>
             <MovementDialog products={products} onSaved={invalidate} />
           </div>
@@ -262,22 +441,42 @@ function EstoquePage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-purple-100/50 dark:border-purple-400/10">
-                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Produto</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Tipo</TableHead>
-                  <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">Qtd</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Motivo</TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Data</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Produto
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Tipo
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Qtd
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Motivo
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Data
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {movsQuery.isLoading ? (
-                  [1, 2, 3].map(i => (
+                  [1, 2, 3].map((i) => (
                     <TableRow key={i}>
-                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-5 w-8 ml-auto" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-32" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-16" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-5 w-8 ml-auto" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-24" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-20" />
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : movements.length === 0 ? (
@@ -287,16 +486,25 @@ function EstoquePage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  movements.map(m => (
-                    <TableRow key={m.id} className="border-b border-purple-100/30 dark:border-purple-400/5">
+                  movements.map((m) => (
+                    <TableRow
+                      key={m.id}
+                      className="border-b border-purple-100/30 dark:border-purple-400/5"
+                    >
                       <TableCell className="font-medium">{m.produto_nome}</TableCell>
                       <TableCell>
-                        <Badge variant={m.tipo === "entrada" ? "secondary" : "destructive"} className={`rounded-full text-[10px] px-2.5 ${m.tipo === "entrada" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 hover:bg-emerald-100 border-transparent" : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 hover:bg-red-100 border-transparent"}`}>
+                        <Badge
+                          variant={m.tipo === "entrada" ? "secondary" : "destructive"}
+                          className={`rounded-full text-[10px] px-2.5 ${m.tipo === "entrada" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 hover:bg-emerald-100 border-transparent" : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 hover:bg-red-100 border-transparent"}`}
+                        >
                           {m.tipo === "entrada" ? "Entrada" : "Saída"}
                         </Badge>
                       </TableCell>
-                      <TableCell className={`text-right font-bold ${m.tipo === "entrada" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                        {m.tipo === "entrada" ? "+" : "-"}{m.quantidade}
+                      <TableCell
+                        className={`text-right font-bold ${m.tipo === "entrada" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+                      >
+                        {m.tipo === "entrada" ? "+" : "-"}
+                        {m.quantidade}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{m.motivo}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
@@ -312,7 +520,11 @@ function EstoquePage() {
 
         {/* TAB 3: POS / VENDAS */}
         <TabsContent value="vendas">
-          <SalesPOS products={products} clients={clientsQuery.data ?? []} onCompleted={invalidate} />
+          <SalesPOS
+            products={products}
+            clients={clientsQuery.data ?? []}
+            onCompleted={invalidate}
+          />
         </TabsContent>
       </Tabs>
     </>
@@ -320,7 +532,15 @@ function EstoquePage() {
 }
 
 // Dialog: Add/Edit Product
-function ProductDialog({ serv, onSaved, trigger }: { serv?: Prod; onSaved: () => void; trigger?: React.ReactNode }) {
+function ProductDialog({
+  serv,
+  onSaved,
+  trigger,
+}: {
+  serv?: Prod;
+  onSaved: () => void;
+  trigger?: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     nome: serv?.nome ?? "",
@@ -362,11 +582,15 @@ function ProductDialog({ serv, onSaved, trigger }: { serv?: Prod; onSaved: () =>
           if (error) throw error;
         } else {
           const user = (await supabase.auth.getUser()).data.user;
-          const { data: inserted, error } = await supabase.from("produtos").insert({
-            ...payload,
-            user_id: user!.id,
-          }).select().single();
-          
+          const { data: inserted, error } = await supabase
+            .from("produtos")
+            .insert({
+              ...payload,
+              user_id: user!.id,
+            })
+            .select()
+            .single();
+
           if (error) throw error;
 
           if (payload.quantidade > 0 && inserted) {
@@ -384,31 +608,43 @@ function ProductDialog({ serv, onSaved, trigger }: { serv?: Prod; onSaved: () =>
         if (serv) {
           const diff = payload.quantidade - serv.quantidade;
           if (diff !== 0) {
-            fallbackDb.insert<Mov>("movimentacoes_estoque", {
-              user_id: "local",
-              produto_id: serv.id,
-              tipo: diff > 0 ? "entrada" : "saida",
-              quantidade: Math.abs(diff),
-              motivo: "Ajuste manual de saldo",
-              data: new Date().toISOString(),
-            } as any, defaultMovs);
+            fallbackDb.insert<Mov>(
+              "movimentacoes_estoque",
+              {
+                user_id: "local",
+                produto_id: serv.id,
+                tipo: diff > 0 ? "entrada" : "saida",
+                quantidade: Math.abs(diff),
+                motivo: "Ajuste manual de saldo",
+                data: new Date().toISOString(),
+              },
+              defaultMovs,
+            );
           }
           fallbackDb.update<Prod>("produtos", serv.id, payload, defaultProds);
         } else {
-          const inserted = fallbackDb.insert<Prod>("produtos", {
-            user_id: "local",
-            ...payload,
-          } as any, defaultProds);
+          const inserted = fallbackDb.insert<Prod>(
+            "produtos",
+            {
+              user_id: "local",
+              ...payload,
+            },
+            defaultProds,
+          );
 
           if (payload.quantidade > 0) {
-            fallbackDb.insert<Mov>("movimentacoes_estoque", {
-              user_id: "local",
-              produto_id: inserted.id,
-              tipo: "entrada",
-              quantidade: payload.quantidade,
-              motivo: "Estoque Inicial",
-              data: new Date().toISOString(),
-            } as any, defaultMovs);
+            fallbackDb.insert<Mov>(
+              "movimentacoes_estoque",
+              {
+                user_id: "local",
+                produto_id: inserted.id,
+                tipo: "entrada",
+                quantidade: payload.quantidade,
+                motivo: "Estoque Inicial",
+                data: new Date().toISOString(),
+              },
+              defaultMovs,
+            );
           }
         }
       }
@@ -424,43 +660,90 @@ function ProductDialog({ serv, onSaved, trigger }: { serv?: Prod; onSaved: () =>
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger ?? <Button className="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all"><Plus className="size-4 mr-1" /> Novo Produto</Button>}
+        {trigger ?? (
+          <Button className="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all">
+            <Plus className="size-4 mr-1" /> Novo Produto
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl">{serv ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+          <DialogTitle className="font-display text-2xl">
+            {serv ? "Editar Produto" : "Novo Produto"}
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+          className="space-y-4"
+        >
           <div>
             <Label>Nome do Produto *</Label>
-            <Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20" />
+            <Input
+              value={form.nome}
+              onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              required
+              className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20"
+            />
           </div>
           <div>
             <Label>Descrição</Label>
-            <Input value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20" />
+            <Input
+              value={form.descricao}
+              onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+              className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Preço de Venda (R$)</Label>
-              <Input type="number" step="0.01" value={form.preco_venda} onChange={e => setForm({ ...form, preco_venda: Number(e.target.value) })} className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20" />
+              <Input
+                type="number"
+                step="0.01"
+                value={form.preco_venda}
+                onChange={(e) => setForm({ ...form, preco_venda: Number(e.target.value) })}
+                className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20"
+              />
             </div>
             <div>
               <Label>Custo de Aquisição (R$)</Label>
-              <Input type="number" step="0.01" value={form.preco_custo} onChange={e => setForm({ ...form, preco_custo: Number(e.target.value) })} className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20" />
+              <Input
+                type="number"
+                step="0.01"
+                value={form.preco_custo}
+                onChange={(e) => setForm({ ...form, preco_custo: Number(e.target.value) })}
+                className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Qtd Atual em Estoque</Label>
-              <Input type="number" value={form.quantidade} onChange={e => setForm({ ...form, quantidade: Number(e.target.value) })} className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20" />
+              <Input
+                type="number"
+                value={form.quantidade}
+                onChange={(e) => setForm({ ...form, quantidade: Number(e.target.value) })}
+                className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20"
+              />
             </div>
             <div>
               <Label>Qtd Mínima (Alerta)</Label>
-              <Input type="number" value={form.quantidade_minima} onChange={e => setForm({ ...form, quantidade_minima: Number(e.target.value) })} className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20" />
+              <Input
+                type="number"
+                value={form.quantidade_minima}
+                onChange={(e) => setForm({ ...form, quantidade_minima: Number(e.target.value) })}
+                className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20"
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={mut.isPending} className="w-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25">
+            <Button
+              type="submit"
+              disabled={mut.isPending}
+              className="w-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25"
+            >
               {mut.isPending ? "Salvando..." : "Salvar Produto"}
             </Button>
           </DialogFooter>
@@ -486,18 +769,21 @@ function MovementDialog({ products, onSaved }: { products: Prod[]; onSaved: () =
       if (form.quantidade <= 0) throw new Error("Quantidade deve ser maior que 0");
       if (!form.motivo.trim()) throw new Error("Informe o motivo da movimentação");
 
-      const prod = products.find(p => p.id === form.produto_id);
+      const prod = products.find((p) => p.id === form.produto_id);
       if (!prod) throw new Error("Produto inválido");
 
       if (form.tipo === "saida" && prod.quantidade < form.quantidade) {
         throw new Error(`Saldo insuficiente! Apenas ${prod.quantidade} unidades em estoque.`);
       }
 
-      const newQty = form.tipo === "entrada" ? prod.quantidade + form.quantidade : prod.quantidade - form.quantidade;
+      const newQty =
+        form.tipo === "entrada"
+          ? prod.quantidade + form.quantidade
+          : prod.quantidade - form.quantidade;
 
       try {
         const user = (await supabase.auth.getUser()).data.user;
-        
+
         const { error: movErr } = await supabase.from("movimentacoes_estoque").insert({
           user_id: user!.id,
           produto_id: form.produto_id,
@@ -507,26 +793,37 @@ function MovementDialog({ products, onSaved }: { products: Prod[]; onSaved: () =
         });
         if (movErr) throw movErr;
 
-        const { error: prodErr } = await supabase.from("produtos").update({
-          quantidade: newQty
-        }).eq("id", form.produto_id);
-        
-        if (prodErr) throw prodErr;
+        const { error: prodErr } = await supabase
+          .from("produtos")
+          .update({
+            quantidade: newQty,
+          })
+          .eq("id", form.produto_id);
 
+        if (prodErr) throw prodErr;
       } catch (e) {
         console.warn("Using local fallback in manually posting movement", e);
-        fallbackDb.insert<Mov>("movimentacoes_estoque", {
-          user_id: "local",
-          produto_id: form.produto_id,
-          tipo: form.tipo,
-          quantidade: form.quantidade,
-          motivo: form.motivo.trim(),
-          data: new Date().toISOString(),
-        } as any, defaultMovs);
+        fallbackDb.insert<Mov>(
+          "movimentacoes_estoque",
+          {
+            user_id: "local",
+            produto_id: form.produto_id,
+            tipo: form.tipo,
+            quantidade: form.quantidade,
+            motivo: form.motivo.trim(),
+            data: new Date().toISOString(),
+          },
+          defaultMovs,
+        );
 
-        fallbackDb.update<Prod>("produtos", form.produto_id, {
-          quantidade: newQty
-        }, defaultProds);
+        fallbackDb.update<Prod>(
+          "produtos",
+          form.produto_id,
+          {
+            quantidade: newQty,
+          },
+          defaultProds,
+        );
       }
     },
     onSuccess: () => {
@@ -541,22 +838,39 @@ function MovementDialog({ products, onSaved }: { products: Prod[]; onSaved: () =
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all" aria-label="Lançar movimentação de estoque"><ArrowUpDown className="size-4 mr-1.5" aria-hidden="true" /> Lançar Entrada/Saída</Button>
+        <Button
+          variant="outline"
+          className="border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all"
+          aria-label="Lançar movimentação de estoque"
+        >
+          <ArrowUpDown className="size-4 mr-1.5" aria-hidden="true" /> Lançar Entrada/Saída
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Lançar Movimentação</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+          className="space-y-4"
+        >
           <div>
             <Label>Produto *</Label>
-            <Select value={form.produto_id} onValueChange={val => setForm({ ...form, produto_id: val })}>
+            <Select
+              value={form.produto_id}
+              onValueChange={(val) => setForm({ ...form, produto_id: val })}
+            >
               <SelectTrigger className="rounded-xl border-purple-200/40">
                 <SelectValue placeholder="Selecione o produto..." />
               </SelectTrigger>
               <SelectContent>
-                {products.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.nome} (Qtd: {p.quantidade})</SelectItem>
+                {products.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome} (Qtd: {p.quantidade})
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -565,7 +879,10 @@ function MovementDialog({ products, onSaved }: { products: Prod[]; onSaved: () =
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Tipo de Lançamento</Label>
-              <Select value={form.tipo} onValueChange={(val: "entrada" | "saida") => setForm({ ...form, tipo: val })}>
+              <Select
+                value={form.tipo}
+                onValueChange={(val: "entrada" | "saida") => setForm({ ...form, tipo: val })}
+              >
                 <SelectTrigger className="rounded-xl border-purple-200/40">
                   <SelectValue />
                 </SelectTrigger>
@@ -577,17 +894,34 @@ function MovementDialog({ products, onSaved }: { products: Prod[]; onSaved: () =
             </div>
             <div>
               <Label>Quantidade *</Label>
-              <Input type="number" min="1" value={form.quantidade} onChange={e => setForm({ ...form, quantidade: Number(e.target.value) })} required className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20" />
+              <Input
+                type="number"
+                min="1"
+                value={form.quantidade}
+                onChange={(e) => setForm({ ...form, quantidade: Number(e.target.value) })}
+                required
+                className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20"
+              />
             </div>
           </div>
 
           <div>
             <Label>Motivo *</Label>
-            <Input value={form.motivo} placeholder="Ex: Compra de mercadoria, descarte por validade..." onChange={e => setForm({ ...form, motivo: e.target.value })} required className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20" />
+            <Input
+              value={form.motivo}
+              placeholder="Ex: Compra de mercadoria, descarte por validade..."
+              onChange={(e) => setForm({ ...form, motivo: e.target.value })}
+              required
+              className="rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20"
+            />
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={mut.isPending} className="w-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25">
+            <Button
+              type="submit"
+              disabled={mut.isPending}
+              className="w-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25"
+            >
               {mut.isPending ? "Processando..." : "Confirmar Movimentação"}
             </Button>
           </DialogFooter>
@@ -598,15 +932,25 @@ function MovementDialog({ products, onSaved }: { products: Prod[]; onSaved: () =
 }
 
 // Front Of Cash (POS) Page Content
-function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; clients: Client[]; onCompleted: () => void }) {
+function SalesPOS({
+  products,
+  clients,
+  onCompleted,
+}: {
+  products: Prod[];
+  clients: Client[];
+  onCompleted: () => void;
+}) {
   const [basket, setBasket] = useState<{ id: string; prod: Prod; qty: number }[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>("anonimo");
-  const [paymentMethod, setPaymentMethod] = useState<"pix" | "dinheiro" | "debito" | "credito">("pix");
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "dinheiro" | "debito" | "credito">(
+    "pix",
+  );
   const [discount, setDiscount] = useState<number>(0);
   const [isPending, setIsPending] = useState(false);
 
   const availableProducts = useMemo(() => {
-    return products.filter(p => p.quantidade > 0);
+    return products.filter((p) => p.quantidade > 0);
   }, [products]);
 
   const subtotal = useMemo(() => {
@@ -618,13 +962,15 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
   }, [subtotal, discount]);
 
   const addToBasket = (prod: Prod) => {
-    const existing = basket.find(item => item.id === prod.id);
+    const existing = basket.find((item) => item.id === prod.id);
     if (existing) {
       if (existing.qty >= prod.quantidade) {
         toast.error("Quantidade máxima disponível em estoque atingida!");
         return;
       }
-      setBasket(basket.map(item => item.id === prod.id ? { ...item, qty: item.qty + 1 } : item));
+      setBasket(
+        basket.map((item) => (item.id === prod.id ? { ...item, qty: item.qty + 1 } : item)),
+      );
     } else {
       setBasket([...basket, { id: prod.id, prod, qty: 1 }]);
     }
@@ -639,11 +985,11 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
       toast.error("Quantidade máxima disponível em estoque atingida!");
       return;
     }
-    setBasket(basket.map(item => item.id === id ? { ...item, qty: newQty } : item));
+    setBasket(basket.map((item) => (item.id === id ? { ...item, qty: newQty } : item)));
   };
 
   const removeFromBasket = (id: string) => {
-    setBasket(basket.filter(item => item.id !== id));
+    setBasket(basket.filter((item) => item.id !== id));
   };
 
   const handleCheckout = async () => {
@@ -658,12 +1004,16 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
     try {
       const user = (await supabase.auth.getUser()).data.user;
 
-      const { data: sale, error: saleErr } = await supabase.from("vendas").insert({
-        user_id: user!.id,
-        cliente_id: clientVal,
-        total: total,
-        pagamento_metodo: paymentMethod,
-      }).select().single();
+      const { data: sale, error: saleErr } = await supabase
+        .from("vendas")
+        .insert({
+          user_id: user!.id,
+          cliente_id: clientVal,
+          total: total,
+          pagamento_metodo: paymentMethod,
+        })
+        .select()
+        .single();
 
       if (saleErr) throw saleErr;
 
@@ -677,9 +1027,12 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
         });
         if (itemErr) throw itemErr;
 
-        const { error: prodErr } = await supabase.from("produtos").update({
-          quantidade: item.prod.quantidade - item.qty,
-        }).eq("id", item.id);
+        const { error: prodErr } = await supabase
+          .from("produtos")
+          .update({
+            quantidade: item.prod.quantidade - item.qty,
+          })
+          .eq("id", item.id);
         if (prodErr) throw prodErr;
 
         const { error: movErr } = await supabase.from("movimentacoes_estoque").insert({
@@ -693,22 +1046,34 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
       }
 
       if (clientVal) {
-        const { data: config } = await supabase.from("fidelidade_config").select("*").eq("user_id", user!.id).maybeSingle();
+        const { data: config } = await supabase
+          .from("fidelidade_config")
+          .select("*")
+          .eq("user_id", user!.id)
+          .maybeSingle();
         if (config && config.ativo) {
           const pointsEarned = Math.floor(total * Number(config.pontos_por_real));
           if (pointsEarned > 0) {
-            const { data: pts } = await supabase.from("fidelidade_pontos").select("*").eq("user_id", user!.id).eq("cliente_id", clientVal).maybeSingle();
-            
+            const { data: pts } = await supabase
+              .from("fidelidade_pontos")
+              .select("*")
+              .eq("user_id", user!.id)
+              .eq("cliente_id", clientVal)
+              .maybeSingle();
+
             const currentPoints = pts ? pts.saldo_pontos : 0;
             const newPoints = currentPoints + pointsEarned;
 
             if (pts) {
-              await supabase.from("fidelidade_pontos").update({ saldo_pontos: newPoints }).eq("id", pts.id);
+              await supabase
+                .from("fidelidade_pontos")
+                .update({ saldo_pontos: newPoints })
+                .eq("id", pts.id);
             } else {
               await supabase.from("fidelidade_pontos").insert({
                 user_id: user!.id,
                 cliente_id: clientVal,
-                saldo_pontos: pointsEarned
+                saldo_pontos: pointsEarned,
               });
             }
 
@@ -724,10 +1089,9 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
           }
         }
       }
-
     } catch (e) {
       console.warn("Using local fallback in checkout sales PDV", e);
-      const fallbackSales = fallbackDb.get<any>("vendas", []);
+      const fallbackSales = fallbackDb.get<VendaLocal>("vendas", []);
       const newSaleId = crypto.randomUUID();
       const saleObj = {
         id: newSaleId,
@@ -736,36 +1100,48 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
         total: total,
         pagamento_metodo: paymentMethod,
         data_venda: new Date().toISOString(),
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
       fallbackSales.push(saleObj);
       fallbackDb.set("vendas", fallbackSales);
 
       for (const item of basket) {
-        fallbackDb.update<Prod>("produtos", item.id, {
-          quantidade: item.prod.quantidade - item.qty,
-        }, defaultProds);
+        fallbackDb.update<Prod>(
+          "produtos",
+          item.id,
+          {
+            quantidade: item.prod.quantidade - item.qty,
+          },
+          defaultProds,
+        );
 
-        fallbackDb.insert<Mov>("movimentacoes_estoque", {
-          user_id: "local",
-          produto_id: item.id,
-          tipo: "saida",
-          quantidade: item.qty,
-          motivo: "Venda Frente de Caixa",
-          data: new Date().toISOString()
-        } as any, defaultMovs);
+        fallbackDb.insert<Mov>(
+          "movimentacoes_estoque",
+          {
+            user_id: "local",
+            produto_id: item.id,
+            tipo: "saida",
+            quantidade: item.qty,
+            motivo: "Venda Frente de Caixa",
+            data: new Date().toISOString(),
+          },
+          defaultMovs,
+        );
       }
 
       if (clientVal) {
-        const localFidConfigs = fallbackDb.get<any>("fidelidade_config", []);
-        const config = localFidConfigs.find((c: any) => c.user_id === "local") || { ativo: true, pontos_por_real: 1 };
-        
+        const localFidConfigs = fallbackDb.get<FidConfigLocal>("fidelidade_config", []);
+        const config = localFidConfigs.find((c) => c.user_id === "local") || {
+          ativo: true,
+          pontos_por_real: 1,
+        };
+
         if (config.ativo) {
           const pointsEarned = Math.floor(total * Number(config.pontos_por_real));
           if (pointsEarned > 0) {
-            const localPointsList = fallbackDb.get<any>("fidelidade_pontos", []);
-            const pts = localPointsList.find((p: any) => p.cliente_id === clientVal);
-            
+            const localPointsList = fallbackDb.get<FidPontoLocal>("fidelidade_pontos", []);
+            const pts = localPointsList.find((p) => p.cliente_id === clientVal);
+
             if (pts) {
               pts.saldo_pontos += pointsEarned;
               pts.updated_at = new Date().toISOString();
@@ -776,19 +1152,23 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
                 cliente_id: clientVal,
                 saldo_pontos: pointsEarned,
                 created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
               });
             }
             fallbackDb.set("fidelidade_pontos", localPointsList);
 
-            fallbackDb.insert<any>("fidelidade_historico", {
-              user_id: "local",
-              cliente_id: clientVal,
-              pontos: pointsEarned,
-              tipo: "ganho",
-              descricao: `Pontos ganhos na Venda PDV (local)`,
-              data: new Date().toISOString()
-            }, []);
+            fallbackDb.insert<FidHistoricoLocal>(
+              "fidelidade_historico",
+              {
+                user_id: "local",
+                cliente_id: clientVal,
+                pontos: pointsEarned,
+                tipo: "ganho",
+                descricao: `Pontos ganhos na Venda PDV (local)`,
+                data: new Date().toISOString(),
+              },
+              [],
+            );
 
             toast.success(`Cliente acumulou +${pointsEarned} pontos de fidelidade!`);
           }
@@ -808,7 +1188,9 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
       <div className="lg:col-span-2 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl">Catálogo de Produtos</h2>
-          <span className="text-xs text-muted-foreground">{availableProducts.length} itens disponíveis</span>
+          <span className="text-xs text-muted-foreground">
+            {availableProducts.length} itens disponíveis
+          </span>
         </div>
 
         {availableProducts.length === 0 ? (
@@ -817,18 +1199,34 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
           </Card>
         ) : (
           <div className="grid sm:grid-cols-2 gap-4">
-            {availableProducts.map(p => (
-              <Card key={p.id} className="group bg-white dark:bg-card border-0 rounded-2xl p-4 flex flex-col justify-between hover:border-purple-300/50 dark:hover:border-purple-400/30 border border-purple-100/30 dark:border-purple-400/10 transition-all hover:shadow-[0_8px_30px_rgba(122,44,191,0.08)] shadow-[0_2px_16px_rgba(91,30,140,0.04)]">
+            {availableProducts.map((p) => (
+              <Card
+                key={p.id}
+                className="group bg-white dark:bg-card border-0 rounded-2xl p-4 flex flex-col justify-between hover:border-purple-300/50 dark:hover:border-purple-400/30 border border-purple-100/30 dark:border-purple-400/10 transition-all hover:shadow-[0_8px_30px_rgba(122,44,191,0.08)] shadow-[0_2px_16px_rgba(91,30,140,0.04)]"
+              >
                 <div>
                   <div className="flex justify-between items-start">
                     <h3 className="font-medium text-sm">{p.nome}</h3>
-                    <Badge variant="secondary" className="text-[10px] rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-transparent">Qtd: {p.quantidade}</Badge>
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-transparent"
+                    >
+                      Qtd: {p.quantidade}
+                    </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{p.descricao || "Sem descrição"}</p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                    {p.descricao || "Sem descrição"}
+                  </p>
                 </div>
                 <div className="flex items-center justify-between mt-4">
-                  <span className="font-display font-bold bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">{brl(p.preco_venda)}</span>
-                  <Button size="sm" className="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20 h-8 rounded-xl text-xs hover:shadow-purple-500/40 transition-all" onClick={() => addToBasket(p)}>
+                  <span className="font-display font-bold bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    {brl(p.preco_venda)}
+                  </span>
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20 h-8 rounded-xl text-xs hover:shadow-purple-500/40 transition-all"
+                    onClick={() => addToBasket(p)}
+                  >
                     Adicionar
                   </Button>
                 </div>
@@ -848,14 +1246,35 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
                   Carrinho vazio. Adicione produtos do catálogo.
                 </div>
               ) : (
-                basket.map(item => (
-                  <div key={item.id} className="flex items-center justify-between gap-2 border-b border-purple-100/50 dark:border-purple-400/10 pb-2">
+                basket.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-2 border-b border-purple-100/50 dark:border-purple-400/10 pb-2"
+                  >
                     <div className="min-w-0">
                       <p className="text-xs font-medium truncate">{item.prod.nome}</p>
-                      <p className="text-[10px] text-muted-foreground">{brl(item.prod.preco_venda)} / un</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {brl(item.prod.preco_venda)} / un
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Input type="number" className="h-7 w-12 text-center text-xs p-1 rounded-lg border-purple-200/40" min="1" max={item.prod.quantidade} value={item.qty} onChange={e => updateQty(item.id, Number(e.target.value), item.prod.quantidade)} />                          <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20" onClick={() => removeFromBasket(item.id)} aria-label={`Remover ${item.prod.nome} do carrinho`}>
+                      <Input
+                        type="number"
+                        className="h-7 w-12 text-center text-xs p-1 rounded-lg border-purple-200/40"
+                        min="1"
+                        max={item.prod.quantidade}
+                        value={item.qty}
+                        onChange={(e) =>
+                          updateQty(item.id, Number(e.target.value), item.prod.quantidade)
+                        }
+                      />{" "}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20"
+                        onClick={() => removeFromBasket(item.id)}
+                        aria-label={`Remover ${item.prod.nome} do carrinho`}
+                      >
                         <Trash className="size-3.5" aria-hidden="true" />
                       </Button>
                     </div>
@@ -873,8 +1292,10 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="anonimo">Consumidor Geral (Sem Nome)</SelectItem>
-                    {clients.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nome}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -883,7 +1304,12 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Pagamento</Label>
-                  <Select value={paymentMethod} onValueChange={(val: any) => setPaymentMethod(val)}>
+                  <Select
+                    value={paymentMethod}
+                    onValueChange={(val) =>
+                      setPaymentMethod(val as "pix" | "dinheiro" | "debito" | "credito")
+                    }
+                  >
                     <SelectTrigger className="h-9 text-xs rounded-xl border-purple-200/40">
                       <SelectValue />
                     </SelectTrigger>
@@ -897,7 +1323,14 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
                 </div>
                 <div>
                   <Label className="text-xs">Desconto (R$)</Label>
-                  <Input type="number" min="0" step="0.01" className="h-9 text-xs rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20" value={discount} onChange={e => setDiscount(Number(e.target.value))} />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="h-9 text-xs rounded-xl border-purple-200/40 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20"
+                    value={discount}
+                    onChange={(e) => setDiscount(Number(e.target.value))}
+                  />
                 </div>
               </div>
             </div>
@@ -916,10 +1349,16 @@ function SalesPOS({ products, clients, onCompleted }: { products: Prod[]; client
             )}
             <div className="flex justify-between text-base font-bold">
               <span>Total:</span>
-              <span className="bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">{brl(total)}</span>
+              <span className="bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                {brl(total)}
+              </span>
             </div>
 
-            <Button className="w-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all mt-2" disabled={basket.length === 0 || isPending} onClick={handleCheckout}>
+            <Button
+              className="w-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all mt-2"
+              disabled={basket.length === 0 || isPending}
+              onClick={handleCheckout}
+            >
               {isPending ? "Processando..." : "Finalizar Venda"}
             </Button>
           </div>

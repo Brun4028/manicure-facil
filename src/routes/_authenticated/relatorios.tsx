@@ -10,14 +10,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { fallbackDb } from "@/lib/fallback-db";
 import {
-  FileText, FileSpreadsheet, Download, Upload, TrendingUp, Target, Award
+  FileText,
+  FileSpreadsheet,
+  Download,
+  Upload,
+  TrendingUp,
+  Target,
+  Award,
 } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { format, startOfMonth, endOfMonth, differenceInDays } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
@@ -32,7 +53,37 @@ type MetaMensal = {
   servicos_alvo: number;
 };
 
-const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+// Linhas usadas tanto pelo Supabase quanto pelo fallback local
+// (mesmos campos que o backup/restauração manipulam).
+type AgendamentoLinha = {
+  id: string;
+  cliente_id: string | null;
+  servico_id: string | null;
+  data_hora: string;
+  valor: number;
+  custo: number;
+  status: string;
+};
+
+type VendaLinha = {
+  id: string;
+  cliente_id: string | null;
+  total: number;
+  data_venda: string;
+  pagamento_metodo: string;
+};
+
+type ClienteLinha = {
+  id: string;
+  nome: string;
+  telefone?: string | null;
+  data_nascimento?: string | null;
+};
+
+type ServicoLinha = { id: string; nome: string };
+
+const brl = (n: number) =>
+  Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function RelatoriosPage() {
   usePageTitle("Relatórios & Metas — Manicure Fácil");
@@ -45,12 +96,16 @@ function RelatoriosPage() {
     queryKey: ["meta_mensal", selectedMonth],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.from("metas_mensais").select("*").eq("mes_ano", selectedMonth).maybeSingle();
+        const { data, error } = await supabase
+          .from("metas_mensais")
+          .select("*")
+          .eq("mes_ano", selectedMonth)
+          .maybeSingle();
         if (error) throw error;
         return data as MetaMensal | null;
       } catch (e) {
         const local = fallbackDb.get<MetaMensal>("metas_mensais", []);
-        const match = local.find(x => x.mes_ano === selectedMonth);
+        const match = local.find((x) => x.mes_ano === selectedMonth);
         return match || null;
       }
     },
@@ -65,7 +120,7 @@ function RelatoriosPage() {
         if (error) throw error;
         return data;
       } catch (e) {
-        return fallbackDb.get<any>("agendamentos", []);
+        return fallbackDb.get<AgendamentoLinha>("agendamentos", []);
       }
     },
   });
@@ -79,7 +134,7 @@ function RelatoriosPage() {
         if (error) throw error;
         return data;
       } catch (e) {
-        return fallbackDb.get<any>("vendas", []);
+        return fallbackDb.get<VendaLinha>("vendas", []);
       }
     },
   });
@@ -93,7 +148,7 @@ function RelatoriosPage() {
         if (error) throw error;
         return data;
       } catch (e) {
-        return fallbackDb.get<any>("clientes", []);
+        return fallbackDb.get<ClienteLinha>("clientes", []);
       }
     },
   });
@@ -123,29 +178,29 @@ function RelatoriosPage() {
     const end = endOfMonth(new Date(`${selectedMonth}-02`));
 
     // Filter appointments
-    const monthAgs = allAgendamentos.filter((a: any) => {
+    const monthAgs = allAgendamentos.filter((a) => {
       const d = new Date(a.data_hora);
       return d >= start && d <= end;
     });
 
     // Filter sales
-    const monthSales = allSales.filter((s: any) => {
+    const monthSales = allSales.filter((s) => {
       const d = new Date(s.data_venda);
       return d >= start && d <= end;
     });
 
     // Real values
-    const conclAgs = monthAgs.filter((a: any) => a.status === "concluido");
+    const conclAgs = monthAgs.filter((a) => a.status === "concluido");
 
-    const fatAgs = conclAgs.reduce((sum: number, a: any) => sum + Number(a.valor), 0);
-    const costAgs = conclAgs.reduce((sum: number, a: any) => sum + Number(a.custo), 0);
+    const fatAgs = conclAgs.reduce((sum: number, a) => sum + Number(a.valor), 0);
+    const costAgs = conclAgs.reduce((sum: number, a) => sum + Number(a.custo), 0);
 
-    const fatSales = monthSales.reduce((sum: number, s: any) => sum + Number(s.total), 0);
+    const fatSales = monthSales.reduce((sum: number, s) => sum + Number(s.total), 0);
     // Let's assume cost of sold products is roughly 40% as a fallback, or calculate if we had detailed products
     const costSales = fatSales * 0.4;
 
     const faturamentoReal = fatAgs + fatSales;
-    const lucroReal = (fatAgs - costAgs) + (fatSales - costSales);
+    const lucroReal = fatAgs - costAgs + (fatSales - costSales);
     const servicosQtd = conclAgs.length;
 
     return {
@@ -154,7 +209,7 @@ function RelatoriosPage() {
       servicosQtd,
       conclAgs,
       monthSales,
-      allMonthAgs: monthAgs
+      allMonthAgs: monthAgs,
     };
   }, [selectedMonth, allAgendamentos, allSales]);
 
@@ -162,8 +217,9 @@ function RelatoriosPage() {
   const serviceRanking = useMemo(() => {
     const rankMap: Record<string, { nome: string; count: number; receita: number }> = {};
 
-    currentMonthData.conclAgs.forEach((a: any) => {
-      const servName = services.find((s: any) => s.id === a.servico_id)?.nome ?? "Serviço deletado / Avulso";
+    currentMonthData.conclAgs.forEach((a) => {
+      const servName =
+        services.find((s) => s.id === a.servico_id)?.nome ?? "Serviço deletado / Avulso";
       if (!rankMap[servName]) {
         rankMap[servName] = { nome: servName, count: 0, receita: 0 };
       }
@@ -190,11 +246,13 @@ function RelatoriosPage() {
     }
 
     // Inactive clients (last visited > 30 days ago)
-    const inactiveClients = clients.filter((c: any) => {
-      const clientAgs = allAgendamentos.filter((a: any) => a.cliente_id === c.id && a.status === "concluido");
+    const inactiveClients = clients.filter((c) => {
+      const clientAgs = allAgendamentos.filter(
+        (a) => a.cliente_id === c.id && a.status === "concluido",
+      );
       if (clientAgs.length === 0) return true; // never booked
 
-      const lastAg = clientAgs.reduce((latest: Date, a: any) => {
+      const lastAg = clientAgs.reduce((latest: Date, a) => {
         const d = new Date(a.data_hora);
         return d > latest ? d : latest;
       }, new Date(0));
@@ -207,7 +265,7 @@ function RelatoriosPage() {
       ticketMedio,
       projetado,
       inactiveCount: inactiveClients.length,
-      inactiveList: inactiveClients.slice(0, 5) // top 5 sumidos
+      inactiveList: inactiveClients.slice(0, 5), // top 5 sumidos
     };
   }, [currentMonthData, clients, allAgendamentos, selectedMonth]);
 
@@ -231,9 +289,9 @@ function RelatoriosPage() {
     // Bookings section
     csvContent += "AGENDAMENTOS\n";
     csvContent += "Cliente;Serviço;Valor;Custo;Status;Data/Hora\n";
-    currentMonthData.allMonthAgs.forEach((a: any) => {
-      const clientName = clients.find(c => c.id === a.cliente_id)?.nome ?? "N/A";
-      const servName = services.find(s => s.id === a.servico_id)?.nome ?? "N/A";
+    currentMonthData.allMonthAgs.forEach((a) => {
+      const clientName = clients.find((c) => c.id === a.cliente_id)?.nome ?? "N/A";
+      const servName = services.find((s) => s.id === a.servico_id)?.nome ?? "N/A";
       csvContent += `${clientName};${servName};${a.valor};${a.custo};${a.status};${format(new Date(a.data_hora), "dd/MM/yyyy HH:mm")}\n`;
     });
 
@@ -242,8 +300,8 @@ function RelatoriosPage() {
     // Sales section
     csvContent += "VENDAS DE PRODUTOS\n";
     csvContent += "Cliente;Total;Pagamento;Data\n";
-    currentMonthData.monthSales.forEach((s: any) => {
-      const clientName = clients.find(c => c.id === s.cliente_id)?.nome ?? "Consumidor Geral";
+    currentMonthData.monthSales.forEach((s) => {
+      const clientName = clients.find((c) => c.id === s.cliente_id)?.nome ?? "Consumidor Geral";
       csvContent += `${clientName};${s.total};${s.pagamento_metodo};${format(new Date(s.data_venda), "dd/MM/yyyy")}\n`;
     });
 
@@ -258,44 +316,157 @@ function RelatoriosPage() {
     toast.success("Excel (CSV) baixado!");
   };
 
-  // Full backup exports
-  const exportJSONBackup = () => {
-    const tables = ["clientes", "servicos", "agendamentos", "produtos", "movimentacoes_estoque", "vendas", "venda_itens", "avaliacoes", "fidelidade_config", "fidelidade_pontos", "fidelidade_historico", "metas_mensais"];
-    const backupObj: Record<string, any> = {};
-    tables.forEach(t => {
-      backupObj[t] = fallbackDb.get(t, []);
-    });
+  // ─── Full backup (Supabase) ──────────────────────────────────────────────
+  // A ordem respeita as chaves estrangeiras: clientes/serviços/produtos antes
+  // das tabelas que os referenciam (agendamentos, vendas, estoque...).
+  const BACKUP_TABLES = [
+    "clientes",
+    "servicos",
+    "produtos",
+    "metas_mensais",
+    "fidelidade_config",
+    "agendamentos",
+    "vendas",
+    "venda_itens",
+    "movimentacoes_estoque",
+    "avaliacoes",
+    "fidelidade_pontos",
+    "fidelidade_historico",
+  ] as const;
 
-    const str = JSON.stringify(backupObj, null, 2);
-    const blob = new Blob([str], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `backup_manicure_facil_completo.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Backup JSON exportado com sucesso!");
+  type TabelaBackup = (typeof BACKUP_TABLES)[number];
+
+  // O PostgREST devolve no máximo 1000 linhas por chamada — sem paginação o
+  // backup sairia truncado silenciosamente para quem tem muita movimentação.
+  async function lerTabelaInteira(tabela: TabelaBackup): Promise<Record<string, unknown>[]> {
+    const porPagina = 1000;
+    const linhas: Record<string, unknown>[] = [];
+    for (let inicio = 0; inicio < 100_000; inicio += porPagina) {
+      const { data, error } = await supabase
+        .from(tabela)
+        .select("*")
+        .order("id", { ascending: true })
+        .range(inicio, inicio + porPagina - 1);
+      if (error) throw new Error(`Não foi possível ler a tabela ${tabela}: ${error.message}`);
+      linhas.push(...((data ?? []) as Record<string, unknown>[]));
+      if (!data || data.length < porPagina) break;
+    }
+    return linhas;
+  }
+
+  // Full backup exports
+  const exportJSONBackup = async () => {
+    const toastId = toast.loading("Lendo seus dados no servidor...");
+    try {
+      const backupObj: Record<string, Record<string, unknown>[]> = {};
+      for (const tabela of BACKUP_TABLES) {
+        backupObj[tabela] = await lerTabelaInteira(tabela);
+      }
+
+      const str = JSON.stringify(backupObj, null, 2);
+      const blob = new Blob([str], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `backup_manicure_facil_completo.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      const total = Object.values(backupObj).reduce((soma, linhas) => soma + linhas.length, 0);
+      toast.success(
+        `Backup concluído: ${total} registro${total === 1 ? "" : "s"} exportado${total === 1 ? "" : "s"}.`,
+        { id: toastId },
+      );
+    } catch (err) {
+      toast.error(
+        mensagemErroAmigavel(err instanceof Error ? err.message : "Falha ao gerar o backup."),
+        { id: toastId },
+      );
+    }
   };
+
+  /**
+   * O client tipado do Supabase exige o `Insert` exato de cada tabela, e o
+   * backup atravessa 12 tabelas com schemas diferentes. Usamos uma assinatura
+   * mínima documentada aqui em vez de espalhar `any` pelo arquivo.
+   */
+  function upsertBackup(
+    tabela: TabelaBackup,
+    linhas: Record<string, unknown>[],
+  ): PromiseLike<{ error: { message: string } | null }> {
+    const generico = supabase.from(tabela) as unknown as {
+      upsert(
+        l: Record<string, unknown>[],
+        o: { onConflict: string },
+      ): PromiseLike<{ error: { message: string } | null }>;
+    };
+    return generico.upsert(linhas, { onConflict: "id" });
+  }
 
   // Full backup restore imports
   const importJSONBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
+      const toastId = toast.loading("Restaurando backup...");
       try {
-        const backupObj = JSON.parse(event.target?.result as string);
-        Object.keys(backupObj).forEach(key => {
-          if (Array.isArray(backupObj[key])) {
-            fallbackDb.set(key, backupObj[key]);
+        const backupObj: unknown = JSON.parse(event.target?.result as string);
+        if (!backupObj || typeof backupObj !== "object" || Array.isArray(backupObj)) {
+          throw new Error("Formato de arquivo inválido. Selecione um arquivo de backup correto.");
+        }
+
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData.user?.id;
+        if (!userId) throw new Error("Sessão expirada. Entre novamente para restaurar o backup.");
+
+        const registros = backupObj as Record<string, unknown>;
+        let restaurados = 0;
+        const falhas: string[] = [];
+
+        for (const tabela of BACKUP_TABLES) {
+          const bruto = registros[tabela];
+          if (!Array.isArray(bruto) || bruto.length === 0) continue;
+
+          // Só restaura o que é desta conta — RLS bloquearia o resto, e
+          // misturar dados de outra pessoa seria um vazamento.
+          const linhas = bruto
+            .filter(
+              (linha): linha is Record<string, unknown> =>
+                !!linha && typeof linha === "object" && !Array.isArray(linha),
+            )
+            .filter((linha) => linha.user_id === undefined || linha.user_id === userId);
+          if (linhas.length === 0) continue;
+
+          for (let i = 0; i < linhas.length; i += 200) {
+            const lote = linhas.slice(i, i + 200);
+            const { error } = await upsertBackup(tabela, lote);
+            if (error) {
+              falhas.push(`${tabela}: ${error.message}`);
+              break;
+            }
+            restaurados += lote.length;
           }
-        });
-        toast.success("Backup JSON restaurado com sucesso! Recarregando dados.");
+        }
+
+        if (falhas.length > 0) throw new Error(falhas.join(" | "));
+
         qc.invalidateQueries();
+        toast.success(
+          `Backup restaurado: ${restaurados} registro${restaurados === 1 ? "" : "s"} atualizado${restaurados === 1 ? "" : "s"}.`,
+          { id: toastId },
+        );
       } catch (err) {
-        toast.error("Formato de arquivo inválido. Selecione um arquivo de backup correto.");
+        toast.error(
+          mensagemErroAmigavel(err instanceof Error ? err.message : "Formato de arquivo inválido."),
+          { id: toastId },
+        );
+      } finally {
+        input.value = "";
       }
     };
     reader.readAsText(file);
@@ -309,24 +480,43 @@ function RelatoriosPage() {
             <h1 className="text-3xl font-bold font-serif">Relatório Mensal — Manicure Fácil</h1>
             <p className="text-sm text-gray-500">Mês de Referência: {selectedMonth}</p>
           </div>
-          <div className="text-right text-xs text-gray-400">Gerado em: {format(new Date(), "dd/MM/yyyy HH:mm")}</div>
+          <div className="text-right text-xs text-gray-400">
+            Gerado em: {format(new Date(), "dd/MM/yyyy HH:mm")}
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 border p-4 rounded-xl">
-          <div><span className="text-xs text-gray-500 block uppercase">Faturamento Concluído</span><span className="text-xl font-bold">{brl(currentMonthData.faturamentoReal)}</span></div>
-          <div><span className="text-xs text-gray-500 block uppercase">Lucro Líquido Estimado</span><span className="text-xl font-bold">{brl(currentMonthData.lucroReal)}</span></div>
-          <div><span className="text-xs text-gray-500 block uppercase">Serviços Concluídos</span><span className="text-xl font-bold">{currentMonthData.servicosQtd}</span></div>
+          <div>
+            <span className="text-xs text-gray-500 block uppercase">Faturamento Concluído</span>
+            <span className="text-xl font-bold">{brl(currentMonthData.faturamentoReal)}</span>
+          </div>
+          <div>
+            <span className="text-xs text-gray-500 block uppercase">Lucro Líquido Estimado</span>
+            <span className="text-xl font-bold">{brl(currentMonthData.lucroReal)}</span>
+          </div>
+          <div>
+            <span className="text-xs text-gray-500 block uppercase">Serviços Concluídos</span>
+            <span className="text-xl font-bold">{currentMonthData.servicosQtd}</span>
+          </div>
         </div>
 
         <div className="space-y-4">
           <h2 className="text-xl font-bold border-b pb-1">Desempenho por Serviços</h2>
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b"><th className="py-2">Serviço</th><th className="py-2 text-right">Quantidade</th><th className="py-2 text-right">Faturamento</th></tr>
+              <tr className="border-b">
+                <th className="py-2">Serviço</th>
+                <th className="py-2 text-right">Quantidade</th>
+                <th className="py-2 text-right">Faturamento</th>
+              </tr>
             </thead>
             <tbody>
-              {serviceRanking.map(r => (
-                <tr key={r.nome} className="border-b"><td className="py-2">{r.nome}</td><td className="py-2 text-right">{r.count}</td><td className="py-2 text-right">{brl(r.receita)}</td></tr>
+              {serviceRanking.map((r) => (
+                <tr key={r.nome} className="border-b">
+                  <td className="py-2">{r.nome}</td>
+                  <td className="py-2 text-right">{r.count}</td>
+                  <td className="py-2 text-right">{brl(r.receita)}</td>
+                </tr>
               ))}
             </tbody>
           </table>
@@ -339,7 +529,12 @@ function RelatoriosPage() {
           subtitle="Acompanhe estatísticas, configure metas do mês e exporte relatórios"
           actions={
             <div className="flex items-center gap-2">
-              <Input type="month" className="w-40 h-9 text-xs" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
+              <Input
+                type="month"
+                className="w-40 h-9 text-xs"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+              />
             </div>
           }
         />
@@ -349,33 +544,70 @@ function RelatoriosPage() {
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-xl">Metas do Mês</h2>
-              <MetaGoalDialog key={selectedMonth} current={metaQuery.data} mesAno={selectedMonth} onSaved={() => qc.invalidateQueries({ queryKey: ["meta_mensal", selectedMonth] })} />
+              <MetaGoalDialog
+                key={selectedMonth}
+                current={metaQuery.data}
+                mesAno={selectedMonth}
+                onSaved={() => qc.invalidateQueries({ queryKey: ["meta_mensal", selectedMonth] })}
+              />
             </div>
 
             <div className="grid md:grid-cols-3 gap-4">
               {/* Goal 1: Revenue — F4 Enhanced */}
               <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)] relative overflow-hidden">
                 <div className="flex justify-between items-start">
-                  <div className="size-10 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-500/20 dark:to-purple-500/10 grid place-items-center"><TrendingUp className="size-5 text-purple-600 dark:text-purple-400" /></div>
-                  <Badge variant="secondary" className="text-[10px] rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-transparent">Faturamento</Badge>
+                  <div className="size-10 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-500/20 dark:to-purple-500/10 grid place-items-center">
+                    <TrendingUp className="size-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-transparent"
+                  >
+                    Faturamento
+                  </Badge>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">Faturamento Realizado</span>
-                  <span className="font-display text-2xl font-bold bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">{brl(currentMonthData.faturamentoReal)}</span>
-                  <span className="text-xs text-muted-foreground mt-0.5 block">Meta: {brl(metaQuery.data?.faturamento_alvo ?? 0)}</span>
+                  <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">
+                    Faturamento Realizado
+                  </span>
+                  <span className="font-display text-2xl font-bold bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    {brl(currentMonthData.faturamentoReal)}
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-0.5 block">
+                    Meta: {brl(metaQuery.data?.faturamento_alvo ?? 0)}
+                  </span>
                 </div>
-                <Progress value={metaQuery.data?.faturamento_alvo ? (currentMonthData.faturamentoReal / metaQuery.data.faturamento_alvo) * 100 : 0} className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-purple-500 [&>div]:to-pink-500" />
+                <Progress
+                  value={
+                    metaQuery.data?.faturamento_alvo
+                      ? (currentMonthData.faturamentoReal / metaQuery.data.faturamento_alvo) * 100
+                      : 0
+                  }
+                  className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-purple-500 [&>div]:to-pink-500"
+                />
                 {metaQuery.data?.faturamento_alvo ? (
                   <div className="space-y-1 pt-1">
                     <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground">{((currentMonthData.faturamentoReal / metaQuery.data.faturamento_alvo) * 100).toFixed(0)}% concluído</span>
+                      <span className="text-muted-foreground">
+                        {(
+                          (currentMonthData.faturamentoReal / metaQuery.data.faturamento_alvo) *
+                          100
+                        ).toFixed(0)}
+                        % concluído
+                      </span>
                       {currentMonthData.faturamentoReal < metaQuery.data.faturamento_alvo && (
-                        <span className="text-amber-500 font-medium">Faltam {brl(metaQuery.data.faturamento_alvo - currentMonthData.faturamentoReal)}</span>
+                        <span className="text-amber-500 font-medium">
+                          Faltam{" "}
+                          {brl(metaQuery.data.faturamento_alvo - currentMonthData.faturamentoReal)}
+                        </span>
                       )}
                     </div>
                     {format(new Date(), "yyyy-MM") === selectedMonth && (
                       <div className="text-[10px] text-muted-foreground">
-                        Projeção: <span className="font-medium text-card-foreground">{brl(insights.projetado)}</span>
+                        Projeção:{" "}
+                        <span className="font-medium text-card-foreground">
+                          {brl(insights.projetado)}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -385,25 +617,61 @@ function RelatoriosPage() {
               {/* Goal 2: Profit — F4 Enhanced */}
               <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)] relative overflow-hidden">
                 <div className="flex justify-between items-start">
-                  <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-500/20 dark:to-emerald-500/10 grid place-items-center"><Target className="size-5 text-emerald-600 dark:text-emerald-400" /></div>
-                  <Badge variant="secondary" className="text-[10px] rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-transparent">Lucro Líquido</Badge>
+                  <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-500/20 dark:to-emerald-500/10 grid place-items-center">
+                    <Target className="size-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-transparent"
+                  >
+                    Lucro Líquido
+                  </Badge>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">Lucro Realizado</span>
-                  <span className="font-display text-2xl font-bold text-emerald-600 dark:text-emerald-400">{brl(currentMonthData.lucroReal)}</span>
-                  <span className="text-xs text-muted-foreground mt-0.5 block">Meta: {brl(metaQuery.data?.lucro_alvo ?? 0)}</span>
+                  <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">
+                    Lucro Realizado
+                  </span>
+                  <span className="font-display text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {brl(currentMonthData.lucroReal)}
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-0.5 block">
+                    Meta: {brl(metaQuery.data?.lucro_alvo ?? 0)}
+                  </span>
                 </div>
-                <Progress value={metaQuery.data?.lucro_alvo ? (currentMonthData.lucroReal / metaQuery.data.lucro_alvo) * 100 : 0} className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:to-emerald-500" />
+                <Progress
+                  value={
+                    metaQuery.data?.lucro_alvo
+                      ? (currentMonthData.lucroReal / metaQuery.data.lucro_alvo) * 100
+                      : 0
+                  }
+                  className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:to-emerald-500"
+                />
                 {metaQuery.data?.lucro_alvo ? (
                   <div className="space-y-1 pt-1">
                     <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground">{((currentMonthData.lucroReal / metaQuery.data.lucro_alvo) * 100).toFixed(0)}% concluído</span>
+                      <span className="text-muted-foreground">
+                        {((currentMonthData.lucroReal / metaQuery.data.lucro_alvo) * 100).toFixed(
+                          0,
+                        )}
+                        % concluído
+                      </span>
                       {currentMonthData.lucroReal < metaQuery.data.lucro_alvo && (
-                        <span className="text-red-500 font-medium">Faltam {brl(metaQuery.data.lucro_alvo - currentMonthData.lucroReal)}</span>
+                        <span className="text-red-500 font-medium">
+                          Faltam {brl(metaQuery.data.lucro_alvo - currentMonthData.lucroReal)}
+                        </span>
                       )}
                     </div>
                     <div className="text-[10px] text-muted-foreground">
-                      Margem: <span className="font-medium text-card-foreground">{currentMonthData.faturamentoReal > 0 ? ((currentMonthData.lucroReal / currentMonthData.faturamentoReal) * 100).toFixed(1) : "0"}%</span>
+                      Margem:{" "}
+                      <span className="font-medium text-card-foreground">
+                        {currentMonthData.faturamentoReal > 0
+                          ? (
+                              (currentMonthData.lucroReal / currentMonthData.faturamentoReal) *
+                              100
+                            ).toFixed(1)
+                          : "0"}
+                        %
+                      </span>
                     </div>
                   </div>
                 ) : null}
@@ -412,21 +680,49 @@ function RelatoriosPage() {
               {/* Goal 3: Services count — F4 Enhanced */}
               <Card className="bg-white dark:bg-card border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.04)] relative overflow-hidden">
                 <div className="flex justify-between items-start">
-                  <div className="size-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-500/20 dark:to-amber-500/10 grid place-items-center"><Award className="size-5 text-amber-600 dark:text-amber-400" /></div>
-                  <Badge variant="secondary" className="text-[10px] rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-transparent">Serviços</Badge>
+                  <div className="size-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-500/20 dark:to-amber-500/10 grid place-items-center">
+                    <Award className="size-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-transparent"
+                  >
+                    Serviços
+                  </Badge>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">Serviços Concluídos</span>
-                  <span className="font-display text-2xl font-bold text-amber-600 dark:text-amber-400">{currentMonthData.servicosQtd}</span>
-                  <span className="text-xs text-muted-foreground mt-0.5 block">Meta: {metaQuery.data?.servicos_alvo ?? 0} un</span>
+                  <span className="text-[10px] text-muted-foreground block uppercase tracking-wider">
+                    Serviços Concluídos
+                  </span>
+                  <span className="font-display text-2xl font-bold text-amber-600 dark:text-amber-400">
+                    {currentMonthData.servicosQtd}
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-0.5 block">
+                    Meta: {metaQuery.data?.servicos_alvo ?? 0} un
+                  </span>
                 </div>
-                <Progress value={metaQuery.data?.servicos_alvo ? (currentMonthData.servicosQtd / metaQuery.data.servicos_alvo) * 100 : 0} className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-amber-400 [&>div]:to-amber-500" />
+                <Progress
+                  value={
+                    metaQuery.data?.servicos_alvo
+                      ? (currentMonthData.servicosQtd / metaQuery.data.servicos_alvo) * 100
+                      : 0
+                  }
+                  className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-amber-400 [&>div]:to-amber-500"
+                />
                 {metaQuery.data?.servicos_alvo ? (
                   <div className="pt-1">
                     <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground">{((currentMonthData.servicosQtd / metaQuery.data.servicos_alvo) * 100).toFixed(0)}% concluído</span>
+                      <span className="text-muted-foreground">
+                        {(
+                          (currentMonthData.servicosQtd / metaQuery.data.servicos_alvo) *
+                          100
+                        ).toFixed(0)}
+                        % concluído
+                      </span>
                       {currentMonthData.servicosQtd < metaQuery.data.servicos_alvo && (
-                        <span className="text-amber-500 font-medium">Faltam {metaQuery.data.servicos_alvo - currentMonthData.servicosQtd} un</span>
+                        <span className="text-amber-500 font-medium">
+                          Faltam {metaQuery.data.servicos_alvo - currentMonthData.servicosQtd} un
+                        </span>
                       )}
                     </div>
                   </div>
@@ -447,12 +743,20 @@ function RelatoriosPage() {
 
                   <div className="space-y-3">
                     <div className="flex justify-between items-center border-b border-purple-100/50 dark:border-purple-400/10 pb-2">
-                      <span className="text-xs text-muted-foreground">Ticket Médio por Atendimento:</span>
-                      <span className="font-display font-bold text-sm">{brl(insights.ticketMedio)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        Ticket Médio por Atendimento:
+                      </span>
+                      <span className="font-display font-bold text-sm">
+                        {brl(insights.ticketMedio)}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center border-b border-purple-100/50 dark:border-purple-400/10 pb-2">
-                      <span className="text-xs text-muted-foreground">Projeção Faturamento Fim de Mês:</span>
-                      <span className="font-display font-bold text-sm bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">{brl(insights.projetado)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        Projeção Faturamento Fim de Mês:
+                      </span>
+                      <span className="font-display font-bold text-sm bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                        {brl(insights.projetado)}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">Faturamento com Vendas:</span>
@@ -470,17 +774,29 @@ function RelatoriosPage() {
                       <span className="size-2 rounded-full bg-gradient-to-br from-rose-400 to-red-500" />
                       Clientes Inativos (30+ dias)
                     </h3>
-                    <Badge variant="destructive" className="rounded-full text-[10px] bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-transparent">{insights.inactiveCount} cliente{insights.inactiveCount !== 1 ? "s" : ""}</Badge>
+                    <Badge
+                      variant="destructive"
+                      className="rounded-full text-[10px] bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-transparent"
+                    >
+                      {insights.inactiveCount} cliente{insights.inactiveCount !== 1 ? "s" : ""}
+                    </Badge>
                   </div>
 
                   {insights.inactiveList.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-4 text-center">Todos os clientes ativos recentemente!</p>
+                    <p className="text-xs text-muted-foreground py-4 text-center">
+                      Todos os clientes ativos recentemente!
+                    </p>
                   ) : (
                     <div className="space-y-2">
-                      {insights.inactiveList.map((c: any) => (
-                        <div key={c.id} className="flex justify-between items-center bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 px-3 py-2 rounded-xl text-xs border border-purple-100/30 dark:border-purple-400/10">
+                      {insights.inactiveList.map((c) => (
+                        <div
+                          key={c.id}
+                          className="flex justify-between items-center bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 px-3 py-2 rounded-xl text-xs border border-purple-100/30 dark:border-purple-400/10"
+                        >
                           <span className="font-medium">{c.nome}</span>
-                          <span className="text-[10px] text-muted-foreground">{c.telefone || "Sem telefone"}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {c.telefone || "Sem telefone"}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -505,7 +821,10 @@ function RelatoriosPage() {
                   <TableBody>
                     {serviceRanking.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground text-sm">
+                        <TableCell
+                          colSpan={4}
+                          className="text-center py-6 text-muted-foreground text-sm"
+                        >
                           Sem serviços realizados neste mês.
                         </TableCell>
                       </TableRow>
@@ -515,7 +834,9 @@ function RelatoriosPage() {
                           <TableCell className="font-bold">#{i + 1}</TableCell>
                           <TableCell className="font-medium">{r.nome}</TableCell>
                           <TableCell className="text-center">{r.count} un</TableCell>
-                          <TableCell className="text-right font-display text-primary font-bold">{brl(r.receita)}</TableCell>
+                          <TableCell className="text-right font-display text-primary font-bold">
+                            {brl(r.receita)}
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -536,14 +857,26 @@ function RelatoriosPage() {
                   <span className="size-2 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
                   Exportar Dados
                 </h3>
-                <p className="text-[10px] text-muted-foreground mt-1">Gere arquivos de auditoria para impressão ou planilhas</p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Gere arquivos de auditoria para impressão ou planilhas
+                </p>
               </div>
               <div className="space-y-2">
-                <Button className="w-full justify-start bg-white/60 dark:bg-white/5 border border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all" variant="outline" onClick={exportPDF}>
-                  <FileText className="size-4 mr-2 text-purple-600 dark:text-purple-400" /> Imprimir Relatório (PDF)
+                <Button
+                  className="w-full justify-start bg-white/60 dark:bg-white/5 border border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all"
+                  variant="outline"
+                  onClick={exportPDF}
+                >
+                  <FileText className="size-4 mr-2 text-purple-600 dark:text-purple-400" /> Imprimir
+                  Relatório (PDF)
                 </Button>
-                <Button className="w-full justify-start bg-white/60 dark:bg-white/5 border border-purple-200/30 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 hover:border-emerald-300 transition-all" variant="outline" onClick={exportExcel}>
-                  <FileSpreadsheet className="size-4 mr-2 text-emerald-600 dark:text-emerald-400" /> Exportar para Excel (CSV)
+                <Button
+                  className="w-full justify-start bg-white/60 dark:bg-white/5 border border-purple-200/30 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 hover:border-emerald-300 transition-all"
+                  variant="outline"
+                  onClick={exportExcel}
+                >
+                  <FileSpreadsheet className="size-4 mr-2 text-emerald-600 dark:text-emerald-400" />{" "}
+                  Exportar para Excel (CSV)
                 </Button>
               </div>
             </Card>
@@ -555,18 +888,37 @@ function RelatoriosPage() {
                   <span className="size-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-500" />
                   Backup Geral do Sistema
                 </h3>
-                <p className="text-[10px] text-muted-foreground mt-1">Exporta ou restaura todos os dados do sistema</p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Exporta ou restaura todos os dados do sistema
+                </p>
               </div>
               <div className="space-y-3">
-                <Button className="w-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all justify-center" onClick={exportJSONBackup}>
+                <Button
+                  className="w-full bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all justify-center"
+                  onClick={exportJSONBackup}
+                >
                   <Download className="size-4 mr-2" /> Exportar Backup JSON
                 </Button>
 
                 <div className="relative">
-                  <input type="file" accept=".json" id="import-backup-file" className="hidden" onChange={importJSONBackup} />
-                  <Button className="w-full bg-white/60 dark:bg-white/5 border border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all justify-center" variant="outline" asChild>
-                    <label htmlFor="import-backup-file" className="cursor-pointer flex items-center justify-center">
-                      <Upload className="size-4 mr-2 text-purple-600 dark:text-purple-400" /> Importar Backup JSON
+                  <input
+                    type="file"
+                    accept=".json"
+                    id="import-backup-file"
+                    className="hidden"
+                    onChange={importJSONBackup}
+                  />
+                  <Button
+                    className="w-full bg-white/60 dark:bg-white/5 border border-purple-200/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 transition-all justify-center"
+                    variant="outline"
+                    asChild
+                  >
+                    <label
+                      htmlFor="import-backup-file"
+                      className="cursor-pointer flex items-center justify-center"
+                    >
+                      <Upload className="size-4 mr-2 text-purple-600 dark:text-purple-400" />{" "}
+                      Importar Backup JSON
                     </label>
                   </Button>
                 </div>
@@ -584,7 +936,15 @@ function RelatoriosPage() {
 }
 
 // Dialog: Meta Goal configure
-function MetaGoalDialog({ current, mesAno, onSaved }: { current: MetaMensal | null | undefined; mesAno: string; onSaved: () => void }) {
+function MetaGoalDialog({
+  current,
+  mesAno,
+  onSaved,
+}: {
+  current: MetaMensal | null | undefined;
+  mesAno: string;
+  onSaved: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const [form, setForm] = useState({
@@ -596,61 +956,81 @@ function MetaGoalDialog({ current, mesAno, onSaved }: { current: MetaMensal | nu
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="glass hover:bg-accent/40 h-9 text-xs"><Target className="size-3.5 mr-1" /> Configurar Metas</Button>
+        <Button variant="outline" className="glass hover:bg-accent/40 h-9 text-xs">
+          <Target className="size-3.5 mr-1" /> Configurar Metas
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Definir Metas do Mês</DialogTitle>
         </DialogHeader>
-        <form onSubmit={async (e) => {
-          e.preventDefault();
-          const p = {
-            faturamento_alvo: Number(form.faturamento_alvo),
-            lucro_alvo: Number(form.lucro_alvo),
-            servicos_alvo: Number(form.servicos_alvo)
-          };
-          try {
-            const user = (await supabase.auth.getUser()).data.user;
-            if (current) {
-              await supabase.from("metas_mensais").update(p).eq("id", current.id);
-            } else {
-              // Salva no MÊS SELECIONADO (não no mês atual do calendário)
-              await supabase.from("metas_mensais").insert({
-                user_id: user!.id,
-                mes_ano: mesAno,
-                ...p
-              });
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const p = {
+              faturamento_alvo: Number(form.faturamento_alvo),
+              lucro_alvo: Number(form.lucro_alvo),
+              servicos_alvo: Number(form.servicos_alvo),
+            };
+            try {
+              const user = (await supabase.auth.getUser()).data.user;
+              if (current) {
+                await supabase.from("metas_mensais").update(p).eq("id", current.id);
+              } else {
+                // Salva no MÊS SELECIONADO (não no mês atual do calendário)
+                await supabase.from("metas_mensais").insert({
+                  user_id: user!.id,
+                  mes_ano: mesAno,
+                  ...p,
+                });
+              }
+            } catch {
+              const local = fallbackDb.get<MetaMensal>("metas_mensais", []);
+              const idx = local.findIndex((x) => x.mes_ano === mesAno);
+              if (idx !== -1) {
+                local[idx] = { ...local[idx], ...p };
+              } else {
+                local.push({
+                  id: crypto.randomUUID(),
+                  mes_ano: mesAno,
+                  ...p,
+                });
+              }
+              fallbackDb.set("metas_mensais", local);
             }
-          } catch {
-            const local = fallbackDb.get<MetaMensal>("metas_mensais", []);
-            const idx = local.findIndex(x => x.mes_ano === mesAno);
-            if (idx !== -1) {
-              local[idx] = { ...local[idx], ...p };
-            } else {
-              local.push({
-                id: crypto.randomUUID(),
-                mes_ano: mesAno,
-                ...p
-              });
-            }
-            fallbackDb.set("metas_mensais", local);
-          }
-          qc.invalidateQueries({ queryKey: ["meta_mensal", mesAno] });
-          toast.success("Metas salvas com sucesso!");
-          onSaved();
-          setOpen(false);
-        }} className="space-y-4">
+            qc.invalidateQueries({ queryKey: ["meta_mensal", mesAno] });
+            toast.success("Metas salvas com sucesso!");
+            onSaved();
+            setOpen(false);
+          }}
+          className="space-y-4"
+        >
           <div>
             <Label>Meta de Faturamento (R$)</Label>
-            <Input type="number" value={form.faturamento_alvo} onChange={e => setForm({ ...form, faturamento_alvo: Number(e.target.value) })} required />
+            <Input
+              type="number"
+              value={form.faturamento_alvo}
+              onChange={(e) => setForm({ ...form, faturamento_alvo: Number(e.target.value) })}
+              required
+            />
           </div>
           <div>
             <Label>Meta de Lucro Líquido (R$)</Label>
-            <Input type="number" value={form.lucro_alvo} onChange={e => setForm({ ...form, lucro_alvo: Number(e.target.value) })} required />
+            <Input
+              type="number"
+              value={form.lucro_alvo}
+              onChange={(e) => setForm({ ...form, lucro_alvo: Number(e.target.value) })}
+              required
+            />
           </div>
           <div>
             <Label>Meta de Serviços Concluídos (un)</Label>
-            <Input type="number" value={form.servicos_alvo} onChange={e => setForm({ ...form, servicos_alvo: Number(e.target.value) })} required />
+            <Input
+              type="number"
+              value={form.servicos_alvo}
+              onChange={(e) => setForm({ ...form, servicos_alvo: Number(e.target.value) })}
+              required
+            />
           </div>
 
           <DialogFooter>

@@ -11,7 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Scissors } from "lucide-react";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
@@ -22,7 +29,16 @@ export const Route = createFileRoute("/_authenticated/servicos")({
   component: ServicosPage,
 });
 
-type Serv = { id: string; nome: string; valor: number; custo: number; duracao_min: number; ativo: boolean; intervalo_recomendado?: number; dias_manutencao?: number };
+type Serv = {
+  id: string;
+  nome: string;
+  valor: number;
+  custo: number;
+  duracao_min: number;
+  ativo: boolean;
+  intervalo_recomendado?: number;
+  dias_manutencao?: number;
+};
 
 const schema = z.object({
   nome: z.string().trim().min(2).max(80),
@@ -34,7 +50,8 @@ const schema = z.object({
   dias_manutencao: z.number().min(1).max(90).default(7),
 });
 
-const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const brl = (n: number) =>
+  Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function ServicosPage() {
   usePageTitle("Serviços — Manicure Fácil");
@@ -51,10 +68,18 @@ function ServicosPage() {
 
   return (
     <>
-      <PageHeader title="Serviços" subtitle="Catálogo de serviços" actions={<ServicoDialog onSaved={() => qc.invalidateQueries({ queryKey: ["servicos"] })} />} />
+      <PageHeader
+        title="Serviços"
+        subtitle="Catálogo de serviços"
+        actions={<ServicoDialog onSaved={() => qc.invalidateQueries({ queryKey: ["servicos"] })} />}
+      />
 
       {isLoading ? (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{[1,2,3].map(i => <Skeleton key={i} className="h-44 rounded-[20px] bg-muted" />)}</div>
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-44 rounded-[20px] bg-muted" />
+          ))}
+        </div>
       ) : !data?.length ? (
         <Card className="bg-card border border-border rounded-[20px] p-12 text-center shadow-card">
           <div className="size-16 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center mx-auto mb-4">
@@ -64,56 +89,103 @@ function ServicosPage() {
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {data.map(s => {
+          {data.map((s) => {
             const lucro = Number(s.valor) - Number(s.custo);
             return (
-              <Card key={s.id} className={`group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300 ${!s.ativo ? "opacity-55" : ""}`}>
+              <Card
+                key={s.id}
+                className={`group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300 ${!s.ativo ? "opacity-55" : ""}`}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="size-12 rounded-xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center shrink-0">
                       <Scissors className="size-5 text-[#D946EF]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-medium leading-tight break-words text-base text-card-foreground">{s.nome}</h3>
+                      <h3 className="font-medium leading-tight break-words text-base text-card-foreground">
+                        {s.nome}
+                      </h3>
                       <p className="text-xs text-muted-foreground mt-0.5">{s.duracao_min} min</p>
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                    <ServicoDialog serv={s} onSaved={() => qc.invalidateQueries({ queryKey: ["servicos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" aria-label={`Editar ${s.nome}`}><Pencil className="size-4 text-[#D946EF]" aria-hidden="true" /></Button>} />
-                    <DeleteServ id={s.id} nome={s.nome} onDone={() => qc.invalidateQueries({ queryKey: ["servicos"] })} />
+                    <ServicoDialog
+                      serv={s}
+                      onSaved={() => qc.invalidateQueries({ queryKey: ["servicos"] })}
+                      trigger={
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="hover:bg-[#D946EF]/10"
+                          aria-label={`Editar ${s.nome}`}
+                        >
+                          <Pencil className="size-4 text-[#D946EF]" aria-hidden="true" />
+                        </Button>
+                      }
+                    />
+                    <DeleteServ
+                      id={s.id}
+                      nome={s.nome}
+                      onDone={() => qc.invalidateQueries({ queryKey: ["servicos"] })}
+                    />
                   </div>
                 </div>
                 <div className="mt-5 grid grid-cols-3 gap-3">
                   <div className="bg-muted rounded-xl p-3 min-w-0">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Valor</div>
-                    <div className="text-xl mt-1 truncate text-[#D946EF] font-semibold">{brl(s.valor)}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      Valor
+                    </div>
+                    <div className="text-xl mt-1 truncate text-[#D946EF] font-semibold">
+                      {brl(s.valor)}
+                    </div>
                   </div>
                   <div className="bg-muted rounded-xl p-3 min-w-0">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Custo</div>
-                    <div className="text-xl mt-1 truncate text-card-foreground font-semibold">{brl(s.custo)}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      Custo
+                    </div>
+                    <div className="text-xl mt-1 truncate text-card-foreground font-semibold">
+                      {brl(s.custo)}
+                    </div>
                   </div>
                   <div className="bg-muted rounded-xl p-3 min-w-0">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Lucro</div>
-                    <div className="text-xl mt-1 truncate text-[#22C55E] font-semibold">{brl(lucro)}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      Lucro
+                    </div>
+                    <div className="text-xl mt-1 truncate text-[#22C55E] font-semibold">
+                      {brl(lucro)}
+                    </div>
                   </div>
                 </div>
                 {(s.intervalo_recomendado || s.dias_manutencao) && (
-                <div className="mt-4 flex items-center gap-3 text-[10px] text-muted-foreground border-t border-border pt-4">
-                  {s.intervalo_recomendado && (
-                    <span className="bg-muted rounded-lg px-2 py-1">Retorno: {s.intervalo_recomendado}d</span>
-                  )}
-                  {s.dias_manutencao && (
-                    <span className="bg-muted rounded-lg px-2 py-1">Manutenção: {s.dias_manutencao}d</span>
-                  )}
-                </div>
-              )}
-              <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                  <div className="mt-4 flex items-center gap-3 text-[10px] text-muted-foreground border-t border-border pt-4">
+                    {s.intervalo_recomendado && (
+                      <span className="bg-muted rounded-lg px-2 py-1">
+                        Retorno: {s.intervalo_recomendado}d
+                      </span>
+                    )}
+                    {s.dias_manutencao && (
+                      <span className="bg-muted rounded-lg px-2 py-1">
+                        Manutenção: {s.dias_manutencao}d
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
                   <Label className="text-xs text-[#A1A1AA]">Serviço ativo</Label>
-                  <Switch checked={s.ativo} onCheckedChange={async (v) => {
-                    const { error } = await supabase.from("servicos").update({ ativo: v }).eq("id", s.id);
-                    if (error) toast.error(mensagemErroAmigavel(error.message));
-                    else { toast.success(v ? "Ativado" : "Desativado"); qc.invalidateQueries({ queryKey: ["servicos"] }); }
-                  }} />
+                  <Switch
+                    checked={s.ativo}
+                    onCheckedChange={async (v) => {
+                      const { error } = await supabase
+                        .from("servicos")
+                        .update({ ativo: v })
+                        .eq("id", s.id);
+                      if (error) toast.error(mensagemErroAmigavel(error.message));
+                      else {
+                        toast.success(v ? "Ativado" : "Desativado");
+                        qc.invalidateQueries({ queryKey: ["servicos"] });
+                      }
+                    }}
+                  />
                 </div>
               </Card>
             );
@@ -127,64 +199,198 @@ function ServicosPage() {
 function DeleteServ({ id, onDone, nome }: { id: string; onDone: () => void; nome?: string }) {
   const { confirm } = useConfirm();
   const mut = useMutation({
-    mutationFn: async () => { const { error } = await supabase.from("servicos").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Serviço removido"); onDone(); },
+    mutationFn: async () => {
+      const { error } = await supabase.from("servicos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Serviço removido");
+      onDone();
+    },
     onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
-  return <Button size="icon" variant="ghost" className="hover:bg-red-100 dark:hover:bg-red-500/20" aria-label={`Excluir ${nome || "serviço"}`} onClick={() => {
-    confirm({
-      title: "Excluir serviço?",
-      description: `Tem certeza que deseja excluir "${nome || "este serviço"}"?`,
-      confirmText: "Excluir", variant: "danger",
-      onConfirm: () => mut.mutate(),
-    });
-  }}><Trash2 className="size-4 text-destructive" aria-hidden="true" /></Button>;
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="hover:bg-red-100 dark:hover:bg-red-500/20"
+      aria-label={`Excluir ${nome || "serviço"}`}
+      onClick={() => {
+        confirm({
+          title: "Excluir serviço?",
+          description: `Tem certeza que deseja excluir "${nome || "este serviço"}"?`,
+          confirmText: "Excluir",
+          variant: "danger",
+          onConfirm: () => mut.mutate(),
+        });
+      }}
+    >
+      <Trash2 className="size-4 text-destructive" aria-hidden="true" />
+    </Button>
+  );
 }
 
-function ServicoDialog({ serv, onSaved, trigger }: { serv?: Serv; onSaved: () => void; trigger?: React.ReactNode }) {
+function ServicoDialog({
+  serv,
+  onSaved,
+  trigger,
+}: {
+  serv?: Serv;
+  onSaved: () => void;
+  trigger?: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    nome: serv?.nome ?? "", valor: Number(serv?.valor ?? 0), custo: Number(serv?.custo ?? 0),
-    duracao_min: serv?.duracao_min ?? 60, ativo: serv?.ativo ?? true,
+    nome: serv?.nome ?? "",
+    valor: Number(serv?.valor ?? 0),
+    custo: Number(serv?.custo ?? 0),
+    duracao_min: serv?.duracao_min ?? 60,
+    ativo: serv?.ativo ?? true,
     intervalo_recomendado: serv?.intervalo_recomendado ?? 15,
     dias_manutencao: serv?.dias_manutencao ?? 7,
   });
   const mut = useMutation({
     mutationFn: async () => {
-      const parsed = schema.safeParse(form); if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-      if (serv) { const { error } = await supabase.from("servicos").update(parsed.data).eq("id", serv.id); if (error) throw error; }
-      else { const { data: u } = await supabase.auth.getUser(); const { error } = await supabase.from("servicos").insert({ ...parsed.data, user_id: u.user!.id }); if (error) throw error; }
+      const parsed = schema.safeParse(form);
+      if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+      if (serv) {
+        const { error } = await supabase.from("servicos").update(parsed.data).eq("id", serv.id);
+        if (error) throw error;
+      } else {
+        const { data: u } = await supabase.auth.getUser();
+        const { error } = await supabase
+          .from("servicos")
+          .insert({ ...parsed.data, user_id: u.user!.id });
+        if (error) throw error;
+      }
     },
-    onSuccess: () => { toast.success(serv ? "Atualizado" : "Criado"); onSaved(); setOpen(false); },
+    onSuccess: () => {
+      toast.success(serv ? "Atualizado" : "Criado");
+      onSaved();
+      setOpen(false);
+    },
     onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger ?? <Button className="gradient-primary text-primary-foreground shadow-glow"><Plus className="size-4 mr-1" /> Novo serviço</Button>}</DialogTrigger>
+      <DialogTrigger asChild>
+        {trigger ?? (
+          <Button className="gradient-primary text-primary-foreground shadow-glow">
+            <Plus className="size-4 mr-1" /> Novo serviço
+          </Button>
+        )}
+      </DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle className="font-display text-2xl">{serv ? "Editar serviço" : "Novo serviço"}</DialogTitle></DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3" aria-label="Formulário de serviço">
-          <div><Label htmlFor="serv-nome">Nome *</Label><Input id="serv-nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
+        <DialogHeader>
+          <DialogTitle className="font-display text-2xl">
+            {serv ? "Editar serviço" : "Novo serviço"}
+          </DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+          className="space-y-3"
+          aria-label="Formulário de serviço"
+        >
+          <div>
+            <Label htmlFor="serv-nome">Nome *</Label>
+            <Input
+              id="serv-nome"
+              value={form.nome}
+              onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              required
+            />
+          </div>
           <div className="grid grid-cols-3 gap-3">
-            <div><Label htmlFor="serv-valor">Valor</Label><Input id="serv-valor" type="number" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} /></div>
-            <div><Label htmlFor="serv-custo">Custo</Label><Input id="serv-custo" type="number" step="0.01" value={form.custo} onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })} /></div>
-            <div><Label htmlFor="serv-duracao">Duração</Label><Input id="serv-duracao" type="number" value={form.duracao_min} onChange={(e) => setForm({ ...form, duracao_min: Number(e.target.value) })} /></div>
+            <div>
+              <Label htmlFor="serv-valor">Valor</Label>
+              <Input
+                id="serv-valor"
+                type="number"
+                step="0.01"
+                value={form.valor}
+                onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="serv-custo">Custo</Label>
+              <Input
+                id="serv-custo"
+                type="number"
+                step="0.01"
+                value={form.custo}
+                onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="serv-duracao">Duração</Label>
+              <Input
+                id="serv-duracao"
+                type="number"
+                value={form.duracao_min}
+                onChange={(e) => setForm({ ...form, duracao_min: Number(e.target.value) })}
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
             <div>
-              <Label className="text-xs" htmlFor="serv-retorno">Retorno (dias)</Label>
-              <Input id="serv-retorno" type="number" min="1" max="365" value={form.intervalo_recomendado} onChange={(e) => setForm({ ...form, intervalo_recomendado: Number(e.target.value) })} className="text-xs" />
-              <span className="text-[9px] text-muted-foreground mt-0.5 block">Intervalo recomendado para retorno</span>
+              <Label className="text-xs" htmlFor="serv-retorno">
+                Retorno (dias)
+              </Label>
+              <Input
+                id="serv-retorno"
+                type="number"
+                min="1"
+                max="365"
+                value={form.intervalo_recomendado}
+                onChange={(e) =>
+                  setForm({ ...form, intervalo_recomendado: Number(e.target.value) })
+                }
+                className="text-xs"
+              />
+              <span className="text-[9px] text-muted-foreground mt-0.5 block">
+                Intervalo recomendado para retorno
+              </span>
             </div>
             <div>
-              <Label className="text-xs" htmlFor="serv-manutencao">Manutenção (dias)</Label>
-              <Input id="serv-manutencao" type="number" min="1" max="90" value={form.dias_manutencao} onChange={(e) => setForm({ ...form, dias_manutencao: Number(e.target.value) })} className="text-xs" />
-              <span className="text-[9px] text-muted-foreground mt-0.5 block">Janela para lembrete de manutenção</span>
+              <Label className="text-xs" htmlFor="serv-manutencao">
+                Manutenção (dias)
+              </Label>
+              <Input
+                id="serv-manutencao"
+                type="number"
+                min="1"
+                max="90"
+                value={form.dias_manutencao}
+                onChange={(e) => setForm({ ...form, dias_manutencao: Number(e.target.value) })}
+                className="text-xs"
+              />
+              <span className="text-[9px] text-muted-foreground mt-0.5 block">
+                Janela para lembrete de manutenção
+              </span>
             </div>
           </div>
-          <div className="flex items-center justify-between pt-2"><Label htmlFor="serv-ativo">Ativo</Label><Switch id="serv-ativo" checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} /></div>
-          <DialogFooter><Button type="submit" disabled={mut.isPending} className="gradient-primary text-primary-foreground shadow-glow w-full" aria-label={mut.isPending ? "Salvando serviço" : "Salvar serviço"}>{mut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
+          <div className="flex items-center justify-between pt-2">
+            <Label htmlFor="serv-ativo">Ativo</Label>
+            <Switch
+              id="serv-ativo"
+              checked={form.ativo}
+              onCheckedChange={(v) => setForm({ ...form, ativo: v })}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={mut.isPending}
+              className="gradient-primary text-primary-foreground shadow-glow w-full"
+              aria-label={mut.isPending ? "Salvando serviço" : "Salvar serviço"}
+            >
+              {mut.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

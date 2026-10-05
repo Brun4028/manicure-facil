@@ -1,22 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Calendar, Clock, Banknote, CreditCard, MessageSquare,
-  XCircle, CheckCircle, AlertCircle, TrendingUp, CalendarDays,
-  Star, User, Hash, FileText,
+  Calendar,
+  Clock,
+  Banknote,
+  CreditCard,
+  MessageSquare,
+  XCircle,
+  CheckCircle,
+  AlertCircle,
+  TrendingUp,
+  CalendarDays,
+  Star,
+  User,
+  Hash,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 type Cliente = {
-  id: string; nome: string; telefone: string | null; email: string | null;
-  data_nascimento: string | null; observacoes: string | null; alergias: string | null; servico_favorito: string | null;
+  id: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  data_nascimento: string | null;
+  observacoes: string | null;
+  alergias: string | null;
+  servico_favorito: string | null;
   created_at?: string;
 };
 
@@ -32,10 +47,26 @@ type AgendamentoCompleto = {
 };
 
 const statusLabels: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  agendado: { label: "Agendado", color: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30", icon: AlertCircle },
-  confirmado: { label: "Confirmado", color: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30", icon: CheckCircle },
-  concluido: { label: "Concluído", color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30", icon: CheckCircle },
-  cancelado: { label: "Cancelado", color: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30", icon: XCircle },
+  agendado: {
+    label: "Agendado",
+    color: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+    icon: AlertCircle,
+  },
+  confirmado: {
+    label: "Confirmado",
+    color: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+    icon: CheckCircle,
+  },
+  concluido: {
+    label: "Concluído",
+    color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+    icon: CheckCircle,
+  },
+  cancelado: {
+    label: "Cancelado",
+    color: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
+    icon: XCircle,
+  },
 };
 
 const pagamentoLabels: Record<string, string> = {
@@ -46,8 +77,16 @@ const pagamentoLabels: Record<string, string> = {
   pendente: "Pendente",
 };
 
-function StatCard({ icon: Icon, label, value, sub }: {
-  icon: typeof Star; label: string; value: string | number; sub?: string;
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: typeof Star;
+  label: string;
+  value: string | number;
+  sub?: string;
 }) {
   return (
     <Card className="bg-card border border-border rounded-2xl p-4 shadow-card hover:border-[#D946EF]/20 transition-all">
@@ -66,7 +105,9 @@ function StatCard({ icon: Icon, label, value, sub }: {
 }
 
 export function ClienteHistoryDialog({
-  cliente, open, onOpenChange,
+  cliente,
+  open,
+  onOpenChange,
 }: {
   cliente: Cliente;
   open: boolean;
@@ -87,19 +128,24 @@ export function ClienteHistoryDialog({
   });
 
   const stats = {
-    total: agendamentos?.filter(a => a.status === "concluido").length ?? 0,
-    totalCancelados: agendamentos?.filter(a => a.status === "cancelado").length ?? 0,
-    totalGasto: agendamentos?.filter(a => a.status === "concluido").reduce((s, a) => s + Number(a.valor), 0) ?? 0,
+    total: agendamentos?.filter((a) => a.status === "concluido").length ?? 0,
+    totalCancelados: agendamentos?.filter((a) => a.status === "cancelado").length ?? 0,
+    totalGasto:
+      agendamentos
+        ?.filter((a) => a.status === "concluido")
+        .reduce((s, a) => s + Number(a.valor), 0) ?? 0,
     primeiraVisita: agendamentos?.length
-      ? [...agendamentos].reverse().find(a => a.status === "concluido")?.data_hora ?? null
+      ? ([...agendamentos].reverse().find((a) => a.status === "concluido")?.data_hora ?? null)
       : null,
-    ultimaVisita: agendamentos?.find(a => a.status === "concluido")?.data_hora ?? null,
+    ultimaVisita: agendamentos?.find((a) => a.status === "concluido")?.data_hora ?? null,
     servicoMaisRealizado: (() => {
       if (!agendamentos) return null;
-      const servicosConcluidos = agendamentos.filter(a => a.status === "concluido" && a.servicos?.nome);
+      const servicosConcluidos = agendamentos.filter(
+        (a) => a.status === "concluido" && a.servicos?.nome,
+      );
       if (!servicosConcluidos.length) return null;
       const freq: Record<string, number> = {};
-      servicosConcluidos.forEach(a => {
+      servicosConcluidos.forEach((a) => {
         const nome = a.servicos!.nome;
         freq[nome] = (freq[nome] ?? 0) + 1;
       });
@@ -117,7 +163,9 @@ export function ClienteHistoryDialog({
             </div>
             <div className="min-w-0">
               <span className="truncate block">{cliente.nome}</span>
-              <p className="text-xs font-normal text-muted-foreground">Histórico completo da cliente</p>
+              <p className="text-xs font-normal text-muted-foreground">
+                Histórico completo da cliente
+              </p>
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -125,7 +173,9 @@ export function ClienteHistoryDialog({
         {isLoading ? (
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-24 rounded-2xl bg-muted" />)}
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-24 rounded-2xl bg-muted" />
+              ))}
             </div>
             <Skeleton className="h-64 rounded-2xl bg-muted" />
           </div>
@@ -134,8 +184,13 @@ export function ClienteHistoryDialog({
             <div className="size-16 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center mx-auto mb-4">
               <CalendarDays className="size-7 text-[#D946EF]" />
             </div>
-            <p className="text-muted-foreground">Nenhum agendamento encontrado para esta cliente.</p>
-            <p className="text-xs text-muted-foreground mt-1">O histórico será preenchido automaticamente conforme novos atendimentos forem registrados.</p>
+            <p className="text-muted-foreground">
+              Nenhum agendamento encontrado para esta cliente.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              O histórico será preenchido automaticamente conforme novos atendimentos forem
+              registrados.
+            </p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-6 py-2">
@@ -145,44 +200,51 @@ export function ClienteHistoryDialog({
                 icon={Hash}
                 label="Total de Atendimentos"
                 value={stats.total}
-                sub={stats.totalCancelados > 0 ? `${stats.totalCancelados} cancelamento${stats.totalCancelados > 1 ? "s" : ""}` : undefined}
+                sub={
+                  stats.totalCancelados > 0
+                    ? `${stats.totalCancelados} cancelamento${stats.totalCancelados > 1 ? "s" : ""}`
+                    : undefined
+                }
               />
               <StatCard
                 icon={TrendingUp}
                 label="Valor Total Gasto"
-                value={stats.totalGasto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                value={stats.totalGasto.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
               />
               <StatCard
                 icon={CalendarDays}
                 label="Primeira Visita"
-                value={stats.primeiraVisita
-                  ? format(new Date(stats.primeiraVisita), "dd/MM/yyyy")
-                  : "—"}
+                value={
+                  stats.primeiraVisita ? format(new Date(stats.primeiraVisita), "dd/MM/yyyy") : "—"
+                }
               />
               <StatCard
                 icon={Calendar}
                 label="Última Visita"
-                value={stats.ultimaVisita
-                  ? format(new Date(stats.ultimaVisita), "dd/MM/yyyy")
-                  : "—"}
-                sub={stats.ultimaVisita
-                  ? format(new Date(stats.ultimaVisita), "HH:mm")
-                  : undefined}
+                value={
+                  stats.ultimaVisita ? format(new Date(stats.ultimaVisita), "dd/MM/yyyy") : "—"
+                }
+                sub={stats.ultimaVisita ? format(new Date(stats.ultimaVisita), "HH:mm") : undefined}
               />
               <StatCard
                 icon={Star}
                 label="Serviço Mais Realizado"
                 value={stats.servicoMaisRealizado?.[0] ?? "—"}
-                sub={stats.servicoMaisRealizado
-                  ? `${stats.servicoMaisRealizado[1]} vez${stats.servicoMaisRealizado[1] > 1 ? "es" : ""}`
-                  : undefined}
+                sub={
+                  stats.servicoMaisRealizado
+                    ? `${stats.servicoMaisRealizado[1]} vez${stats.servicoMaisRealizado[1] > 1 ? "es" : ""}`
+                    : undefined
+                }
               />
               <StatCard
                 icon={User}
                 label="Cliente desde"
-                value={cliente.created_at
-                  ? format(new Date(cliente.created_at), "dd/MM/yyyy")
-                  : "—"}
+                value={
+                  cliente.created_at ? format(new Date(cliente.created_at), "dd/MM/yyyy") : "—"
+                }
               />
             </div>
 
@@ -191,7 +253,10 @@ export function ClienteHistoryDialog({
               <h3 className="font-display text-lg font-semibold text-card-foreground flex items-center gap-2">
                 <FileText className="size-4 text-[#D946EF]" />
                 Todos os Atendimentos
-                <Badge variant="outline" className="ml-auto text-[10px] bg-[#D946EF]/5 border-[#D946EF]/20 text-muted-foreground">
+                <Badge
+                  variant="outline"
+                  className="ml-auto text-[10px] bg-[#D946EF]/5 border-[#D946EF]/20 text-muted-foreground"
+                >
                   {agendamentos.length} registro{agendamentos.length !== 1 ? "s" : ""}
                 </Badge>
               </h3>
@@ -213,13 +278,15 @@ export function ClienteHistoryDialog({
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-start gap-3 min-w-0 flex-1">
                           {/* Date badge */}
-                          <div className={`size-14 rounded-2xl grid place-items-center shrink-0 text-center leading-none border ${
-                            isCancelado
-                              ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
-                              : isConcluido
-                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
-                                : "bg-amber-500/10 border-amber-500/20 text-amber-500"
-                          }`}>
+                          <div
+                            className={`size-14 rounded-2xl grid place-items-center shrink-0 text-center leading-none border ${
+                              isCancelado
+                                ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
+                                : isConcluido
+                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                                  : "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                            }`}
+                          >
                             <div>
                               <div className="text-[10px] font-medium opacity-70 uppercase">
                                 {format(new Date(ag.data_hora), "MMM", { locale: ptBR })}
@@ -259,7 +326,10 @@ export function ClienteHistoryDialog({
                               {isConcluido && (
                                 <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
                                   <Banknote className="size-3.5" />
-                                  {Number(ag.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                  {Number(ag.valor).toLocaleString("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL",
+                                  })}
                                 </span>
                               )}
                             </div>

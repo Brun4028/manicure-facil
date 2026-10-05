@@ -27,7 +27,9 @@ const agendamentoSchema = z.object({
   nome: z.string().trim().min(2, "Informe seu nome").max(120),
   telefone: z.string().trim().min(8, "Telefone inválido").max(20),
   email: z.union([z.literal(""), z.string().trim().email("E-mail inválido").max(255)]).optional(),
-  dataNascimento: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida")]).optional(),
+  dataNascimento: z
+    .union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida")])
+    .optional(),
   observacoes: z.string().trim().max(1000).optional(),
   servicoId: z.string().uuid("Serviço inválido"),
   dataHora: z.string().min(1, "Data/hora inválida"),
@@ -47,7 +49,13 @@ export type PublicoManicure = {
   servicos: { id: string; nome: string; valor: number; duracao_min: number }[];
   agendamentos: { data_hora: string; duracao_min: number; status: string }[];
   portfolio: { id: string; titulo: string; imagem_url: string; tags: string[] | null }[];
-  avaliacoes: { id: string; cliente_nome: string; nota: number; comentario: string | null; data: string }[];
+  avaliacoes: {
+    id: string;
+    cliente_nome: string;
+    nota: number;
+    comentario: string | null;
+    data: string;
+  }[];
   fidelidade: { niver_promo_ativa: boolean; niver_desconto_porcentagem: number } | null;
   // 🔧 NOVO: expediente e bloqueios da manicure — usados pela página pública
   // para desabilitar slots fora do horário de trabalho / em dias bloqueados
@@ -96,58 +104,55 @@ export const getDadosPublicosManicure = createServerFn({ method: "POST" })
     // (ex.: Brasil UTC-3 — à noite, a data UTC já é o dia seguinte). O check
     // client-side/DB faz a comparação exata por dia.
     const hoje = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const [perfil, servicos, agendamentos, portfolio, avaliacoes, fidelidade, horarios, bloqueios] = await Promise.all([
-      supabaseAdmin
-        .from("profiles")
-        .select("nome, avatar_url")
-        .eq("id", userId)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("servicos")
-        .select("id, nome, valor, duracao_min")
-        .eq("user_id", userId)
-        .eq("ativo", true)
-        .order("nome"),
-      supabaseAdmin
-        .from("agendamentos")
-        .select("data_hora, duracao_min, status")
-        .eq("user_id", userId)
-        .neq("status", "cancelado")
-        .gte("data_hora", agora)
-        .order("data_hora", { ascending: true })
-        .limit(500),
-      supabaseAdmin
-        .from("portfolio")
-        .select("id, titulo, imagem_url, tags")
-        .eq("user_id", userId)
-        .eq("publico", true)
-        .order("created_at", { ascending: false })
-        .limit(60),
-      supabaseAdmin
-        .from("avaliacoes")
-        .select("id, cliente_nome, nota, comentario, data")
-        .eq("user_id", userId)
-        .eq("publico", true)
-        .order("data", { ascending: false })
-        .limit(100),
-      supabaseAdmin
-        .from("fidelidade_config")
-        .select("niver_promo_ativa, niver_desconto_porcentagem")
-        .eq("user_id", userId)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("horarios_trabalho")
-        .select("dia_semana, hora_inicio, hora_fim")
-        .eq("user_id", userId)
-        .eq("ativo", true),
-      supabaseAdmin
-        .from("bloqueios_agenda")
-        .select("data_inicio, data_fim, horario_inicio, horario_fim")
-        .eq("user_id", userId)
-        .or(`data_fim.is.null,data_fim.gte.${hoje}`)
-        .order("data_inicio", { ascending: true })
-        .limit(100),
-    ]);
+    const [perfil, servicos, agendamentos, portfolio, avaliacoes, fidelidade, horarios, bloqueios] =
+      await Promise.all([
+        supabaseAdmin.from("profiles").select("nome, avatar_url").eq("id", userId).maybeSingle(),
+        supabaseAdmin
+          .from("servicos")
+          .select("id, nome, valor, duracao_min")
+          .eq("user_id", userId)
+          .eq("ativo", true)
+          .order("nome"),
+        supabaseAdmin
+          .from("agendamentos")
+          .select("data_hora, duracao_min, status")
+          .eq("user_id", userId)
+          .neq("status", "cancelado")
+          .gte("data_hora", agora)
+          .order("data_hora", { ascending: true })
+          .limit(500),
+        supabaseAdmin
+          .from("portfolio")
+          .select("id, titulo, imagem_url, tags")
+          .eq("user_id", userId)
+          .eq("publico", true)
+          .order("created_at", { ascending: false })
+          .limit(60),
+        supabaseAdmin
+          .from("avaliacoes")
+          .select("id, cliente_nome, nota, comentario, data")
+          .eq("user_id", userId)
+          .eq("publico", true)
+          .order("data", { ascending: false })
+          .limit(100),
+        supabaseAdmin
+          .from("fidelidade_config")
+          .select("niver_promo_ativa, niver_desconto_porcentagem")
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("horarios_trabalho")
+          .select("dia_semana, hora_inicio, hora_fim")
+          .eq("user_id", userId)
+          .eq("ativo", true),
+        supabaseAdmin
+          .from("bloqueios_agenda")
+          .select("data_inicio, data_fim, horario_inicio, horario_fim")
+          .eq("user_id", userId)
+          .or(`data_fim.is.null,data_fim.gte.${hoje}`)
+          .order("data_inicio", { ascending: true })
+          .limit(100),
+      ]);
 
     // NOTE: no banco real, bloqueios_agenda usa horario_inicio/horario_fim
     // (o nome na migration original divergiu — ver relatório de auditoria).

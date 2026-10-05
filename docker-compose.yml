@@ -60,7 +60,11 @@ services:
       # Persiste dados efêmeros, se necessário
       - app_data:/app/data
     healthcheck:
-      test: ["CMD-SHELL", "bun -e \"fetch('http://localhost:3000/').then(r => { process.exit(r.ok ? 0 : 1) }).catch(() => process.exit(1))\""]
+      test:
+        [
+          "CMD-SHELL",
+          'bun -e "fetch(''http://localhost:3000/'').then(r => { process.exit(r.ok ? 0 : 1) }).catch(() => process.exit(1))"',
+        ]
       interval: 30s
       timeout: 5s
       retries: 3

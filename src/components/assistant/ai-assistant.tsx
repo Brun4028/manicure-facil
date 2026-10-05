@@ -24,10 +24,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { BrainCircuit, X, Send, Settings2, Trash2, Eraser, Sparkle } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import {
-  BrainCircuit, X, Send, Settings2, Trash2, Eraser, Sparkle,
-} from "lucide-react";
-import { sendToAi, getAiErrorMessage, type AiMessage, type AiContext } from "@/lib/ai/ai-service";
+  sendToAi,
+  getAiErrorMessage,
+  EMPTY_AI_CONTEXT,
+  type AiMessage,
+  type AiContext,
+} from "@/lib/ai/ai-service";
 import { aiCache } from "@/lib/ai/ai-cache";
 import { MarkdownContent } from "./markdown-content";
 import { AiSettingsDialog, getAiSettings } from "./ai-settings-dialog";
@@ -63,23 +68,25 @@ const INITIAL_MESSAGE: AiMessage = {
 
 // ─── Context Query ──────────────────────────────────────────────────────────
 
-function useAiContext(open: boolean) {
+function useAiContext(open: boolean, userName?: string) {
   return useQuery({
-    queryKey: ["assistant-context"],
+    queryKey: ["assistant-context", userName],
     queryFn: async (): Promise<AiContext> => {
       const now = new Date();
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
 
-      const [
-        clientesR, agendamentosR, servicosR,
-        produtosR, fatMesR,
-      ] = await Promise.all([
+      const [clientesR, agendamentosR, servicosR, produtosR, fatMesR] = await Promise.all([
         supabase.from("clientes").select("id", { count: "exact", head: true }),
         supabase.from("agendamentos").select("id", { count: "exact", head: true }),
         supabase.from("servicos").select("id", { count: "exact", head: true }).eq("ativo", true),
         supabase.from("produtos").select("id, quantidade, quantidade_minima"),
-        supabase.from("agendamentos").select("valor, custo, data_hora, status").eq("status", "concluido").gte("data_hora", firstDay).lte("data_hora", lastDay),
+        supabase
+          .from("agendamentos")
+          .select("valor, custo, data_hora, status")
+          .eq("status", "concluido")
+          .gte("data_hora", firstDay)
+          .lte("data_hora", lastDay),
       ]);
 
       const produtos = produtosR.data ?? [];
@@ -87,40 +94,66 @@ function useAiContext(open: boolean) {
 
       // Run remaining queries in parallel
       const [
-        agsMesR, servicosMaisR,
-        contasPendentesR, vencidosR,
-        aniversariantesR, metasR,
+        agsMesR,
+        servicosMaisR,
+        contasPendentesR,
+        vencidosR,
+        aniversariantesR,
+        metasR,
         clientesAtivosR,
       ] = await Promise.all([
         supabase.from("agendamentos").select("id, data_hora").gte("data_hora", firstDay),
-        supabase.from("agendamentos").select("servico_id, servicos(nome)").eq("status", "concluido").gte("data_hora", firstDay),
-        supabase.from("agendamentos").select("valor").eq("status", "concluido").eq("pagamento", "pendente"),
-        supabase.from("agendamentos").select("valor").not("status", "in", ["concluido", "cancelado"]).lt("data_hora", now.toISOString()),
-        supabase.from("clientes").select("id", { count: "exact", head: true }).like("data_nascimento", `%-${String(now.getMonth() + 1).padStart(2, "0")}-%`),
-        supabase.from("metas_mensais").select("faturamento_alvo, lucro_alvo").eq("mes_ano", `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`).maybeSingle(),
-        supabase.from("agendamentos").select("cliente_id").eq("status", "concluido").gte("data_hora", new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase
+          .from("agendamentos")
+          .select("servico_id, servicos(nome)")
+          .eq("status", "concluido")
+          .gte("data_hora", firstDay),
+        supabase
+          .from("agendamentos")
+          .select("valor")
+          .eq("status", "concluido")
+          .eq("pagamento", "pendente"),
+        supabase
+          .from("agendamentos")
+          .select("valor")
+          .not("status", "in", ["concluido", "cancelado"])
+          .lt("data_hora", now.toISOString()),
+        supabase
+          .from("clientes")
+          .select("id", { count: "exact", head: true })
+          .like("data_nascimento", `%-${String(now.getMonth() + 1).padStart(2, "0")}-%`),
+        supabase
+          .from("metas_mensais")
+          .select("faturamento_alvo, lucro_alvo")
+          .eq("mes_ano", `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
+          .maybeSingle(),
+        supabase
+          .from("agendamentos")
+          .select("cliente_id")
+          .eq("status", "concluido")
+          .gte("data_hora", new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()),
       ]);
 
       const servicosMais = servicosMaisR?.data ?? [];
 
       // Estoque baixo
-      const estoqueBaixo = produtos.filter(
-        (p: any) => p.quantidade <= p.quantidade_minima,
-      ).length;
+      const estoqueBaixo = produtos.filter((p) => p.quantidade <= p.quantidade_minima).length;
 
       // Faturamento e lucro do mês
-      const faturamentoMes = fatMes.reduce((s: number, a: any) => s + Number(a.valor), 0);
-      const custoMes = fatMes.reduce((s: number, a: any) => s + Number(a.custo || 0), 0);
+      const faturamentoMes = fatMes.reduce((s: number, a) => s + Number(a.valor), 0);
+      const custoMes = fatMes.reduce((s: number, a) => s + Number(a.custo || 0), 0);
       const lucroMes = faturamentoMes - custoMes;
 
       // Contas a receber
       const contasAReceber = (contasPendentesR?.data ?? []).reduce(
-        (s: number, a: any) => s + Number(a.valor), 0,
+        (s: number, a) => s + Number(a.valor),
+        0,
       );
 
       // Contas vencidas
       const contasVencidas = (vencidosR?.data ?? []).reduce(
-        (s: number, a: any) => s + Number(a.valor), 0,
+        (s: number, a) => s + Number(a.valor),
+        0,
       );
 
       // Aniversariantes
@@ -131,7 +164,7 @@ function useAiContext(open: boolean) {
 
       // Serviços mais vendidos
       const servicoCount: Record<string, { nome: string; count: number }> = {};
-      (servicosMais as any[] ?? []).forEach((a: any) => {
+      servicosMais.forEach((a) => {
         const nome = a.servicos?.nome ?? "Desconhecido";
         if (!servicoCount[nome]) servicoCount[nome] = { nome, count: 0 };
         servicoCount[nome].count++;
@@ -143,7 +176,7 @@ function useAiContext(open: boolean) {
         .join(", ");
 
       // Clientes inativas
-      const clientesUnicos = new Set((clientesAtivosR?.data ?? []).map((a: any) => a.cliente_id));
+      const clientesUnicos = new Set((clientesAtivosR?.data ?? []).map((a) => a.cliente_id));
       const totalClientes = clientesR.count ?? 0;
       const clientesInativos = Math.max(0, totalClientes - clientesUnicos.size);
 
@@ -155,11 +188,13 @@ function useAiContext(open: boolean) {
       const diasUteis = 22;
       const horariosPorDia = 8;
       const totalSlots = diasUteis * horariosPorDia;
-      const ocupacaoAgenda = totalSlots > 0
-        ? Math.min(100, Math.round(((agsMesR?.data?.length ?? 0) / totalSlots) * 100))
-        : 0;
+      const ocupacaoAgenda =
+        totalSlots > 0
+          ? Math.min(100, Math.round(((agsMesR?.data?.length ?? 0) / totalSlots) * 100))
+          : 0;
 
       return {
+        userName,
         totalClientes: clientesR.count ?? 0,
         totalAgendamentos: agendamentosR.count ?? 0,
         totalServicos: servicosR.count ?? 0,
@@ -219,7 +254,39 @@ export function AiAssistant() {
     };
   }, []);
 
-  const { data: context } = useAiContext(open);
+  const { user } = useAuth();
+  const userName = useMemo(() => {
+    return (
+      user?.user_metadata?.nome || user?.user_metadata?.full_name || user?.user_metadata?.name || ""
+    );
+  }, [user]);
+
+  const { data: rawContext } = useAiContext(open, userName);
+  const context = useMemo(() => {
+    return rawContext
+      ? { ...rawContext, userName }
+      : userName
+        ? { ...EMPTY_AI_CONTEXT, userName }
+        : undefined;
+  }, [rawContext, userName]);
+
+  // Personaliza a mensagem inicial de boas-vindas com o nome da profissional
+  useEffect(() => {
+    if (userName) {
+      const firstName = userName.split(" ")[0].trim();
+      setMessages((prev) => {
+        if (prev.length === 1 && prev[0].id === "welcome") {
+          return [
+            {
+              ...prev[0],
+              text: `Olá, ${firstName}! ✨ Sou a **assistente virtual** do Manicure Fácil. Estou aqui para ajudar você a administrar melhor seu salão!\n\n💡 **Posso ajudar com:**\n\n📋 Dúvidas sobre o sistema\n💰 Dicas para aumentar seu faturamento\n🎯 Sugestões de marketing e promoções\n📊 Análises com base nos seus dados\n👥 Fidelização de clientes\n📦 Gestão de estoque\n\n**Como posso ajudar você hoje?**`,
+            },
+          ];
+        }
+        return prev;
+      });
+    }
+  }, [userName]);
 
   // ── Scroll automático ──────────────────────────────────────────
   const scrollToBottom = useCallback(() => {
@@ -254,12 +321,13 @@ export function AiAssistant() {
   }, [open]);
 
   // ── Progresso da digitação ──────────────────────────────────────
-  const updateStreamingText = useCallback((msgId: string, partial: string) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === msgId ? { ...m, text: partial } : m)),
-    );
-    scrollToBottom();
-  }, [scrollToBottom]);
+  const updateStreamingText = useCallback(
+    (msgId: string, partial: string) => {
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, text: partial } : m)));
+      scrollToBottom();
+    },
+    [scrollToBottom],
+  );
 
   // ── Envio de mensagem ────────────────────────────────────────────
   const sendMessage = useCallback(
@@ -303,9 +371,7 @@ export function AiAssistant() {
 
       try {
         // Prepara histórico (exclui streaming, mantém boas-vindas)
-        const baseHistory = currentMessages[0]?.id === "welcome"
-          ? [currentMessages[0]]
-          : [];
+        const baseHistory = currentMessages[0]?.id === "welcome" ? [currentMessages[0]] : [];
         const recentHistory = currentMessages
           .filter((m) => !m.isStreaming && m.id !== "welcome")
           .slice(-(MAX_MESSAGES - 4));
@@ -314,12 +380,17 @@ export function AiAssistant() {
         // Lê as settings atuais
         const settings = getAiSettings();
 
-        const response = await sendToAi(text, historyForAi, context, {
-          historyLength: 10,
-          temperature: settings.temperature,
-          maxTokens: settings.maxTokens,
-          provider: settings.provider,
-        });
+        const response = await sendToAi(
+          text,
+          historyForAi,
+          { ...context, userName },
+          {
+            historyLength: 10,
+            temperature: settings.temperature,
+            maxTokens: settings.maxTokens,
+            provider: settings.provider,
+          },
+        );
 
         // Anima caractere por caractere
         // 🔧 PROTEÇÃO: o setTimeout é assíncrono — qualquer exceção aqui
@@ -336,15 +407,22 @@ export function AiAssistant() {
                 charIndex++;
 
                 const char = fullText[charIndex - 1];
-                let delay = TYPING_SPEED_MIN + Math.random() * (TYPING_SPEED_MAX - TYPING_SPEED_MIN);
-                if (char === "." || char === "!" || char === "?" || char === ":") delay += TYPING_PAUSE_PUNCTUATION;
+                let delay =
+                  TYPING_SPEED_MIN + Math.random() * (TYPING_SPEED_MAX - TYPING_SPEED_MIN);
+                if (char === "." || char === "!" || char === "?" || char === ":")
+                  delay += TYPING_PAUSE_PUNCTUATION;
                 else if (char === "\n") delay += TYPING_PAUSE_NEWLINE;
                 typeTimerRef.current = setTimeout(typeNextChar, delay);
               } else {
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMsgId
-                      ? { ...m, text: fullText, suggestions: response.suggestions, isStreaming: false }
+                      ? {
+                          ...m,
+                          text: fullText,
+                          suggestions: response.suggestions,
+                          isStreaming: false,
+                        }
                       : m,
                   ),
                 );
@@ -394,8 +472,14 @@ export function AiAssistant() {
                   ...m,
                   text: errorMessage,
                   suggestions:
-                    errorMessage.includes("temporariamente") || errorMessage.includes("indisponível")
-                      ? ["Como funciona o sistema?", "Tentar novamente"]
+                    errorMessage.includes("temporariamente") ||
+                    errorMessage.includes("oscilação") ||
+                    errorMessage.includes("indisponível")
+                      ? [
+                          "Como cadastrar uma nova cliente?",
+                          "Dicas para aumentar meu faturamento",
+                          "Como funciona o sistema?",
+                        ]
                       : ["Tentar novamente", "Como cadastrar uma cliente?"],
                   isStreaming: false,
                 }
@@ -461,9 +545,18 @@ export function AiAssistant() {
                 <div className="rounded-2xl rounded-bl-md bg-muted/70 border border-border/70 backdrop-blur-sm px-4 py-3 text-sm leading-relaxed text-card-foreground shadow-card">
                   {showTypingBounce ? (
                     <div className="flex items-center gap-1.5 py-1.5">
-                      <span className="size-2 rounded-full bg-gradient-to-br from-[#D946EF] to-[#A855F7] animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="size-2 rounded-full bg-gradient-to-br from-[#D946EF] to-[#A855F7] animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="size-2 rounded-full bg-gradient-to-br from-[#D946EF] to-[#A855F7] animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <span
+                        className="size-2 rounded-full bg-gradient-to-br from-[#D946EF] to-[#A855F7] animate-bounce"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <span
+                        className="size-2 rounded-full bg-gradient-to-br from-[#D946EF] to-[#A855F7] animate-bounce"
+                        style={{ animationDelay: "150ms" }}
+                      />
+                      <span
+                        className="size-2 rounded-full bg-gradient-to-br from-[#D946EF] to-[#A855F7] animate-bounce"
+                        style={{ animationDelay: "300ms" }}
+                      />
                     </div>
                   ) : (
                     <MarkdownContent content={msg.text} />
@@ -497,13 +590,18 @@ export function AiAssistant() {
     <>
       {/* ── Overlay ─────────────────────────────────────────────── */}
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[2px]" onClick={() => setAiPanelOpen(false)} />
+        <div
+          className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[2px]"
+          onClick={() => setAiPanelOpen(false)}
+        />
       )}
 
       {/* ── Panel ───────────────────────────────────────────────── */}
       <div
         className={`fixed bottom-0 right-0 z-50 w-full sm:w-[430px] h-[88vh] sm:h-[640px] sm:bottom-6 sm:right-6 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-          open ? "translate-y-0 opacity-100 scale-100" : "translate-y-10 opacity-0 scale-[0.98] pointer-events-none"
+          open
+            ? "translate-y-0 opacity-100 scale-100"
+            : "translate-y-10 opacity-0 scale-[0.98] pointer-events-none"
         }`}
       >
         {/* Moldura com gradiente da marca */}
@@ -512,9 +610,18 @@ export function AiAssistant() {
             {/* ── Header premium ─────────────────────────────────── */}
             <div className="relative shrink-0 overflow-hidden bg-gradient-to-r from-[#D946EF] via-[#C026D3] to-[#A855F7] px-4 py-4">
               {/* Glows decorativos */}
-              <div className="pointer-events-none absolute -top-12 -right-10 size-44 rounded-full bg-white/15 blur-3xl" aria-hidden="true" />
-              <div className="pointer-events-none absolute -bottom-16 -left-10 size-40 rounded-full bg-fuchsia-950/30 blur-3xl" aria-hidden="true" />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/25" aria-hidden="true" />
+              <div
+                className="pointer-events-none absolute -top-12 -right-10 size-44 rounded-full bg-white/15 blur-3xl"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute -bottom-16 -left-10 size-40 rounded-full bg-fuchsia-950/30 blur-3xl"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/25"
+                aria-hidden="true"
+              />
 
               <div className="relative flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3 min-w-0">
@@ -530,26 +637,49 @@ export function AiAssistant() {
                   </div>
 
                   <div className="min-w-0">
-                    <h2 className="font-display text-[15px] font-semibold text-white truncate leading-tight">Assistente IA</h2>
+                    <h2 className="font-display text-[15px] font-semibold text-white truncate leading-tight">
+                      Assistente IA
+                    </h2>
                     <p className="flex items-center gap-1.5 text-[10px] text-white/80 truncate mt-0.5">
-                      <span className="size-1.5 rounded-full bg-emerald-300 animate-pulse-soft" aria-hidden="true" />
+                      <span
+                        className="size-1.5 rounded-full bg-emerald-300 animate-pulse-soft"
+                        aria-hidden="true"
+                      />
                       Online · Consultora de gestão inteligente
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)}
-                    className="size-8 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors" aria-label="Configurações"
-                  ><Settings2 className="size-4" /></Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSettingsOpen(true)}
+                    className="size-8 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors"
+                    aria-label="Configurações"
+                  >
+                    <Settings2 className="size-4" />
+                  </Button>
                   {messages.length > 1 && (
-                    <Button variant="ghost" size="icon" onClick={handleClearChat}
-                      className="size-8 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors" aria-label="Limpar conversa"
-                    ><Eraser className="size-4" /></Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleClearChat}
+                      className="size-8 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors"
+                      aria-label="Limpar conversa"
+                    >
+                      <Eraser className="size-4" />
+                    </Button>
                   )}
-                  <Button variant="ghost" size="icon" onClick={() => setAiPanelOpen(false)}
-                    className="size-8 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors" aria-label="Fechar"
-                  ><X className="size-5" /></Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setAiPanelOpen(false)}
+                    className="size-8 rounded-xl bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors"
+                    aria-label="Fechar"
+                  >
+                    <X className="size-5" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -566,7 +696,10 @@ export function AiAssistant() {
             <div className="shrink-0 bg-card/90 backdrop-blur-xl border-t border-border p-3 sm:p-4 pb-3">
               <div className="rounded-2xl border border-border bg-muted/40 shadow-card transition-all duration-200 focus-within:border-[#D946EF]/50 focus-within:ring-2 focus-within:ring-[#D946EF]/15 p-1.5 pl-3">
                 <form
-                  onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    sendMessage(input);
+                  }}
                   className="flex items-center gap-1.5"
                 >
                   <Input
@@ -578,20 +711,29 @@ export function AiAssistant() {
                     disabled={isWaiting}
                   />
                   <Button
-                    type="submit" size="icon"
+                    type="submit"
+                    size="icon"
                     disabled={!input.trim() || isWaiting}
                     className="size-10 rounded-xl shrink-0 bg-gradient-to-br from-[#D946EF] to-[#A855F7] text-white shadow-[0_4px_16px_rgba(217,70,239,0.3)] hover:shadow-[0_4px_24px_rgba(217,70,239,0.45)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-[0_4px_16px_rgba(217,70,239,0.3)]"
                     aria-label="Enviar mensagem"
-                  ><Send className="size-4" /></Button>
+                  >
+                    <Send className="size-4" />
+                  </Button>
                 </form>
               </div>
               <div className="flex items-center justify-between mt-2 px-1">
                 <p className="text-[10px] text-muted-foreground/80 truncate">
-                  {context ? `${context.totalClientes} clientes • ${context.totalAgendamentos} agendamentos` : "Carregando dados..."}
+                  {context
+                    ? `${context.totalClientes} clientes • ${context.totalAgendamentos} agendamentos`
+                    : "Carregando dados..."}
                 </p>
-                <button type="button" onClick={handleClearChat}
+                <button
+                  type="button"
+                  onClick={handleClearChat}
                   className="text-[10px] text-muted-foreground/80 hover:text-[#D946EF] transition-colors flex items-center gap-1 shrink-0"
-                ><Trash2 className="size-3" /> Limpar</button>
+                >
+                  <Trash2 className="size-3" /> Limpar
+                </button>
               </div>
             </div>
           </div>

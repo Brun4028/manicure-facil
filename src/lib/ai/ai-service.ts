@@ -13,12 +13,8 @@
 
 import { getAiChatResponse } from "./ai-chat";
 import { aiCache } from "./ai-cache";
-import {
-  AiServiceError,
-  normalizeErrorToAiError,
-  isAiError,
-  type AiErrorCode,
-} from "./ai-errors";
+import { getInstantQuickResponse } from "./ai-instant-responses";
+import { AiServiceError, normalizeErrorToAiError, isAiError, type AiErrorCode } from "./ai-errors";
 
 // Re-export para compatibilidade com imports existentes
 export { AiServiceError, isAiError, type AiErrorCode };
@@ -38,6 +34,7 @@ export type AiMessage = {
 };
 
 export type AiContext = {
+  userName?: string;
   totalClientes: number;
   totalAgendamentos: number;
   totalServicos: number;
@@ -63,6 +60,7 @@ export type AiResponse = {
 
 /** Contexto padrão usado quando os dados ainda não carregaram */
 export const EMPTY_AI_CONTEXT: AiContext = {
+  userName: "",
   totalClientes: 0,
   totalAgendamentos: 0,
   totalServicos: 0,
@@ -113,9 +111,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number, abortSignal?: AbortSign
   return new Promise<T>((resolve, reject) => {
     // Limpeza do timer e do listener quando a requisição terminar (sucesso,
     // erro, timeout ou abort) — evita timers órfãos de 45s por chamada de IA.
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new AiServiceError("timeout", `Request timed out after ${ms}ms`));
+    }, ms);
     const cleanup = () => {
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
       abortSignal?.removeEventListener("abort", onAbort);
     };
     const onAbort = () => {
@@ -124,10 +125,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, abortSignal?: AbortSign
     };
 
     abortSignal?.addEventListener("abort", onAbort, { once: true });
-    timer = setTimeout(() => {
-      cleanup();
-      reject(new AiServiceError("timeout", `Request timed out after ${ms}ms`));
-    }, ms);
 
     promise.then(
       (value) => {
@@ -211,10 +208,7 @@ export async function sendToAi(
 
   const security = isPromptSafe(message);
   if (!security.safe) {
-    throw new AiServiceError(
-      "content-filter",
-      `Prompt injection detected: ${security.reason}`,
-    );
+    throw new AiServiceError("content-filter", `Prompt injection detected: ${security.reason}`);
   }
 
   // ── Prepara histórico (últimas N mensagens) ─────────────────────
@@ -224,6 +218,12 @@ export async function sendToAi(
     .map((m) => ({ role: m.role, text: m.text }));
 
   const trimmedMessage = message.trim().slice(0, MAX_MESSAGE_LENGTH);
+
+  // ── ⚡ Respostas Instantâneas (saudações, pequenas conversas, FAQ) ─
+  const quickResponse = getInstantQuickResponse(trimmedMessage, context?.userName);
+  if (quickResponse) {
+    return quickResponse;
+  }
 
   // ── Verifica cache ──────────────────────────────────────────────
   const cached = aiCache.get(trimmedMessage, recentHistory);
@@ -243,8 +243,7 @@ export async function sendToAi(
           history: recentHistory,
           context: {
             appName: "Manicure Fácil",
-            appDescription:
-              "Sistema de gestão premium para manicures e pequenos salões de beleza",
+            appDescription: "Sistema de gestão premium para manicures e pequenos salões de beleza",
             ...safeContext,
           },
           settings: {
@@ -287,10 +286,9 @@ export async function sendToAi(
     const normalized = normalizeErrorToAiError(error);
 
     // ── Log client-side para diagnóstico ──────────────────────────
-    console.error(
-      `[AI CLIENT] ${normalized.code}: ${normalized.message}`,
-      { userMessage: normalized.userMessage },
-    );
+    console.error(`[AI CLIENT] ${normalized.code}: ${normalized.message}`, {
+      userMessage: normalized.userMessage,
+    });
 
     throw normalized;
   }

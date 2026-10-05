@@ -65,6 +65,7 @@ const historyItemSchema = z.object({
 const contextSchema = z.object({
   appName: z.string().min(1).max(MAX_CONTEXT_STRING_LENGTH),
   appDescription: z.string().min(1).max(MAX_CONTEXT_STRING_LENGTH),
+  userName: z.string().max(MAX_CONTEXT_STRING_LENGTH).optional(),
   totalClientes: z.number().int().min(0),
   totalAgendamentos: z.number().int().min(0),
   totalServicos: z.number().int().min(0),
@@ -319,6 +320,13 @@ async function handleAiChat(
     }
   }
 
+  // ── Respostas Rápidas / Saudações instantâneas (server-side) ─
+  const { getInstantQuickResponse } = await import("./ai-instant-responses");
+  const quick = getInstantQuickResponse(message, (aiContext as { userName?: string })?.userName);
+  if (quick) {
+    return success(quick.text, quick.suggestions);
+  }
+
   // ── Cache server-side (economia de chamadas à API) ──────────
   // Perguntas genéricas de "como fazer" são compartilhadas entre usuários;
   // perguntas sobre dados do negócio são cacheadas por usuário (segurança:
@@ -399,7 +407,7 @@ async function handleAiChat(
     }
     const result = await callOpenAI(chatMessages, configOverrides);
     return cacheSuccess(result);
-  } catch (primaryError: any) {
+  } catch (primaryError) {
     // Se o provedor primário falhar (rate-limit, api-error ou chave não
     // configurada), tenta o outro provedor — assim, mesmo com apenas uma
     // chave configurada (ex: só Gemini), a IA continua funcionando.

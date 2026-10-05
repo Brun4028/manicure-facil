@@ -8,14 +8,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { isRotaInterna } from "@/lib/internal-routes";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Users, CalendarDays, Scissors, Wallet, ArrowRight, Check,
-  Package, Percent,
+  Users,
+  CalendarDays,
+  Scissors,
+  Wallet,
+  ArrowRight,
+  Check,
+  Package,
+  Percent,
 } from "lucide-react";
 
 const STORAGE_KEY = "mf-onboarding-done";
@@ -24,7 +27,8 @@ const steps = [
   {
     icon: Users,
     title: "Cadastre suas Clientes",
-    description: "Adicione as clientes com nome, telefone e preferências. O histórico de agendamentos será automaticamente registrado.",
+    description:
+      "Adicione as clientes com nome, telefone e preferências. O histórico de agendamentos será automaticamente registrado.",
     action: "/clientes",
     actionLabel: "Ir para Clientes",
     color: "from-blue-500 to-cyan-500",
@@ -32,7 +36,8 @@ const steps = [
   {
     icon: Scissors,
     title: "Configure seus Serviços",
-    description: "Defina os preços, custos e duração de cada procedimento. Começamos com 4 serviços padrão para você.",
+    description:
+      "Defina os preços, custos e duração de cada procedimento. Começamos com 4 serviços padrão para você.",
     action: "/servicos",
     actionLabel: "Ir para Serviços",
     color: "from-[#D946EF] to-[#A855F7]",
@@ -40,7 +45,8 @@ const steps = [
   {
     icon: CalendarDays,
     title: "Agende seus Horários",
-    description: "Use a agenda visual para gerenciar todos os agendamentos. Arraste para reagendar e veja conflitos em tempo real.",
+    description:
+      "Use a agenda visual para gerenciar todos os agendamentos. Arraste para reagendar e veja conflitos em tempo real.",
     action: "/agendamentos",
     actionLabel: "Ir para Agenda",
     color: "from-emerald-500 to-teal-500",
@@ -48,7 +54,8 @@ const steps = [
   {
     icon: Wallet,
     title: "Acompanhe o Financeiro",
-    description: "Receitas, despesas, DRE e fluxo de caixa em um só lugar. Saiba exatamente quanto você está lucrando.",
+    description:
+      "Receitas, despesas, DRE e fluxo de caixa em um só lugar. Saiba exatamente quanto você está lucrando.",
     action: "/financeiro",
     actionLabel: "Ir para Financeiro",
     color: "from-amber-500 to-orange-500",
@@ -56,7 +63,8 @@ const steps = [
   {
     icon: Package,
     title: "Controle seu Estoque",
-    description: "Registre produtos, movimentações e receba alertas quando o estoque estiver baixo.",
+    description:
+      "Registre produtos, movimentações e receba alertas quando o estoque estiver baixo.",
     action: "/estoque",
     actionLabel: "Ir para Estoque",
     color: "from-purple-500 to-pink-500",
@@ -64,7 +72,8 @@ const steps = [
   {
     icon: Percent,
     title: "Atraia mais Clientes",
-    description: "Crie promoções, programa de fidelidade e campanhas de marketing para fazer seu salão crescer.",
+    description:
+      "Crie promoções, programa de fidelidade e campanhas de marketing para fazer seu salão crescer.",
     action: "/marketing",
     actionLabel: "Ir para Marketing",
     color: "from-rose-500 to-red-500",
@@ -97,8 +106,8 @@ export function OnboardingDialog() {
 
   function handleGoTo() {
     const s = steps[step];
-    if (s.action) {
-      navigate({ to: s.action as any });
+    if (s.action && isRotaInterna(s.action)) {
+      navigate({ to: s.action });
     }
     handleComplete();
   }
@@ -106,7 +115,12 @@ export function OnboardingDialog() {
   const current = steps[step];
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleSkip(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) handleSkip();
+      }}
+    >
       <DialogContent className="sm:max-w-lg p-0 overflow-hidden rounded-3xl">
         {/* Progress bar */}
         <div className="h-1 bg-muted/50">
@@ -135,7 +149,9 @@ export function OnboardingDialog() {
           </div>
 
           {/* Icon */}
-          <div className={`size-16 rounded-2xl bg-gradient-to-br ${current.color} grid place-items-center mx-auto mb-5 shadow-lg`}>
+          <div
+            className={`size-16 rounded-2xl bg-gradient-to-br ${current.color} grid place-items-center mx-auto mb-5 shadow-lg`}
+          >
             <current.icon className="size-7 text-white" />
           </div>
 
@@ -156,17 +172,13 @@ export function OnboardingDialog() {
             {step < steps.length - 1 ? (
               <Button
                 variant="outline"
-                onClick={() => setStep(s => s + 1)}
+                onClick={() => setStep((s) => s + 1)}
                 className="rounded-xl h-11"
               >
                 Próximo
               </Button>
             ) : (
-              <Button
-                variant="outline"
-                onClick={handleComplete}
-                className="rounded-xl h-11"
-              >
+              <Button variant="outline" onClick={handleComplete} className="rounded-xl h-11">
                 <Check className="size-4 mr-1" /> Começar a usar
               </Button>
             )}

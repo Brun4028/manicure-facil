@@ -10,13 +10,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, Search, Phone, Mail, Cake, Users, Trophy, History } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Phone,
+  Mail,
+  Cake,
+  Users,
+  Trophy,
+  History,
+  MessageCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
+import { abrirWhatsApp, mensagens } from "@/lib/whatsapp";
 import { z } from "zod";
 import { differenceInDays } from "date-fns";
 import { ClienteHistoryDialog } from "@/components/clientes/cliente-history-dialog";
@@ -27,8 +47,14 @@ export const Route = createFileRoute("/_authenticated/clientes")({
 });
 
 type Cliente = {
-  id: string; nome: string; telefone: string | null; email: string | null;
-  data_nascimento: string | null; observacoes: string | null; alergias: string | null; servico_favorito: string | null;
+  id: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  data_nascimento: string | null;
+  observacoes: string | null;
+  alergias: string | null;
+  servico_favorito: string | null;
   created_at?: string;
 };
 
@@ -63,7 +89,8 @@ function ClientesPage() {
   const { data: ags } = useQuery({
     queryKey: ["agendamentos-ranking"],
     queryFn: async () => {
-      const { data } = await supabase.from("agendamentos")
+      const { data } = await supabase
+        .from("agendamentos")
         .select("cliente_id, valor, status, data_hora")
         .eq("status", "concluido");
       return data ?? [];
@@ -73,12 +100,15 @@ function ClientesPage() {
   // F5: Calculate client ranking
   const ranking = useMemo(() => {
     if (!data || !ags) return [];
-    const clientMap = new Map<string, { nome: string; atendimentos: number; totalGasto: number; ultimaVisita: Date | null }>();
+    const clientMap = new Map<
+      string,
+      { nome: string; atendimentos: number; totalGasto: number; ultimaVisita: Date | null }
+    >();
 
     ags.forEach((a) => {
       if (!a.cliente_id) return;
       const existing = clientMap.get(a.cliente_id) ?? {
-        nome: data.find(c => c.id === a.cliente_id)?.nome ?? "Desconhecido",
+        nome: data.find((c) => c.id === a.cliente_id)?.nome ?? "Desconhecido",
         atendimentos: 0,
         totalGasto: 0,
         ultimaVisita: null,
@@ -90,24 +120,34 @@ function ClientesPage() {
       clientMap.set(a.cliente_id, existing);
     });
 
-    const ranked = Array.from(clientMap.entries()).map(([id, c]) => ({
-      id,
-      ...c,
-      frequencia: c.ultimaVisita ? differenceInDays(new Date(), c.ultimaVisita) : 999,
-    })).sort((a, b) => b.totalGasto - a.totalGasto);
+    const ranked = Array.from(clientMap.entries())
+      .map(([id, c]) => ({
+        id,
+        ...c,
+        frequencia: c.ultimaVisita ? differenceInDays(new Date(), c.ultimaVisita) : 999,
+      }))
+      .sort((a, b) => b.totalGasto - a.totalGasto);
 
     // Assign categories
-    if (ranked.length <= 1) return ranked.map(r => ({ ...r, categoria: "🥉 Bronze" as const }));
+    if (ranked.length <= 1) return ranked.map((r) => ({ ...r, categoria: "🥉 Bronze" as const }));
     const top20 = Math.max(1, Math.ceil(ranked.length * 0.2));
     const top50 = Math.max(1, Math.ceil(ranked.length * 0.5));
 
     return ranked.map((r, i) => ({
       ...r,
-      categoria: i < top20 ? "🥇 Ouro" as const : i < top50 ? "🥈 Prata" as const : "🥉 Bronze" as const,
+      categoria:
+        i < top20
+          ? ("🥇 Ouro" as const)
+          : i < top50
+            ? ("🥈 Prata" as const)
+            : ("🥉 Bronze" as const),
     }));
   }, [data, ags]);
 
-  const filtered = (data ?? []).filter(c => c.nome.toLowerCase().includes(search.toLowerCase()) || (c.telefone ?? "").includes(search));
+  const filtered = (data ?? []).filter(
+    (c) =>
+      c.nome.toLowerCase().includes(search.toLowerCase()) || (c.telefone ?? "").includes(search),
+  );
 
   return (
     <>
@@ -116,7 +156,9 @@ function ClientesPage() {
         <ClienteHistoryDialog
           cliente={historyCliente}
           open={!!historyCliente}
-          onOpenChange={(v) => { if (!v) setHistoryCliente(null); }}
+          onOpenChange={(v) => {
+            if (!v) setHistoryCliente(null);
+          }}
         />
       )}
 
@@ -128,20 +170,37 @@ function ClientesPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-white dark:bg-card border-0 p-1.5 rounded-2xl shadow-[0_2px_16px_rgba(91,30,140,0.04)] overflow-x-auto">
-          <TabsTrigger value="clientes" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Users className="size-4" /> Clientes</TabsTrigger>
-          <TabsTrigger value="ranking" className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"><Trophy className="size-4" /> Ranking</TabsTrigger>
+          <TabsTrigger
+            value="clientes"
+            className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"
+          >
+            <Users className="size-4" /> Clientes
+          </TabsTrigger>
+          <TabsTrigger
+            value="ranking"
+            className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"
+          >
+            <Trophy className="size-4" /> Ranking
+          </TabsTrigger>
         </TabsList>
 
         {/* TAB 1: CLIENTES (original) */}
         <TabsContent value="clientes" className="space-y-4">
           <div className="relative max-w-md">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por nome ou telefone..." className="pl-9" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar por nome ou telefone..."
+              className="pl-9"
+            />
           </div>
 
           {isLoading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-40 rounded-[20px] bg-muted" />)}
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-40 rounded-[20px] bg-muted" />
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <Card className="bg-card border border-border rounded-[20px] p-12 text-center shadow-card">
@@ -152,32 +211,78 @@ function ClientesPage() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filtered.map(c => (
-                <Card key={c.id} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300">
+              {filtered.map((c) => (
+                <Card
+                  key={c.id}
+                  className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300"
+                >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="size-12 rounded-xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center text-[#D946EF] font-semibold text-lg shrink-0">
                         {c.nome.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-medium truncate text-base text-card-foreground">{c.nome}</h3>
-                        {c.servico_favorito && <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          Prefere: {c.servico_favorito}
-                        </p>}
+                        <h3 className="font-medium truncate text-base text-card-foreground">
+                          {c.nome}
+                        </h3>
+                        {c.servico_favorito && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                            Prefere: {c.servico_favorito}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                      <Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" onClick={() => setHistoryCliente(c)} aria-label={`Histórico de ${c.nome}`}>
+                      <WhatsBtn cliente={c} />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="hover:bg-[#D946EF]/10"
+                        onClick={() => setHistoryCliente(c)}
+                        aria-label={`Histórico de ${c.nome}`}
+                      >
                         <History className="size-4 text-[#D946EF]" aria-hidden="true" />
                       </Button>
-                      <ClienteDialog cliente={c} onSaved={() => qc.invalidateQueries({ queryKey: ["clientes"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10" aria-label={`Editar ${c.nome}`}><Pencil className="size-4 text-[#D946EF]" aria-hidden="true" /></Button>} />
-                      <DeleteBtn id={c.id} nome={c.nome} onDone={() => qc.invalidateQueries({ queryKey: ["clientes"] })} />
+                      <ClienteDialog
+                        cliente={c}
+                        onSaved={() => qc.invalidateQueries({ queryKey: ["clientes"] })}
+                        trigger={
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="hover:bg-[#D946EF]/10"
+                            aria-label={`Editar ${c.nome}`}
+                          >
+                            <Pencil className="size-4 text-[#D946EF]" aria-hidden="true" />
+                          </Button>
+                        }
+                      />
+                      <DeleteBtn
+                        id={c.id}
+                        nome={c.nome}
+                        onDone={() => qc.invalidateQueries({ queryKey: ["clientes"] })}
+                      />
                     </div>
                   </div>
                   <div className="mt-4 pt-4 border-t border-border space-y-2.5 text-sm">
-                    {c.telefone && <p className="flex items-center gap-2.5 text-muted-foreground"><Phone className="size-3.5 text-muted-foreground shrink-0" />{c.telefone}</p>}
-                    {c.email && <p className="flex items-center gap-2.5 text-muted-foreground truncate"><Mail className="size-3.5 text-muted-foreground shrink-0" /><span className="truncate">{c.email}</span></p>}
-                    {c.data_nascimento && <p className="flex items-center gap-2.5 text-muted-foreground"><Cake className="size-3.5 text-muted-foreground shrink-0" />{new Date(c.data_nascimento + "T00:00:00").toLocaleDateString("pt-BR")}</p>}
+                    {c.telefone && (
+                      <p className="flex items-center gap-2.5 text-muted-foreground">
+                        <Phone className="size-3.5 text-muted-foreground shrink-0" />
+                        {c.telefone}
+                      </p>
+                    )}
+                    {c.email && (
+                      <p className="flex items-center gap-2.5 text-muted-foreground truncate">
+                        <Mail className="size-3.5 text-muted-foreground shrink-0" />
+                        <span className="truncate">{c.email}</span>
+                      </p>
+                    )}
+                    {c.data_nascimento && (
+                      <p className="flex items-center gap-2.5 text-muted-foreground">
+                        <Cake className="size-3.5 text-muted-foreground shrink-0" />
+                        {new Date(c.data_nascimento + "T00:00:00").toLocaleDateString("pt-BR")}
+                      </p>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -193,7 +298,9 @@ function ClientesPage() {
             </div>
             <div>
               <h2 className="font-display text-xl">Ranking de Clientes</h2>
-              <p className="text-xs text-muted-foreground">Classificação baseada em gasto total, frequência e número de visitas</p>
+              <p className="text-xs text-muted-foreground">
+                Classificação baseada em gasto total, frequência e número de visitas
+              </p>
             </div>
           </div>
 
@@ -201,17 +308,23 @@ function ClientesPage() {
           <div className="grid grid-cols-3 gap-4">
             <Card className="bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/30 dark:border-amber-500/20 rounded-2xl p-4 text-center">
               <span className="text-2xl">🥇</span>
-              <p className="text-xl font-bold text-amber-700 dark:text-amber-400 mt-1">{ranking.filter(r => r.categoria === "🥇 Ouro").length}</p>
+              <p className="text-xl font-bold text-amber-700 dark:text-amber-400 mt-1">
+                {ranking.filter((r) => r.categoria === "🥇 Ouro").length}
+              </p>
               <p className="text-[10px] text-muted-foreground uppercase">Ouro</p>
             </Card>
             <Card className="bg-slate-50/50 dark:bg-slate-500/5 border border-slate-200/30 dark:border-slate-500/20 rounded-2xl p-4 text-center">
               <span className="text-2xl">🥈</span>
-              <p className="text-xl font-bold text-slate-600 dark:text-slate-400 mt-1">{ranking.filter(r => r.categoria === "🥈 Prata").length}</p>
+              <p className="text-xl font-bold text-slate-600 dark:text-slate-400 mt-1">
+                {ranking.filter((r) => r.categoria === "🥈 Prata").length}
+              </p>
               <p className="text-[10px] text-muted-foreground uppercase">Prata</p>
             </Card>
             <Card className="bg-orange-50/50 dark:bg-orange-500/5 border border-orange-200/30 dark:border-orange-500/20 rounded-2xl p-4 text-center">
               <span className="text-2xl">🥉</span>
-              <p className="text-xl font-bold text-orange-600 dark:text-orange-400 mt-1">{ranking.filter(r => r.categoria === "🥉 Bronze").length}</p>
+              <p className="text-xl font-bold text-orange-600 dark:text-orange-400 mt-1">
+                {ranking.filter((r) => r.categoria === "🥉 Bronze").length}
+              </p>
               <p className="text-[10px] text-muted-foreground uppercase">Bronze</p>
             </Card>
           </div>
@@ -219,29 +332,50 @@ function ClientesPage() {
           {ranking.length === 0 ? (
             <Card className="bg-card border border-border rounded-[20px] p-12 text-center shadow-card">
               <Users className="size-7 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Nenhum agendamento concluído para gerar ranking.</p>
+              <p className="text-muted-foreground">
+                Nenhum agendamento concluído para gerar ranking.
+              </p>
             </Card>
           ) : (
             <div className="space-y-2">
               {ranking.map((r, i) => (
-                <Card key={r.id} className="bg-card border border-border rounded-2xl p-4 shadow-card hover:border-[#D946EF]/30 transition-all">
+                <Card
+                  key={r.id}
+                  className="bg-card border border-border rounded-2xl p-4 shadow-card hover:border-[#D946EF]/30 transition-all"
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="text-lg font-bold text-muted-foreground w-6 shrink-0">#{i + 1}</div>
+                      <div className="text-lg font-bold text-muted-foreground w-6 shrink-0">
+                        #{i + 1}
+                      </div>
                       <div className="text-xl">{r.categoria.split(" ")[0]}</div>
                       <div className="min-w-0">
                         <p className="font-medium truncate text-card-foreground">{r.nome}</p>
-                        <p className="text-[10px] text-muted-foreground">{r.atendimentos} atendimento{r.atendimentos !== 1 ? "s" : ""} • {r.frequencia <= 30 ? "Ativo" : "Inativo"}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {r.atendimentos} atendimento{r.atendimentos !== 1 ? "s" : ""} •{" "}
+                          {r.frequencia <= 30 ? "Ativo" : "Inativo"}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-lg font-semibold text-card-foreground">
-                        {r.totalGasto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        {r.totalGasto.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
                       </p>
-                      <Badge variant="secondary" className={`text-[10px] ${r.categoria === "🥇 Ouro" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" :
-                          r.categoria === "🥈 Prata" ? "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20" :
-                            "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20"
-                        }`}>{r.categoria}</Badge>
+                      <Badge
+                        variant="secondary"
+                        className={`text-[10px] ${
+                          r.categoria === "🥇 Ouro"
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                            : r.categoria === "🥈 Prata"
+                              ? "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20"
+                              : "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20"
+                        }`}
+                      >
+                        {r.categoria}
+                      </Badge>
                     </div>
                   </div>
                 </Card>
@@ -261,25 +395,41 @@ function DeleteBtn({ id, onDone, nome }: { id: string; onDone: () => void; nome?
       const { error } = await supabase.from("clientes").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Cliente removida"); onDone(); },
+    onSuccess: () => {
+      toast.success("Cliente removida");
+      onDone();
+    },
     onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
   return (
-    <Button size="icon" variant="ghost" aria-label={`Excluir ${nome || "cliente"}`} onClick={() => {
-      confirm({
-        title: "Excluir cliente?",
-        description: `Tem certeza que deseja excluir "${nome || "esta cliente"}"?`,
-        confirmText: "Excluir",
-        variant: "danger",
-        onConfirm: () => mut.mutate(),
-      });
-    }}>
+    <Button
+      size="icon"
+      variant="ghost"
+      aria-label={`Excluir ${nome || "cliente"}`}
+      onClick={() => {
+        confirm({
+          title: "Excluir cliente?",
+          description: `Tem certeza que deseja excluir "${nome || "esta cliente"}"?`,
+          confirmText: "Excluir",
+          variant: "danger",
+          onConfirm: () => mut.mutate(),
+        });
+      }}
+    >
       <Trash2 className="size-4 text-destructive" aria-hidden="true" />
     </Button>
   );
 }
 
-function ClienteDialog({ cliente, onSaved, trigger }: { cliente?: Cliente; onSaved: () => void; trigger?: React.ReactNode }) {
+function ClienteDialog({
+  cliente,
+  onSaved,
+  trigger,
+}: {
+  cliente?: Cliente;
+  onSaved: () => void;
+  trigger?: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     nome: cliente?.nome ?? "",
@@ -309,38 +459,157 @@ function ClienteDialog({ cliente, onSaved, trigger }: { cliente?: Cliente; onSav
         if (error) throw error;
       } else {
         const { data: u } = await supabase.auth.getUser();
-        const { error } = await supabase.from("clientes").insert({ ...payload, user_id: u.user!.id });
+        const { error } = await supabase
+          .from("clientes")
+          .insert({ ...payload, user_id: u.user!.id });
         if (error) throw error;
       }
     },
-    onSuccess: () => { toast.success(cliente ? "Cliente atualizada" : "Cliente cadastrada"); onSaved(); setOpen(false); },
+    onSuccess: () => {
+      toast.success(cliente ? "Cliente atualizada" : "Cliente cadastrada");
+      onSaved();
+      setOpen(false);
+    },
     onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger ?? <Button className="gradient-primary text-primary-foreground shadow-glow"><Plus className="size-4 mr-1" /> Nova cliente</Button>}
+        {trigger ?? (
+          <Button className="gradient-primary text-primary-foreground shadow-glow">
+            <Plus className="size-4 mr-1" /> Nova cliente
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle className="font-display text-2xl">{cliente ? "Editar cliente" : "Nova cliente"}</DialogTitle></DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3" aria-label="Formulário de cliente">
-          <div><Label htmlFor="cli-nome">Nome *</Label><Input id="cli-nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label htmlFor="cli-tel">Telefone</Label><Input id="cli-tel" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></div>
-            <div><Label htmlFor="cli-nasc">Nascimento</Label><Input id="cli-nasc" type="date" value={form.data_nascimento} onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })} /></div>
+        <DialogHeader>
+          <DialogTitle className="font-display text-2xl">
+            {cliente ? "Editar cliente" : "Nova cliente"}
+          </DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+          className="space-y-3"
+          aria-label="Formulário de cliente"
+        >
+          <div>
+            <Label htmlFor="cli-nome">Nome *</Label>
+            <Input
+              id="cli-nome"
+              value={form.nome}
+              onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              required
+            />
           </div>
-          <div><Label htmlFor="cli-email">E-mail</Label><Input id="cli-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-          <div><Label htmlFor="cli-servico">Serviço favorito</Label><Input id="cli-servico" value={form.servico_favorito} onChange={(e) => setForm({ ...form, servico_favorito: e.target.value })} /></div>
-          <div><Label htmlFor="cli-alergias">Alergias</Label><Textarea id="cli-alergias" value={form.alergias} onChange={(e) => setForm({ ...form, alergias: e.target.value })} rows={2} /></div>
-          <div><Label htmlFor="cli-obs">Observações</Label><Textarea id="cli-obs" value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="cli-tel">Telefone</Label>
+              <Input
+                id="cli-tel"
+                value={form.telefone}
+                onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="cli-nasc">Nascimento</Label>
+              <Input
+                id="cli-nasc"
+                type="date"
+                value={form.data_nascimento}
+                onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="cli-email">E-mail</Label>
+            <Input
+              id="cli-email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="cli-servico">Serviço favorito</Label>
+            <Input
+              id="cli-servico"
+              value={form.servico_favorito}
+              onChange={(e) => setForm({ ...form, servico_favorito: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="cli-alergias">Alergias</Label>
+            <Textarea
+              id="cli-alergias"
+              value={form.alergias}
+              onChange={(e) => setForm({ ...form, alergias: e.target.value })}
+              rows={2}
+            />
+          </div>
+          <div>
+            <Label htmlFor="cli-obs">Observações</Label>
+            <Textarea
+              id="cli-obs"
+              value={form.observacoes}
+              onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
+              rows={2}
+            />
+          </div>
           <DialogFooter>
-            <Button type="submit" disabled={mut.isPending} className="gradient-primary text-primary-foreground shadow-glow w-full" aria-label={mut.isPending ? "Salvando cliente" : "Salvar cliente"}>
+            <Button
+              type="submit"
+              disabled={mut.isPending}
+              className="gradient-primary text-primary-foreground shadow-glow w-full"
+              aria-label={mut.isPending ? "Salvando cliente" : "Salvar cliente"}
+            >
               {mut.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Abre a conversa no WhatsApp já com a mensagem certa para a ocasião:
+ * parabéns no aniversário, mensagem carinhosa nos demais dias.
+ */
+function WhatsBtn({ cliente }: { cliente: Cliente }) {
+  if (!cliente.telefone) return null;
+
+  const hoje = new Date();
+  const nascimento = cliente.data_nascimento
+    ? new Date(`${cliente.data_nascimento}T00:00:00`)
+    : null;
+  const aniversarioHoje =
+    !!nascimento &&
+    !Number.isNaN(nascimento.getTime()) &&
+    nascimento.getDate() === hoje.getDate() &&
+    nascimento.getMonth() === hoje.getMonth();
+
+  const texto = aniversarioHoje
+    ? mensagens.aniversario({ cliente: cliente.nome })
+    : mensagens.conversa({ cliente: cliente.nome });
+
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="hover:bg-[#25D366]/15"
+      aria-label={`Enviar mensagem no WhatsApp para ${cliente.nome}`}
+      title={aniversarioHoje ? "Parabenizar no WhatsApp" : "Conversar no WhatsApp"}
+      onClick={() => {
+        if (!abrirWhatsApp(cliente.telefone, texto)) {
+          toast.error("Número de WhatsApp inválido. Edite o telefone desta cliente.");
+        }
+      }}
+    >
+      <MessageCircle className="size-4 text-[#25D366]" aria-hidden="true" />
+    </Button>
   );
 }

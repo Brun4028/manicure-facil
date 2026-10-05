@@ -41,9 +41,9 @@ docker compose up -d --build
 
 Antes de começar, tenha em mãos:
 
-| Item | Custo | Onde pegar |
-|------|-------|------------|
-| Conta no Supabase | **Gratuito** | [supabase.com](https://supabase.com) |
+| Item                   | Custo        | Onde pegar                                          |
+| ---------------------- | ------------ | --------------------------------------------------- |
+| Conta no Supabase      | **Gratuito** | [supabase.com](https://supabase.com)                |
 | Chave de IA (opcional) | **Gratuito** | [ai.google.dev](https://aistudio.google.com/apikey) |
 
 > **Não se preocupe!** O wizard dentro do app te guia passo a passo para criar tudo.
@@ -55,12 +55,14 @@ Antes de começar, tenha em mãos:
 Quando você abrir o app pela primeira vez, verá um **wizard de configuração** com 4 passos:
 
 ### Passo 1: Criar conta no Supabase
+
 1. Acesse [supabase.com](https://supabase.com) e crie uma conta gratuita
 2. Clique em **"New Project"**
 3. Escolha um nome e defina uma senha para o banco
 4. Aguarde o projeto ser criado (~30 segundos)
 
 ### Passo 2: Copiar as chaves
+
 1. No painel do Supabase, vá em **Settings → API**
 2. Copie estas 3 chaves e cole no wizard:
    - **URL** (ex: `https://abc123.supabase.co`)
@@ -68,12 +70,14 @@ Quando você abrir o app pela primeira vez, verá um **wizard de configuração*
    - **service_role secret** (chave secreta)
 
 ### Passo 3: Rodar o SQL
+
 1. No Supabase, vá em **SQL Editor** (menu lateral)
 2. Cole o script SQL que o wizard mostra
 3. Clique em **Run**
 4. Execute também o comando para se tornar admin
 
 ### Passo 4: Configurar IA (opcional)
+
 1. Acesse [ai.google.dev](https://aistudio.google.com/apikey)
 2. Crie uma chave de API gratuita
 3. Cole no wizard
@@ -111,6 +115,7 @@ Quando você abrir o app pela primeira vez, verá um **wizard de configuração*
 ## 🌐 Deploy em produção
 
 ### Vercel (recomendado)
+
 1. Suba o código no GitHub
 2. Acesse [vercel.com](https://vercel.com) e importe o repositório
 3. Configure as variáveis de ambiente no painel:
@@ -125,6 +130,7 @@ Quando você abrir o app pela primeira vez, verá um **wizard de configuração*
 4. Deploy automático a cada push
 
 ### Docker (VPS / Easypanel)
+
 ```bash
 # Configure o arquivo .env primeiro
 cp .env.example .env

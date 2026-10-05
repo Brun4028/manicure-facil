@@ -19,63 +19,61 @@ import { getServerEnv } from "../config.server";
 
 // ─── Middleware: autenticação + conta ativa + admin ─────────────────────────
 
-export const requireAdminAuth = createMiddleware({ type: "function" }).server(
-  async ({ next }) => {
-    const { getRequest } = await import("@tanstack/react-start/server");
-    const { createClient } = await import("@supabase/supabase-js");
+export const requireAdminAuth = createMiddleware({ type: "function" }).server(async ({ next }) => {
+  const { getRequest } = await import("@tanstack/react-start/server");
+  const { createClient } = await import("@supabase/supabase-js");
 
-    const SUPABASE_URL = getServerEnv("SUPABASE_URL");
-    const SUPABASE_PUBLISHABLE_KEY = getServerEnv("SUPABASE_PUBLISHABLE_KEY");
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      throw new Error("Supabase não configurado no servidor");
-    }
+  const SUPABASE_URL = getServerEnv("SUPABASE_URL");
+  const SUPABASE_PUBLISHABLE_KEY = getServerEnv("SUPABASE_PUBLISHABLE_KEY");
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error("Supabase não configurado no servidor");
+  }
 
-    const request = getRequest();
-    const authHeader = request?.headers?.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      throw new Error("Não autorizado: token ausente");
-    }
-    const token = authHeader.replace("Bearer ", "");
+  const request = getRequest();
+  const authHeader = request?.headers?.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Error("Não autorizado: token ausente");
+  }
+  const token = authHeader.replace("Bearer ", "");
 
-    const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
-    });
+  const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+  });
 
-    const { data, error } = await supabase.auth.getClaims(token);
-    if (error || !data?.claims?.sub) {
-      throw new Error("Não autorizado: token inválido");
-    }
-    const userId = data.claims.sub;
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims?.sub) {
+    throw new Error("Não autorizado: token inválido");
+  }
+  const userId = data.claims.sub;
 
-    // A conta deve existir (a linha `contas` é criada no cadastro). Nenhuma
-    // aprovação manual/status é exigida.
-    const { data: conta } = await supabase
-      .from("contas")
-      .select("is_admin")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!conta) {
-      throw new Error("Conta não encontrada");
-    }
+  // A conta deve existir (a linha `contas` é criada no cadastro). Nenhuma
+  // aprovação manual/status é exigida.
+  const { data: conta } = await supabase
+    .from("contas")
+    .select("is_admin")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!conta) {
+    throw new Error("Conta não encontrada");
+  }
 
-    // 2) Deve ser admin (flag no banco OU allowlist por e-mail)
-    const adminEmails = (getServerEnv("ADMIN_EMAILS") ?? "")
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    const userEmail = typeof data.claims.email === "string" ? data.claims.email.toLowerCase() : "";
-    const isAdmin = conta.is_admin === true || adminEmails.includes(userEmail);
+  // 2) Deve ser admin (flag no banco OU allowlist por e-mail)
+  const adminEmails = (getServerEnv("ADMIN_EMAILS") ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const userEmail = typeof data.claims.email === "string" ? data.claims.email.toLowerCase() : "";
+  const isAdmin = conta.is_admin === true || adminEmails.includes(userEmail);
 
-    if (!isAdmin) {
-      throw new Error("Acesso restrito a administradores");
-    }
+  if (!isAdmin) {
+    throw new Error("Acesso restrito a administradores");
+  }
 
-    return next({
-      context: { supabase, userId, claims: data.claims },
-    });
-  },
-);
+  return next({
+    context: { supabase, userId, claims: data.claims },
+  });
+});
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -106,9 +104,11 @@ const gerarLinkSchema = z.object({ userId: z.string().uuid() });
 
 export const verificarAdmin = createServerFn({ method: "POST" })
   .middleware([requireAdminAuth])
-  .handler(async (): Promise<{ ok: true }> => ({
-    ok: true,
-  }));
+  .handler(
+    async (): Promise<{ ok: true }> => ({
+      ok: true,
+    }),
+  );
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -193,10 +193,7 @@ export const atualizarConta = createServerFn({ method: "POST" })
     if (data.motivoBloqueio !== undefined) update.motivo_bloqueio = data.motivoBloqueio || null;
     update.atualizado_em = new Date().toISOString();
 
-    const { error } = await supabaseAdmin
-      .from("contas")
-      .update(update)
-      .eq("user_id", data.userId);
+    const { error } = await supabaseAdmin.from("contas").update(update).eq("user_id", data.userId);
 
     if (error) return { ok: false, error: error.message };
     return { ok: true };
@@ -207,37 +204,39 @@ export const atualizarConta = createServerFn({ method: "POST" })
 export const convidarUsuario = createServerFn({ method: "POST" })
   .middleware([requireAdminAuth])
   .validator(convidarSchema)
-  .handler(async ({ data }): Promise<{ ok: true; userId: string } | { ok: false; error: string }> => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  .handler(
+    async ({ data }): Promise<{ ok: true; userId: string } | { ok: false; error: string }> => {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Cria o usuário e envia o e-mail de convite (confirmar e-mail + criar senha).
-    // Requer "Confirm email" habilitado em Authentication > Providers > Email.
-    const { data: convite, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      data.email,
-      { data: { nome: data.nome } },
-    );
+      // Cria o usuário e envia o e-mail de convite (confirmar e-mail + criar senha).
+      // Requer "Confirm email" habilitado em Authentication > Providers > Email.
+      const { data: convite, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        data.email,
+        { data: { nome: data.nome } },
+      );
 
-    if (error) {
-      // 422 = usuário já existe com este e-mail
-      return { ok: false, error: error.message };
-    }
+      if (error) {
+        // 422 = usuário já existe com este e-mail
+        return { ok: false, error: error.message };
+      }
 
-    const userId = convite.user.id;
+      const userId = convite.user.id;
 
-    // O trigger handle_new_user já cria a conta ATIVA (sem aprovação manual).
-    // Aqui apenas registramos o plano informado pelo admin.
-    const { error: updErr } = await supabaseAdmin
-      .from("contas")
-      .update({
-        plano: data.plano || null,
-        atualizado_em: new Date().toISOString(),
-      })
-      .eq("user_id", userId);
+      // O trigger handle_new_user já cria a conta ATIVA (sem aprovação manual).
+      // Aqui apenas registramos o plano informado pelo admin.
+      const { error: updErr } = await supabaseAdmin
+        .from("contas")
+        .update({
+          plano: data.plano || null,
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq("user_id", userId);
 
-    if (updErr) return { ok: false, error: updErr.message };
+      if (updErr) return { ok: false, error: updErr.message };
 
-    return { ok: true, userId };
-  });
+      return { ok: true, userId };
+    },
+  );
 
 // ─── Gerar link de convite (para enviar manualmente / futuro e-mail) ───────
 

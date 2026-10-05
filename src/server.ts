@@ -89,7 +89,7 @@ const SECURITY_HEADERS: Record<string, string> = {
 
 function applySecurityHeaders(response: Response): Response {
   const newHeaders = new Headers(response.headers);
-  
+
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     // Não sobrescreve headers já definidos
     if (!newHeaders.has(key)) {
@@ -116,14 +116,17 @@ const rateLimitStore = new Map<string, RateLimitEntry>();
 
 // Limpeza periódica do rate limit store (a cada 5 minutos)
 if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of rateLimitStore.entries()) {
-      if (now > entry.resetAt) {
-        rateLimitStore.delete(key);
+  setInterval(
+    () => {
+      const now = Date.now();
+      for (const [key, entry] of rateLimitStore.entries()) {
+        if (now > entry.resetAt) {
+          rateLimitStore.delete(key);
+        }
       }
-    }
-  }, 5 * 60 * 1000);
+    },
+    5 * 60 * 1000,
+  );
 }
 
 type RateLimitConfig = {
@@ -240,7 +243,7 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
-      
+
       // ── Rate Limiting ────────────────────────────────────────────
       // NOTA: limite por IP em memória. Para múltiplas instâncias em
       // produção, migrar para um store distribuído (ex.: Redis/Upstash) —
@@ -263,7 +266,9 @@ export default {
               "retry-after": String(rateCheck.retryAfter),
               "x-ratelimit-limit": String(rateLimitConfig.maxRequests),
               "x-ratelimit-remaining": "0",
-              "x-ratelimit-reset": String(Math.ceil((Date.now() + rateLimitConfig.windowMs) / 1000)),
+              "x-ratelimit-reset": String(
+                Math.ceil((Date.now() + rateLimitConfig.windowMs) / 1000),
+              ),
             },
           },
         );
@@ -272,13 +277,13 @@ export default {
       // ── Processa a requisição ─────────────────────────────────────
       const handler = await getServerEntry();
       let response = await handler.fetch(request, env, ctx);
-      
+
       // ── Normaliza erros catastróficos ───────────────────────
       response = await normalizeCatastrophicSsrResponse(response);
-      
+
       // ── Aplica headers de segurança ─────────────────────────
       response = applySecurityHeaders(response);
-      
+
       return response;
     } catch (error) {
       console.error(error);

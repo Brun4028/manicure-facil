@@ -24,6 +24,7 @@ type ChatMessage = { role: string; content: string };
 export type AiContextData = {
   appName: string;
   appDescription: string;
+  userName?: string;
   totalClientes: number;
   totalAgendamentos: number;
   totalServicos: number;
@@ -87,8 +88,9 @@ export function buildSystemPrompt(context?: AiContextData | null): string {
 
   const contexto = context
     ? [
-        `- Nome: ${context.appName}`,
+        `- Nome do sistema: ${context.appName}`,
         `- Descrição: ${context.appDescription}`,
+        context.userName ? `- Nome da profissional/usuária: ${context.userName}` : "",
         `- Clientes cadastradas: ${context.totalClientes}`,
         `- Agendamentos registrados: ${context.totalAgendamentos}`,
         `- Serviços disponíveis: ${context.totalServicos}`,
@@ -104,7 +106,9 @@ export function buildSystemPrompt(context?: AiContextData | null): string {
         `- Meta de faturamento: R$ ${context.metasFaturamento.toFixed(2)}`,
         `- Meta de lucro: R$ ${context.metasLucro.toFixed(2)}`,
         `- Serviços mais vendidos: ${context.servicosMaisVendidos}`,
-      ].join("\n")
+      ]
+        .filter(Boolean)
+        .join("\n")
     : "";
 
   return `Você é a assistente virtual especializada do "${context?.appName ?? "Manicure Fácil"}", um sistema de gestão premium para manicures e pequenos salões de beleza.
@@ -224,9 +228,10 @@ Esta é uma pergunta de conhecimento geral **independente** — nenhum históric
 }
 
 ## ✅ REGRAS OBRIGATÓRIAS
-1. **Sempre responda em português do Brasil**, com tom amigável, profissional e acolhedor
-2. Use emojis com moderação para tornar a conversa mais agradável
-3. **Seja objetiva e prática** — priorize ações que a profissional pode executar AGORA
+1. **Sempre responda em português do Brasil**, com tom amigável, acolhedor e profissional de salão (como uma consultora parceira)
+2. **Saudações e conversas informais:** Se a usuária disser "oiii", "olá", "bom dia", "tudo bem?" ou puxar conversa, responda com calor humano, carinho e entusiasmo, cumprimentando pelo nome se souber. Jamais seja fria, rígida ou burocrática!
+3. Use emojis com moderação para tornar a conversa mais agradável (✨, 💅, 💖, 🌸, 💰)
+4. **Seja objetiva e prática** — priorize ações que a profissional pode executar AGORA
 4. Use formatação **negrito** para destacar informações importantes
 5. Quando apropriado, use listas, títulos e tabelas para organizar a informação
 6. **NUNCA invente informações** — se não souber, diga honestamente
@@ -356,7 +361,10 @@ export async function callOpenAI(
     throw new AiServiceError("api-error", `OpenAI error ${res.status}: ${body}`);
   }
 
-  let json: any;
+  let json: {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
   try {
     json = await res.json();
   } catch (parseError) {
@@ -438,79 +446,130 @@ export async function callGemini(
     contents[0].parts[0].text = `${systemContent}\n\n${contents[0].parts[0].text}`;
   }
 
-  // ── Requisição com 1 retry em instabilidade transitória (5xx) ──
-  // A API do Gemini (free tier) retorna 500/503 ocasionalmente sob carga;
-  // uma única nova tentativa após 1.2s resolve a maioria desses casos.
-  let res: Response;
-  let retry = 0;
-  for (;;) {
-    res = await withServerTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents,
-          generationConfig: {
-            temperature,
-            maxOutputTokens: maxTokens,
+  // ── Resiliência de Modelos Gemini com Fallback Automático ──
+  // Se o modelo configurado (ex: gemini-flash-latest) sofrer pico de sobrecarga (HTTP 503
+  // "This model is currently experiencing high demand"), tenta automaticamente modelos
+  // alternativos rápidos e disponíveis (ex: gemini-flash-lite-latest).
+  const candidateModels = Array.from(
+    new Set(
+      [
+        config.geminiModel,
+        "gemini-flash-lite-latest",
+        "gemini-3.8-flash",
+        "gemini-3.5-flash-lite",
+      ].filter(Boolean) as string[],
+    ),
+  );
+
+  let res: Response | null = null;
+  let lastBody = "";
+  let successfulModel = config.geminiModel;
+
+  for (const currentModel of candidateModels) {
+    let retry = 0;
+    let modelSuccess = false;
+
+    while (retry <= 1) {
+      try {
+        res = await withServerTimeout(
+          `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${config.geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents,
+              generationConfig: {
+                temperature,
+                maxOutputTokens: maxTokens,
+              },
+            }),
           },
-        }),
-      },
-    );
-    if (res.ok || retry >= 1 || ![500, 502, 503, 504].includes(res.status)) {
+        );
+
+        if (res.ok) {
+          successfulModel = currentModel;
+          modelSuccess = true;
+          break;
+        }
+
+        const body = await res.text();
+        lastBody = body;
+
+        // Erros de autenticação / chave são definitivos: não adianta testar outro modelo
+        if (res.status === 400 && body.includes("API key")) {
+          throw new AiServiceError(
+            "api-error",
+            `Gemini API key inválida: ${body.slice(0, 200)}`,
+            "🌐 A chave do Gemini está inválida. Gere uma nova em aistudio.google.com e atualize a GEMINI_API_KEY no .env.",
+          );
+        }
+        if (res.status === 403) {
+          throw new AiServiceError(
+            "api-error",
+            `Gemini auth error ${res.status}: ${body.slice(0, 200)}`,
+            "🌐 Acesso negado pelo Gemini. Verifique se a chave está ativa e a API Generative Language habilitada.",
+          );
+        }
+
+        // Se for 503 (high demand) ou erro 5xx transitório, tenta 1x com backoff de 800ms
+        const isTransient = [500, 502, 503, 504].includes(res.status);
+        if (isTransient && retry === 0) {
+          console.warn(
+            `[AI] Gemini (${currentModel}) retornou HTTP ${res.status}. Tentando novamente em 800ms...`,
+          );
+          await new Promise((r) => setTimeout(r, 800));
+          retry++;
+          continue;
+        }
+
+        // Se persistir o erro no modelo atual, avisa e pula para o próximo modelo candidato
+        console.warn(
+          `[AI] Gemini (${currentModel}) indisponível (HTTP ${res.status}). Alternando para modelo fallback...`,
+        );
+        break;
+      } catch (callError) {
+        if (callError instanceof AiServiceError) throw callError;
+        console.warn(
+          `[AI] Falha ao tentar modelo ${currentModel}:`,
+          callError instanceof Error ? callError.message : callError,
+        );
+        break;
+      }
+    }
+
+    if (modelSuccess && res && res.ok) {
       break;
     }
-    retry += 1;
-    console.error(
-      `[AI] Gemini HTTP ${res.status} — instabilidade transitória, nova tentativa (${retry}/1)`,
-    );
-    await new Promise((r) => setTimeout(r, 1_200));
   }
 
-  if (!res.ok) {
-    const body = await res.text();
+  if (!res || !res.ok) {
+    const body = lastBody;
+    const status = res ? res.status : 503;
     aiLogger.log(
       aiLogger.createLog({
         provider: "gemini",
-        model: config.geminiModel,
+        model: successfulModel,
         startTime,
         messageLength: messages.reduce((s, m) => s + m.content.length, 0),
         responseLength: 0,
         success: false,
         // Limite de cota (429) não é erro crítico
-        warn: res.status === 429,
-        error: `HTTP ${res.status}: ${body.slice(0, 200)}`,
+        warn: status === 429,
+        error: `HTTP ${status}: ${body.slice(0, 200)}`,
         cached: false,
       }),
     );
 
-    if (res.status === 400 && body.includes("API key")) {
-      throw new AiServiceError(
-        "api-error",
-        `Gemini API key inválida: ${body.slice(0, 200)}`,
-        "🌐 A chave do Gemini está inválida. Gere uma nova em aistudio.google.com e atualize a GEMINI_API_KEY no .env.",
-      );
-    }
-    if (res.status === 403) {
-      throw new AiServiceError(
-        "api-error",
-        `Gemini auth error ${res.status}: ${body.slice(0, 200)}`,
-        "🌐 Acesso negado pelo Gemini. Verifique se a chave está ativa e a API Generative Language habilitada.",
-      );
-    }
-    if (res.status === 429) {
-      // 🔧 Causa real visível: a cota free-tier do Gemini é limitada
-      // (ex: 20 req/dia) — o usuário deve ver isso claramente, não um
-      // genérico "assistente indisponível".
+    if (status === 429) {
+      // Causa real visível: limite de cota
       const retryMatch = body.match(/retry in (\d+(?:\.\d+)?)s/i);
       const retrySecs = retryMatch ? Math.ceil(Number(retryMatch[1])) : undefined;
       const quotaExhausted =
         body.includes("RESOURCE_EXHAUSTED") || body.toLowerCase().includes("quota");
       const userMessage = quotaExhausted
         ? retrySecs
-          ? `🔄 O limite gratuito da IA (Gemini) foi atingido. Tente novamente em ~${Math.min(retrySecs, 3600)}s — ou aumente a cota em aistudio.google.com.`
-          : "🔄 O limite gratuito da IA (Gemini) foi atingido. Tente novamente mais tarde ou aumente a cota em aistudio.google.com."
+          ? `🔄 O limite da IA (Gemini) foi atingido. Tente novamente em ~${Math.min(retrySecs, 3600)}s ou aumente a cota em aistudio.google.com.`
+          : "🔄 O limite da IA (Gemini) foi atingido. Tente novamente mais tarde ou aumente a cota em aistudio.google.com."
         : "🔄 Você já fez muitas perguntas seguidas! Aguarde um momento e tente novamente.";
       throw new AiServiceError(
         "rate-limit",
@@ -518,14 +577,25 @@ export async function callGemini(
         userMessage,
       );
     }
-    throw new AiServiceError("api-error", `Gemini error ${res.status}: ${body.slice(0, 300)}`);
+    throw new AiServiceError(
+      "api-error",
+      `Gemini error ${status}: ${body.slice(0, 300)}`,
+      "✨ A inteligência artificial externa teve uma oscilação momentânea de conexão nos servidores do Google. Tente novamente em instantes ou utilize as opções abaixo!",
+    );
   }
 
-  let json: any;
+  let json: {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      prompt_tokens?: number;
+      completion_tokens?: number;
+    };
+  };
   try {
     json = await res.json();
   } catch (parseError) {
-    // 🔧 Mesmo cenário do OpenAI: corpo inválido vira SyntaxError genérico.
     console.error("[AI] Gemini retornou corpo não-JSON:", parseError);
     throw new AiServiceError(
       "api-error",
@@ -540,7 +610,7 @@ export async function callGemini(
 
   const result = parseSuggestions(text);
 
-  // Log de observabilidade
+  // Log de observabilidade com o modelo que realmente teve sucesso
   const promptTokens = json.usageMetadata?.promptTokenCount ?? json.usageMetadata?.prompt_tokens;
   const completionTokens =
     json.usageMetadata?.candidatesTokenCount ?? json.usageMetadata?.completion_tokens;
@@ -548,7 +618,7 @@ export async function callGemini(
   aiLogger.log(
     aiLogger.createLog({
       provider: "gemini",
-      model: config.geminiModel,
+      model: successfulModel,
       startTime,
       messageLength: messages.reduce((s, m) => s + m.content.length, 0),
       responseLength: result.text.length,

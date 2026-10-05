@@ -10,11 +10,41 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog";
 import {
-  Users, CalendarDays, Wallet, TrendingUp, CheckCircle2, Clock, Cake,
-  AlertTriangle, Target, ArrowUp, ArrowDown, RotateCcw,
+  Users,
+  CalendarDays,
+  Wallet,
+  TrendingUp,
+  CheckCircle2,
+  Clock,
+  Cake,
+  AlertTriangle,
+  Target,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
 } from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell } from "recharts";
-import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays, subMonths, differenceInDays } from "date-fns";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  BarChart,
+  Bar,
+  Cell,
+} from "recharts";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfDay,
+  endOfDay,
+  subDays,
+  subMonths,
+  differenceInDays,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -37,10 +67,17 @@ function SmartAssistant() {
     queryKey: ["dashboard-smart-assistant"],
     queryFn: async () => {
       const [agendamentosR, clientesR, produtosR, metasR, servicosR] = await Promise.all([
-        supabase.from("agendamentos").select("id, data_hora, valor, custo, status, servico_id, cliente_id, clientes(nome)").order("data_hora", { ascending: true }),
+        supabase
+          .from("agendamentos")
+          .select("id, data_hora, valor, custo, status, servico_id, cliente_id, clientes(nome)")
+          .order("data_hora", { ascending: true }),
         supabase.from("clientes").select("id, nome, data_nascimento"),
         supabase.from("produtos").select("id, nome, quantidade, quantidade_minima"),
-        supabase.from("metas_mensais").select("*").eq("mes_ano", format(now, "yyyy-MM")).maybeSingle(),
+        supabase
+          .from("metas_mensais")
+          .select("*")
+          .eq("mes_ano", format(now, "yyyy-MM"))
+          .maybeSingle(),
         supabase.from("servicos").select("id, nome"),
       ]);
       return {
@@ -90,7 +127,8 @@ function SmartAssistant() {
   const faturamentoPrev = conclPrev.reduce((s, a) => s + Number(a.valor), 0);
 
   // Growth
-  const growth = faturamentoPrev > 0 ? ((faturamentoMes - faturamentoPrev) / faturamentoPrev) * 100 : 0;
+  const growth =
+    faturamentoPrev > 0 ? ((faturamentoMes - faturamentoPrev) / faturamentoPrev) * 100 : 0;
 
   // Meta remaining
   const metaVal = Number(meta?.faturamento_alvo ?? 0);
@@ -143,7 +181,7 @@ function SmartAssistant() {
           <p className="text-2xl font-bold text-card-foreground">{hojeAgs.length}</p>
           {proximos.length > 0 && (
             <div className="mt-2 space-y-1">
-              {proximos.slice(0, 2).map((a: any) => (
+              {proximos.slice(0, 2).map((a) => (
                 <p key={a.id} className="text-[10px] text-muted-foreground truncate">
                   {format(new Date(a.data_hora), "HH:mm")} — {a.clientes?.nome ?? "Atendimento"}
                 </p>
@@ -159,10 +197,17 @@ function SmartAssistant() {
             Crescimento vs mês anterior
           </div>
           <div className="flex items-center gap-2">
-            <p className={`text-2xl font-bold ${growth >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-              {growth >= 0 ? "+" : ""}{growth.toFixed(1)}%
+            <p
+              className={`text-2xl font-bold ${growth >= 0 ? "text-emerald-500" : "text-red-500"}`}
+            >
+              {growth >= 0 ? "+" : ""}
+              {growth.toFixed(1)}%
             </p>
-            {growth >= 0 ? <ArrowUp className="size-5 text-emerald-500" /> : <ArrowDown className="size-5 text-red-500" />}
+            {growth >= 0 ? (
+              <ArrowUp className="size-5 text-emerald-500" />
+            ) : (
+              <ArrowDown className="size-5 text-red-500" />
+            )}
           </div>
           <p className="text-[10px] text-muted-foreground mt-1">
             Faturamento: {brl(faturamentoMes)} este mês
@@ -202,9 +247,11 @@ function SmartAssistant() {
               <AlertTriangle className="size-3.5 text-red-500" />
               Estoque crítico
             </div>
-            <p className="text-2xl font-bold text-red-500">{estoqueBaixo.length} produto{estoqueBaixo.length > 1 ? "s" : ""}</p>
+            <p className="text-2xl font-bold text-red-500">
+              {estoqueBaixo.length} produto{estoqueBaixo.length > 1 ? "s" : ""}
+            </p>
             <div className="mt-2 space-y-1">
-              {estoqueBaixo.slice(0, 3).map((p: any) => (
+              {estoqueBaixo.slice(0, 3).map((p) => (
                 <p key={p.id} className="text-[10px] text-muted-foreground truncate">
                   {p.nome} — {p.quantidade} un
                 </p>
@@ -226,7 +273,9 @@ function SmartAssistant() {
                   <span className="text-card-foreground font-medium truncate mr-2">
                     {i + 1}. {s.nome}
                   </span>
-                  <Badge variant="secondary" className="text-[10px] shrink-0">{s.count}x</Badge>
+                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                    {s.count}x
+                  </Badge>
                 </div>
               ))}
             </div>
@@ -242,7 +291,7 @@ function SmartAssistant() {
             </div>
             <p className="text-2xl font-bold text-card-foreground">{aniversariantes.length}</p>
             <div className="mt-2 space-y-1">
-              {aniversariantes.slice(0, 3).map((c: any) => (
+              {aniversariantes.slice(0, 3).map((c) => (
                 <p key={c.id} className="text-[10px] text-muted-foreground truncate">
                   🎂 {c.nome}
                 </p>
@@ -264,7 +313,11 @@ function ReturnReminder() {
     queryFn: async () => {
       const [clientesR, agendamentosR, servicosR] = await Promise.all([
         supabase.from("clientes").select("id, nome, telefone"),
-        supabase.from("agendamentos").select("id, cliente_id, servico_id, data_hora, status").eq("status", "concluido").order("data_hora", { ascending: false }),
+        supabase
+          .from("agendamentos")
+          .select("id, cliente_id, servico_id, data_hora, status")
+          .eq("status", "concluido")
+          .order("data_hora", { ascending: false }),
         supabase.from("servicos").select("id, nome, intervalo_recomendado, dias_manutencao"),
       ]);
       return {
@@ -282,13 +335,22 @@ function ReturnReminder() {
   const servicos = data.servicos;
 
   // Group: for each client, find their last concluded appointment per service
-  const clientReturnMap: Record<string, { cliente: any; servico: any; ultimaData: Date; diasPassados: number; status: "atrasado" | "proximo" | "ok" }> = {};
+  const clientReturnMap: Record<
+    string,
+    {
+      cliente: (typeof clientes)[number];
+      servico: (typeof servicos)[number];
+      ultimaData: Date;
+      diasPassados: number;
+      status: "atrasado" | "proximo" | "ok";
+    }
+  > = {};
 
   agendamentos.forEach((a) => {
     if (!a.cliente_id || !a.servico_id) return;
     const key = `${a.cliente_id}-${a.servico_id}`;
     if (clientReturnMap[key]) return; // first one is the most recent (ordered desc)
-    
+
     const servico = servicos.find((s) => s.id === a.servico_id);
     if (!servico) return;
 
@@ -303,7 +365,7 @@ function ReturnReminder() {
     let status: "atrasado" | "proximo" | "ok" = "ok";
     if (diasPassados > intervalo) {
       status = "atrasado";
-    } else if (diasPassados >= (intervalo - manutencao)) {
+    } else if (diasPassados >= intervalo - manutencao) {
       status = "proximo";
     }
 
@@ -312,8 +374,8 @@ function ReturnReminder() {
     }
   });
 
-  const atrasados = Object.values(clientReturnMap).filter(r => r.status === "atrasado");
-  const proximos = Object.values(clientReturnMap).filter(r => r.status === "proximo");
+  const atrasados = Object.values(clientReturnMap).filter((r) => r.status === "atrasado");
+  const proximos = Object.values(clientReturnMap).filter((r) => r.status === "proximo");
 
   if (atrasados.length === 0 && proximos.length === 0) return null;
 
@@ -334,16 +396,28 @@ function ReturnReminder() {
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <AlertTriangle className="size-3.5 text-red-500" />
-              <span className="text-xs font-medium text-red-500">Atrasados ({atrasados.length})</span>
+              <span className="text-xs font-medium text-red-500">
+                Atrasados ({atrasados.length})
+              </span>
             </div>
             <div className="space-y-1.5">
               {atrasados.slice(0, 5).map((r, i) => (
-                <div key={i} className="flex items-center justify-between bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2">
+                <div
+                  key={i}
+                  className="flex items-center justify-between bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2"
+                >
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-card-foreground truncate">{r.cliente.nome}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{r.servico.nome} • {r.diasPassados}d atrás</p>
+                    <p className="text-xs font-medium text-card-foreground truncate">
+                      {r.cliente.nome}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {r.servico.nome} • {r.diasPassados}d atrás
+                    </p>
                   </div>
-                  <Badge variant="outline" className="text-[10px] text-red-500 border-red-500/20 bg-red-500/10 shrink-0 ml-2">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] text-red-500 border-red-500/20 bg-red-500/10 shrink-0 ml-2"
+                  >
                     +{r.diasPassados - Number(r.servico.intervalo_recomendado)}d
                   </Badge>
                 </div>
@@ -356,16 +430,28 @@ function ReturnReminder() {
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <Clock className="size-3.5 text-amber-500" />
-              <span className="text-xs font-medium text-amber-500">Próximos ({proximos.length})</span>
+              <span className="text-xs font-medium text-amber-500">
+                Próximos ({proximos.length})
+              </span>
             </div>
             <div className="space-y-1.5">
               {proximos.slice(0, 5).map((r, i) => (
-                <div key={i} className="flex items-center justify-between bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-2">
+                <div
+                  key={i}
+                  className="flex items-center justify-between bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-2"
+                >
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-card-foreground truncate">{r.cliente.nome}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{r.servico.nome} • {r.diasPassados}d atrás</p>
+                    <p className="text-xs font-medium text-card-foreground truncate">
+                      {r.cliente.nome}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {r.servico.nome} • {r.diasPassados}d atrás
+                    </p>
                   </div>
-                  <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/20 bg-amber-500/10 shrink-0 ml-2">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] text-amber-500 border-amber-500/20 bg-amber-500/10 shrink-0 ml-2"
+                  >
                     em {Number(r.servico.intervalo_recomendado) - r.diasPassados}d
                   </Badge>
                 </div>
@@ -383,7 +469,8 @@ function Dashboard() {
   usePageTitle("Menu Geral — Manicure Fácil");
 
   const { user } = useAuth();
-  const nome = user?.user_metadata?.nome || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+  const nome =
+    user?.user_metadata?.nome || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
 
   // Determine greeting based on time of day
   const hour = new Date().getHours();
@@ -405,7 +492,10 @@ function Dashboard() {
     queryFn: async () => {
       const [clientes, agendamentos] = await Promise.all([
         supabase.from("clientes").select("id, nome, data_nascimento"),
-        supabase.from("agendamentos").select("id, data_hora, valor, custo, status").order("data_hora", { ascending: false }),
+        supabase
+          .from("agendamentos")
+          .select("id, data_hora, valor, custo, status")
+          .order("data_hora", { ascending: false }),
       ]);
       if (clientes.error) throw clientes.error;
       if (agendamentos.error) throw agendamentos.error;
@@ -418,7 +508,9 @@ function Dashboard() {
       <>
         <PageHeader title="Menu Geral" subtitle="Visão geral do seu negócio" />
         <div className="grid md:grid-cols-4 gap-4">
-          {[1,2,3,4].map((i) => <Skeleton key={i} className="h-32 rounded-2xl bg-muted" />)}
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32 rounded-2xl bg-muted" />
+          ))}
         </div>
       </>
     );
@@ -432,24 +524,42 @@ function Dashboard() {
   const dayStart = startOfDay(now);
   const dayEnd = endOfDay(now);
 
-  const concl = ags.filter(a => a.status === "concluido");
-  const pend = ags.filter(a => a.status === "agendado" || a.status === "confirmado");
+  const concl = ags.filter((a) => a.status === "concluido");
+  const pend = ags.filter((a) => a.status === "agendado" || a.status === "confirmado");
 
   const faturamento = concl.reduce((s, a) => s + Number(a.valor), 0);
   const lucroTotal = concl.reduce((s, a) => s + (Number(a.valor) - Number(a.custo)), 0);
-  const lucroMes = concl.filter(a => { const d = new Date(a.data_hora); return d >= monthStart && d <= monthEnd; }).reduce((s, a) => s + (Number(a.valor) - Number(a.custo)), 0);
-  const lucroDia = concl.filter(a => { const d = new Date(a.data_hora); return d >= dayStart && d <= dayEnd; }).reduce((s, a) => s + (Number(a.valor) - Number(a.custo)), 0);
+  const lucroMes = concl
+    .filter((a) => {
+      const d = new Date(a.data_hora);
+      return d >= monthStart && d <= monthEnd;
+    })
+    .reduce((s, a) => s + (Number(a.valor) - Number(a.custo)), 0);
+  const lucroDia = concl
+    .filter((a) => {
+      const d = new Date(a.data_hora);
+      return d >= dayStart && d <= dayEnd;
+    })
+    .reduce((s, a) => s + (Number(a.valor) - Number(a.custo)), 0);
 
   // last 14 days chart
   const days = Array.from({ length: 14 }, (_, i) => subDays(now, 13 - i));
   const chartData = days.map((d) => {
-    const dStart = startOfDay(d), dEnd = endOfDay(d);
-    const fat = ags.filter(a => a.status === "concluido" && new Date(a.data_hora) >= dStart && new Date(a.data_hora) <= dEnd).reduce((s, a) => s + Number(a.valor), 0);
+    const dStart = startOfDay(d),
+      dEnd = endOfDay(d);
+    const fat = ags
+      .filter(
+        (a) =>
+          a.status === "concluido" &&
+          new Date(a.data_hora) >= dStart &&
+          new Date(a.data_hora) <= dEnd,
+      )
+      .reduce((s, a) => s + Number(a.valor), 0);
     return { dia: format(d, "dd/MM"), faturamento: Number(fat.toFixed(2)) };
   });
 
   // birthdays this month (compare only month, ignore year)
-  const aniversariantes = clientes.filter(c => {
+  const aniversariantes = clientes.filter((c) => {
     if (!c.data_nascimento) return false;
     const birth = new Date(c.data_nascimento + "T00:00:00");
     return !isNaN(birth.getTime()) && birth.getMonth() === now.getMonth();
@@ -469,7 +579,10 @@ function Dashboard() {
   return (
     <>
       <OnboardingDialog />
-      <PageHeader title="Menu Geral" subtitle={format(now, "EEEE, dd 'de' MMMM", { locale: ptBR })} />
+      <PageHeader
+        title="Menu Geral"
+        subtitle={format(now, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+      />
 
       {/* Welcome greeting */}
       {nome && (
@@ -484,11 +597,10 @@ function Dashboard() {
           {(pend.length > 0 || aniversariantes.length > 0) && (
             <p className="text-sm text-muted-foreground/70 mt-3">
               {pend.length > 0 && aniversariantes.length > 0
-                ? `Você possui ${pend.length} agendamento${pend.length > 1 ? 's' : ''} pendente${pend.length > 1 ? 's' : ''} e ${aniversariantes.length} aniversariante${aniversariantes.length > 1 ? 's' : ''} neste mês.`
+                ? `Você possui ${pend.length} agendamento${pend.length > 1 ? "s" : ""} pendente${pend.length > 1 ? "s" : ""} e ${aniversariantes.length} aniversariante${aniversariantes.length > 1 ? "s" : ""} neste mês.`
                 : pend.length > 0
-                  ? `Você possui ${pend.length} agendamento${pend.length > 1 ? 's' : ''} pendente${pend.length > 1 ? 's' : ''}.`
-                  : `Você possui ${aniversariantes.length} aniversariante${aniversariantes.length > 1 ? 's' : ''} neste mês.`
-              }
+                  ? `Você possui ${pend.length} agendamento${pend.length > 1 ? "s" : ""} pendente${pend.length > 1 ? "s" : ""}.`
+                  : `Você possui ${aniversariantes.length} aniversariante${aniversariantes.length > 1 ? "s" : ""} neste mês.`}
             </p>
           )}
         </div>
@@ -502,10 +614,17 @@ function Dashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map((s) => (
-          <Card key={s.label} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300 relative">
+          <Card
+            key={s.label}
+            className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300 relative"
+          >
             <div className="space-y-3">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{s.label}</p>
-              <p className="text-xl sm:text-[28px] font-semibold tracking-tight text-card-foreground break-words">{s.value}</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+                {s.label}
+              </p>
+              <p className="text-xl sm:text-[28px] font-semibold tracking-tight text-card-foreground break-words">
+                {s.value}
+              </p>
             </div>
             <div className="absolute top-4 right-4 size-10 rounded-xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center group-hover:bg-[#D946EF]/20 transition-all duration-300">
               <s.icon className="size-[18px] text-[#D946EF]" />
@@ -516,7 +635,9 @@ function Dashboard() {
 
       <div className="grid md:grid-cols-3 gap-6 mt-8">
         <Card className="bg-card border border-border p-6 rounded-[20px] md:col-span-2 shadow-card">
-          <h3 className="text-base font-semibold text-card-foreground mb-6">Faturamento — últimos 14 dias</h3>
+          <h3 className="text-base font-semibold text-card-foreground mb-6">
+            Faturamento — últimos 14 dias
+          </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
@@ -527,24 +648,33 @@ function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="dia" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <Tooltip 
-                  contentStyle={{ 
-                    background: "var(--card)", 
-                    border: "1px solid var(--border)", 
+                <XAxis
+                  dataKey="dia"
+                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
                     borderRadius: 16,
                     boxShadow: "var(--shadow-card)",
-                    padding: "12px 16px"
-                  }} 
-                  formatter={(v) => brl(Number(v))} 
+                    padding: "12px 16px",
+                  }}
+                  formatter={(v) => brl(Number(v))}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="faturamento" 
-                  stroke="#D946EF" 
-                  strokeWidth={2} 
-                  fill="url(#g1)" 
+                <Area
+                  type="monotone"
+                  dataKey="faturamento"
+                  stroke="#D946EF"
+                  strokeWidth={2}
+                  fill="url(#g1)"
                   dot={false}
                   activeDot={{ r: 4, fill: "#D946EF", strokeWidth: 2, stroke: "var(--card)" }}
                 />
@@ -555,13 +685,20 @@ function Dashboard() {
 
         <Card className="bg-card border border-border p-6 rounded-[20px] shadow-card">
           <h3 className="text-base font-semibold text-card-foreground mb-2">Aniversariantes</h3>
-          <p className="text-xs text-muted-foreground mb-4">Clientes que fazem aniversário neste mês</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Clientes que fazem aniversário neste mês
+          </p>
           {aniversariantes.length === 0 ? (
-            <p className="text-sm text-[#A1A1AA] py-8 text-center">Nenhum aniversariante este mês</p>
+            <p className="text-sm text-[#A1A1AA] py-8 text-center">
+              Nenhum aniversariante este mês
+            </p>
           ) : (
             <ul className="space-y-2">
-              {aniversariantes.map(c => (
-                <li key={c.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted border border-border">
+              {aniversariantes.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-muted border border-border"
+                >
                   <span className="text-sm font-medium text-card-foreground">{c.nome}</span>
                   <span className="text-xs text-muted-foreground bg-card px-2.5 py-1 rounded-lg">
                     🎂 {format(new Date(c.data_nascimento! + "T00:00:00"), "dd/MM")}
@@ -574,26 +711,39 @@ function Dashboard() {
       </div>
 
       <Card className="bg-card border border-border p-6 rounded-[20px] mt-8 shadow-card">
-        <h3 className="text-base font-semibold text-card-foreground mb-6">Status de agendamentos</h3>
+        <h3 className="text-base font-semibold text-card-foreground mb-6">
+          Status de agendamentos
+        </h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={[
-              { s: "Agendado", n: ags.filter(a => a.status === "agendado").length },
-              { s: "Confirmado", n: ags.filter(a => a.status === "confirmado").length },
-              { s: "Concluído", n: ags.filter(a => a.status === "concluido").length },
-              { s: "Cancelado", n: ags.filter(a => a.status === "cancelado").length },
-            ]}>
+            <BarChart
+              data={[
+                { s: "Agendado", n: ags.filter((a) => a.status === "agendado").length },
+                { s: "Confirmado", n: ags.filter((a) => a.status === "confirmado").length },
+                { s: "Concluído", n: ags.filter((a) => a.status === "concluido").length },
+                { s: "Cancelado", n: ags.filter((a) => a.status === "cancelado").length },
+              ]}
+            >
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="s" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-              <Tooltip 
-                contentStyle={{ 
-                  background: "var(--card)", 
-                  border: "1px solid var(--border)", 
+              <XAxis
+                dataKey="s"
+                tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
                   borderRadius: 16,
                   boxShadow: "var(--shadow-card)",
-                  padding: "12px 16px"
-                }} 
+                  padding: "12px 16px",
+                }}
               />
               <Bar dataKey="n" radius={[8, 8, 0, 0]} maxBarSize={50}>
                 {["#D946EF", "#A855F7", "#22C55E", "#EF4444"].map((color, i) => (

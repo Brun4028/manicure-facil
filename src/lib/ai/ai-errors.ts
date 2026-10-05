@@ -32,20 +32,16 @@ export function mensagemAmigavel(code: AiErrorCode): string {
       "😔 Não foi possível conectar ao assistente. Verifique sua conexão com a internet e tente novamente.",
     timeout:
       "⏰ O assistente demorou muito para responder. Pode ser um momento de instabilidade — tente novamente em alguns segundos.",
-    "rate-limit":
-      "🔄 Você já fez muitas perguntas seguidas! Aguarde um momento e tente novamente.",
+    "rate-limit": "🔄 Você já fez muitas perguntas seguidas! Aguarde um momento e tente novamente.",
     "api-error":
-      "🤖 O assistente está temporariamente indisponível. Já estou avisando a equipe técnica! Tente novamente mais tarde.",
+      "✨ Tivemos uma oscilação temporária na conexão com os servidores da IA. Mas continuo aqui com você! Tente reenviar sua pergunta ou use as opções abaixo.",
     "server-error":
-      "🔧 Serviço temporariamente indisponível. Tente novamente em instantes.",
-    validation:
-      "🤔 Não consegui processar sua pergunta. Tente reformulá-la de outra forma.",
+      "💅 Nosso serviço de IA está passando por uma breve oscilação momentânea. Tente novamente em instantes!",
+    validation: "🤔 Não consegui processar sua pergunta. Tente reformulá-la de outra forma.",
     "content-filter":
       "🚫 Sua pergunta foi bloqueada pelos filtros de segurança. Reformule de outra forma.",
-    unauthorized:
-      "🔒 Sua sessão expirou. Faça login novamente para usar o assistente.",
-    unknown:
-      "😅 Algo inesperado aconteceu. Por favor, tente novamente ou reformule sua pergunta.",
+    unauthorized: "🔒 Sua sessão expirou. Faça login novamente para usar o assistente.",
+    unknown: "😅 Algo inesperado aconteceu. Por favor, tente novamente ou reformule sua pergunta.",
   };
   return messages[code];
 }
@@ -105,10 +101,7 @@ export function normalizeErrorToAiError(error: unknown): AiServiceError {
     }
   }
 
-  const msg =
-    typeof error === "string"
-      ? error
-      : JSON.stringify(error) ?? String(error);
+  const msg = typeof error === "string" ? error : (JSON.stringify(error) ?? String(error));
   return new AiServiceError("unknown", msg);
 }
 
@@ -123,11 +116,7 @@ function mapSerializedMessage(message: string): AiServiceError {
     message.includes("authorization header") ||
     message.includes("Invalid token")
   ) {
-    return new AiServiceError(
-      "unauthorized",
-      message,
-      mensagemAmigavel("unauthorized"),
-    );
+    return new AiServiceError("unauthorized", message, mensagemAmigavel("unauthorized"));
   }
 
   // Falta de variáveis de ambiente do Supabase no servidor

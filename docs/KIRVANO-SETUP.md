@@ -11,13 +11,14 @@ integrada** — toda a estrutura já está pronta para recebê-la.
 Cada conta possui um **status** que é validado em **3 camadas** (defesa em
 profundidade — nunca depende só do frontend):
 
-| Camada | Onde | O que faz |
-|---|---|---|
-| 1. Banco (RLS) | `verificar_acesso()` em **todas** as políticas `own_*` | Conta com status ≠ `ativo` (ou expirada) deixa de **enxergar e modificar** qualquer dado no mesmo instante, mesmo com sessão aberta |
-| 2. Servidor (middleware) | `requireSupabaseAuth` (server functions) | Qualquer server function rejeita JWT de conta não ativa |
-| 3. Frontend | Login + guard de rotas `/` autenticadas | Bloqueado/inativa: mensagem amigável + logout automático |
+| Camada                   | Onde                                                   | O que faz                                                                                                                           |
+| ------------------------ | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Banco (RLS)           | `verificar_acesso()` em **todas** as políticas `own_*` | Conta com status ≠ `ativo` (ou expirada) deixa de **enxergar e modificar** qualquer dado no mesmo instante, mesmo com sessão aberta |
+| 2. Servidor (middleware) | `requireSupabaseAuth` (server functions)               | Qualquer server function rejeita JWT de conta não ativa                                                                             |
+| 3. Frontend              | Login + guard de rotas `/` autenticadas                | Bloqueado/inativa: mensagem amigável + logout automático                                                                            |
 
 ### Status possíveis
+
 - `ativo` — acesso completo
 - `inativo` — conta criada (convidada) mas ainda não liberada
 - `bloqueado` — acesso cortado por administração (motivo opcional)
@@ -44,7 +45,7 @@ SELECT public.definir_admin('seu-email@exemplo.com');
 > ao painel Admin (não precisa de SQL).
 
 4. Opcional — garantir que **"Confirm email"** esteja habilitado em
-   *Authentication → Providers → Email* (necessário para o e-mail de convite).
+   _Authentication → Providers → Email_ (necessário para o e-mail de convite).
 
 ---
 
@@ -78,6 +79,7 @@ O fluxo que será ativado quando a Kirvano for integrada:
 ```
 
 ### Passos quando for integrar
+
 1. Criar a endpoint de webhook (server function `createServerFn` ou route
    `POST /api/kirvano/webhook`):
    - Validar a assinatura do payload com o **token secreto** da Kirvano.
@@ -97,6 +99,7 @@ O fluxo que será ativado quando a Kirvano for integrada:
    ```
 
 ### Segurança do webhook
+
 - Nunca confie no `user_id` enviado pelo cliente — o webhook recebe o e-mail
   e a transação da Kirvano (assinada) e resolve a conta no servidor.
 - Use a coluna `kirvano_transacao_id` como chave idempotente (evita duplicar

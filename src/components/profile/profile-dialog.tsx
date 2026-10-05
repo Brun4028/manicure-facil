@@ -24,10 +24,7 @@ export function ProfileDialog({
 }) {
   const { user } = useAuth();
   const currentName =
-    user?.user_metadata?.nome ||
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    "";
+    user?.user_metadata?.nome || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
   const [nome, setNome] = useState(currentName);
   const [saving, setSaving] = useState(false);
 
@@ -67,9 +64,7 @@ export function ProfileDialog({
               <User className="size-5 text-white" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-semibold">
-                Meu Perfil
-              </DialogTitle>
+              <DialogTitle className="text-xl font-semibold">Meu Perfil</DialogTitle>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Personalize seu nome de exibição
               </p>
@@ -108,8 +103,7 @@ export function ProfileDialog({
           <div className="flex items-center gap-2 rounded-xl bg-[#D946EF]/5 border border-[#D946EF]/10 p-3">
             <Sparkles className="size-4 text-[#D946EF] shrink-0" />
             <p className="text-xs text-muted-foreground">
-              A mensagem de boas-vindas no Menu Geral será atualizada
-              automaticamente.
+              A mensagem de boas-vindas no Menu Geral será atualizada automaticamente.
             </p>
           </div>
 

@@ -14,17 +14,26 @@ import type { Components } from "react-markdown";
 const components: Components = {
   // Headings
   h1: ({ children, ...props }) => (
-    <h1 className="text-[15px] font-bold text-card-foreground mt-4 mb-2 first:mt-0 leading-snug" {...props}>
+    <h1
+      className="text-[15px] font-bold text-card-foreground mt-4 mb-2 first:mt-0 leading-snug"
+      {...props}
+    >
       {children}
     </h1>
   ),
   h2: ({ children, ...props }) => (
-    <h2 className="text-sm font-semibold text-card-foreground mt-3 mb-2 first:mt-0 leading-snug" {...props}>
+    <h2
+      className="text-sm font-semibold text-card-foreground mt-3 mb-2 first:mt-0 leading-snug"
+      {...props}
+    >
       {children}
     </h2>
   ),
   h3: ({ children, ...props }) => (
-    <h3 className="text-[13px] font-semibold text-card-foreground mt-3 mb-1.5 first:mt-0 leading-snug" {...props}>
+    <h3
+      className="text-[13px] font-semibold text-card-foreground mt-3 mb-1.5 first:mt-0 leading-snug"
+      {...props}
+    >
       {children}
     </h3>
   ),
@@ -89,7 +98,10 @@ const components: Components = {
     </tr>
   ),
   th: ({ children, ...props }) => (
-    <th className="px-3 py-2 text-left font-semibold text-card-foreground border-b border-border" {...props}>
+    <th
+      className="px-3 py-2 text-left font-semibold text-card-foreground border-b border-border"
+      {...props}
+    >
       {children}
     </th>
   ),
@@ -123,9 +135,7 @@ const components: Components = {
   pre: ({ children }) => <>{children}</>,
 
   // Horizontal rule
-  hr: (props) => (
-    <hr className="my-4 border-border" {...props} />
-  ),
+  hr: (props) => <hr className="my-4 border-border" {...props} />,
 
   // Blockquote
   blockquote: ({ children, ...props }) => (

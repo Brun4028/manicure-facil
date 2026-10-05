@@ -14,7 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  CalendarDays, Scissors, User, CheckCircle2, Star, Heart, Cake, ChevronLeft
+  CalendarDays,
+  Scissors,
+  User,
+  CheckCircle2,
+  Star,
+  Heart,
+  Cake,
+  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
@@ -28,9 +35,16 @@ export const Route = createFileRoute("/agendar/$userId")({
 
 type Serv = { id: string; nome: string; valor: number; duracao_min: number };
 type Photo = { id: string; titulo: string; imagem_url: string; tags: string[] | null };
-type Review = { id: string; cliente_nome: string; nota: number; comentario: string | null; data: string };
+type Review = {
+  id: string;
+  cliente_nome: string;
+  nota: number;
+  comentario: string | null;
+  data: string;
+};
 
-const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const brl = (n: number) =>
+  Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function PublicAgendamentoPage() {
   const params = Route.useParams() as { userId: string };
@@ -75,13 +89,15 @@ function PublicAgendamentoPage() {
       : "Perfil indisponível no momento."
     : null;
   const services: Serv[] = data?.servicos ?? [];
-  const bookings: { data_hora: string; duracao_min: number; status: string }[] = data?.agendamentos ?? [];
+  const bookings: { data_hora: string; duracao_min: number; status: string }[] =
+    data?.agendamentos ?? [];
   const loyaltyConfig = data?.fidelidade ?? null;
   const portfolio: Photo[] = data?.portfolio ?? [];
   const reviews: Review[] = data?.avaliacoes ?? [];
   const perfil = data?.perfil;
   // 🔧 NOVO: expediente e bloqueios da manicure (vindos da server function)
-  const horarios: { dia_semana: number; hora_inicio: string; hora_fim: string }[] = data?.horarios ?? [];
+  const horarios: { dia_semana: number; hora_inicio: string; hora_fim: string }[] =
+    data?.horarios ?? [];
   const bloqueios: {
     data_inicio: string;
     data_fim: string | null;
@@ -97,10 +113,7 @@ function PublicAgendamentoPage() {
   // 🔧 NOVO: helpers de expediente/bloqueio — espelham a validação do banco
   // (agendar_servico) para que a página NÃO ofereça horários que seriam
   // rejeitados no envio.
-  const diasComExpediente = useMemo(
-    () => new Set(horarios.map((h) => h.dia_semana)),
-    [horarios],
-  );
+  const diasComExpediente = useMemo(() => new Set(horarios.map((h) => h.dia_semana)), [horarios]);
 
   const slotBloqueado = useCallback(
     (date: Date, horaInicio: string, duracaoMin: number): boolean => {
@@ -144,10 +157,7 @@ function PublicAgendamentoPage() {
         return `${String(fim.getHours()).padStart(2, "0")}:${String(fim.getMinutes()).padStart(2, "0")}`;
       })();
       return horarios.some(
-        (h) =>
-          h.dia_semana === dow &&
-          horaInicio >= h.hora_inicio &&
-          slotFim <= h.hora_fim,
+        (h) => h.dia_semana === dow && horaInicio >= h.hora_inicio && slotFim <= h.hora_fim,
       );
     },
     [horarios],
@@ -169,7 +179,7 @@ function PublicAgendamentoPage() {
   // Time Slot generator & overlap checker
   const timeSlots = useMemo(() => {
     if (!selectedService) return [];
-    
+
     // Janela padrão de horários (08:00–18:00 a cada 30 min). A disponibilidade
     // real é filtrada pelo expediente da manicure (horarios_trabalho) e pelos
     // bloqueios — espelhando a validação do banco.
@@ -187,24 +197,28 @@ function PublicAgendamentoPage() {
     }
 
     // Filter slots based on overlaps
-    return slots.map(time => {
+    return slots.map((time) => {
       // Slot start & end time
       const slotDate = new Date(selectedDate);
       const [h, m] = time.split(":").map(Number);
       slotDate.setHours(h, m, 0, 0);
       const slotStart = slotDate.getTime();
-      const slotEnd = slotStart + (selectedService.duracao_min * 60 * 1000);
+      const slotEnd = slotStart + selectedService.duracao_min * 60 * 1000;
 
       // Check overlap
       const isBooked = bookings.some((b) => {
         if (b.status === "cancelado") return false;
         const bStart = new Date(b.data_hora).getTime();
-        const bEnd = bStart + (b.duracao_min * 60 * 1000);
+        const bEnd = bStart + b.duracao_min * 60 * 1000;
         return slotStart < bEnd && bStart < slotEnd;
       });
 
       // 🔧 NOVO: fora do expediente ou bloqueado → indisponível
-      const foraDoExpediente = !slotDentroDoExpediente(selectedDate, time, selectedService.duracao_min);
+      const foraDoExpediente = !slotDentroDoExpediente(
+        selectedDate,
+        time,
+        selectedService.duracao_min,
+      );
       const bloqueado = slotBloqueado(selectedDate, time, selectedService.duracao_min);
 
       // Also prevent booking past hours if selected date is today
@@ -212,14 +226,15 @@ function PublicAgendamentoPage() {
 
       return {
         time,
-        available: !isBooked && !isPast && !foraDoExpediente && !bloqueado
+        available: !isBooked && !isPast && !foraDoExpediente && !bloqueado,
       };
     });
   }, [selectedService, selectedDate, bookings, slotDentroDoExpediente, slotBloqueado]);
 
   // Birthday discount checker (compare only month, ignore year)
   const birthdayDiscount = useMemo(() => {
-    if (!clientForm.data_nascimento || !loyaltyConfig || !loyaltyConfig.niver_promo_ativa) return null;
+    if (!clientForm.data_nascimento || !loyaltyConfig || !loyaltyConfig.niver_promo_ativa)
+      return null;
     try {
       const birthDate = new Date(`${clientForm.data_nascimento}T00:00:00`);
       if (isNaN(birthDate.getTime())) return null;
@@ -251,7 +266,8 @@ function PublicAgendamentoPage() {
   const bookingMut = useMutation({
     mutationFn: async () => {
       if (!selectedService || !selectedTime) throw new Error("Serviço e horário inválidos");
-      if (!clientForm.nome.trim() || !clientForm.telefone.trim()) throw new Error("Preencha seu nome e telefone");
+      if (!clientForm.nome.trim() || !clientForm.telefone.trim())
+        throw new Error("Preencha seu nome e telefone");
 
       // Format ISO Date Time
       const appointmentDate = new Date(selectedDate);
@@ -310,41 +326,59 @@ function PublicAgendamentoPage() {
             <img src={logoIconWhite} alt="Logo" className="size-5 object-contain" />
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-xl leading-none truncate">{erroPublico ? "Perfil indisponível" : perfil?.nome || "Carregando..."}</h1>
-            <p className="text-[10px] text-muted-foreground mt-1 truncate">Agendamento Online Premium</p>
+            <h1 className="font-display text-xl leading-none truncate">
+              {erroPublico ? "Perfil indisponível" : perfil?.nome || "Carregando..."}
+            </h1>
+            <p className="text-[10px] text-muted-foreground mt-1 truncate">
+              Agendamento Online Premium
+            </p>
           </div>
         </div>
 
-        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => {
-          if (step > 1 && step < 4) setStep(step - 1);
-        }} disabled={step === 1 || step === 4}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0"
+          onClick={() => {
+            if (step > 1 && step < 4) setStep(step - 1);
+          }}
+          disabled={step === 1 || step === 4}
+        >
           <ChevronLeft className="size-4 mr-1" /> Voltar
         </Button>
       </header>
 
       {/* Main Container */}
       <main className="max-w-4xl w-full mx-auto py-8 flex-1 grid md:grid-cols-3 gap-8">
-        
         {/* LEFT COLUMN: BOOKING STEPS */}
         <div className="md:col-span-2 space-y-6">
-          
           {/* STEP 1: SELECT SERVICE */}
           {step === 1 && (
             <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-3xl p-5 md:p-6 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
-              <h2 className="font-display text-2xl flex items-center gap-2"><Scissors className="size-5 text-purple-500" /> Escolha o Serviço</h2>
-              <p className="text-xs text-muted-foreground">Selecione o procedimento desejado para continuar</p>
+              <h2 className="font-display text-2xl flex items-center gap-2">
+                <Scissors className="size-5 text-purple-500" /> Escolha o Serviço
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Selecione o procedimento desejado para continuar
+              </p>
 
               {publicoQuery.isLoading ? (
                 <div className="space-y-2">
-                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 rounded-xl" />
+                  ))}
                 </div>
               ) : erroPublico ? (
-                <p className="text-sm text-center py-6 text-muted-foreground">{mensagemErroAmigavel(erroPublico)}</p>
+                <p className="text-sm text-center py-6 text-muted-foreground">
+                  {mensagemErroAmigavel(erroPublico)}
+                </p>
               ) : services.length === 0 ? (
-                <p className="text-sm text-center py-6 text-muted-foreground">Nenhum serviço disponível no momento.</p>
+                <p className="text-sm text-center py-6 text-muted-foreground">
+                  Nenhum serviço disponível no momento.
+                </p>
               ) : (
                 <div className="space-y-2">
-                  {services.map(s => (
+                  {services.map((s) => (
                     <button
                       key={s.id}
                       onClick={() => {
@@ -355,10 +389,14 @@ function PublicAgendamentoPage() {
                     >
                       <div>
                         <h4 className="font-medium text-sm text-foreground">{s.nome}</h4>
-                        <span className="text-xs text-muted-foreground block mt-0.5">{s.duracao_min} minutos</span>
+                        <span className="text-xs text-muted-foreground block mt-0.5">
+                          {s.duracao_min} minutos
+                        </span>
                       </div>
                       <div className="text-right">
-                        <span className="font-display font-bold bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent text-base group-hover:scale-105 transition-transform block">{brl(s.valor)}</span>
+                        <span className="font-display font-bold bg-gradient-to-br from-purple-600 to-pink-600 bg-clip-text text-transparent text-base group-hover:scale-105 transition-transform block">
+                          {brl(s.valor)}
+                        </span>
                       </div>
                     </button>
                   ))}
@@ -370,20 +408,28 @@ function PublicAgendamentoPage() {
           {/* STEP 2: DATE & TIME SLOTS */}
           {step === 2 && selectedService && (
             <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-3xl p-5 md:p-6 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
-              <h2 className="font-display text-2xl flex items-center gap-2"><CalendarDays className="size-5 text-purple-500" /> Data & Horário</h2>
-              <p className="text-xs text-muted-foreground">Procedimento: <span className="font-semibold">{selectedService.nome}</span> ({selectedService.duracao_min} min)</p>
+              <h2 className="font-display text-2xl flex items-center gap-2">
+                <CalendarDays className="size-5 text-purple-500" /> Data & Horário
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Procedimento: <span className="font-semibold">{selectedService.nome}</span> (
+                {selectedService.duracao_min} min)
+              </p>
 
               {/* Date slider */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Selecione a data:</Label>
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                  {dateOptions.map(date => {
+                  {dateOptions.map((date) => {
                     const active = isSameDay(date, selectedDate);
                     const blocked = diaTotalmenteBloqueado(date);
                     return (
                       <button
                         key={date.toISOString()}
-                        onClick={() => { setSelectedDate(date); setSelectedTime(""); }}
+                        onClick={() => {
+                          setSelectedDate(date);
+                          setSelectedTime("");
+                        }}
                         disabled={blocked}
                         className={`px-4 py-2.5 rounded-xl text-center shrink-0 min-w-[70px] transition-all flex flex-col items-center ${
                           blocked
@@ -414,10 +460,12 @@ function PublicAgendamentoPage() {
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Horários disponíveis:</Label>
                 {timeSlots.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-6 text-center">Nenhum horário disponível para a data selecionada.</p>
+                  <p className="text-xs text-muted-foreground py-6 text-center">
+                    Nenhum horário disponível para a data selecionada.
+                  </p>
                 ) : (
                   <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                    {timeSlots.map(slot => (
+                    {timeSlots.map((slot) => (
                       <button
                         key={slot.time}
                         disabled={!slot.available}
@@ -450,48 +498,94 @@ function PublicAgendamentoPage() {
           {/* STEP 3: CLIENT FORM */}
           {step === 3 && selectedService && (
             <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-3xl p-5 md:p-6 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
-              <h2 className="font-display text-2xl flex items-center gap-2"><User className="size-5 text-purple-500" /> Suas Informações</h2>
-              <p className="text-xs text-muted-foreground">Confirme seus dados para garantir a reserva</p>
+              <h2 className="font-display text-2xl flex items-center gap-2">
+                <User className="size-5 text-purple-500" /> Suas Informações
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Confirme seus dados para garantir a reserva
+              </p>
 
-              <form onSubmit={(e) => { e.preventDefault(); bookingMut.mutate(); }} className="space-y-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  bookingMut.mutate();
+                }}
+                className="space-y-4"
+              >
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Seu Nome *</Label>
-                    <Input value={clientForm.nome} placeholder="Como deseja ser chamada?" onChange={e => setClientForm({ ...clientForm, nome: e.target.value })} required />
+                    <Input
+                      value={clientForm.nome}
+                      placeholder="Como deseja ser chamada?"
+                      onChange={(e) => setClientForm({ ...clientForm, nome: e.target.value })}
+                      required
+                    />
                   </div>
                   <div>
                     <Label className="text-xs">Seu Telefone / WhatsApp *</Label>
-                    <Input value={clientForm.telefone} placeholder="(99) 99999-9999" onChange={e => setClientForm({ ...clientForm, telefone: e.target.value })} required />
+                    <Input
+                      value={clientForm.telefone}
+                      placeholder="(99) 99999-9999"
+                      onChange={(e) => setClientForm({ ...clientForm, telefone: e.target.value })}
+                      required
+                    />
                   </div>
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">E-mail (opcional)</Label>
-                    <Input type="email" value={clientForm.email} placeholder="para receber confirmações" onChange={e => setClientForm({ ...clientForm, email: e.target.value })} />
+                    <Input
+                      type="email"
+                      value={clientForm.email}
+                      placeholder="para receber confirmações"
+                      onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
+                    />
                   </div>
                   <div>
-                    <Label className="text-xs">Data de Nascimento (Para desconto de Aniversário!)</Label>
-                    <Input type="date" value={clientForm.data_nascimento} onChange={e => setClientForm({ ...clientForm, data_nascimento: e.target.value })} />
+                    <Label className="text-xs">
+                      Data de Nascimento (Para desconto de Aniversário!)
+                    </Label>
+                    <Input
+                      type="date"
+                      value={clientForm.data_nascimento}
+                      onChange={(e) =>
+                        setClientForm({ ...clientForm, data_nascimento: e.target.value })
+                      }
+                    />
                   </div>
                 </div>
 
                 <div>
                   <Label className="text-xs">Observações adicionais (Opcional)</Label>
-                  <Textarea value={clientForm.observacoes} placeholder="Ex: alongamento em gel, unhas decoradas, etc." onChange={e => setClientForm({ ...clientForm, observacoes: e.target.value })} />
+                  <Textarea
+                    value={clientForm.observacoes}
+                    placeholder="Ex: alongamento em gel, unhas decoradas, etc."
+                    onChange={(e) => setClientForm({ ...clientForm, observacoes: e.target.value })}
+                  />
                 </div>
 
                 {/* Birthday promo alert */}
                 {birthdayDiscount && (
                   <div className="bg-emerald-500/10 text-emerald-500 p-3.5 rounded-xl text-xs flex items-center gap-2 font-medium">
                     <Cake className="size-4 shrink-0 text-emerald-500" />
-                    <span>Parabéns! Identificamos aniversário este mês: <b>{birthdayDiscount}% de Desconto aplicado!</b></span>
+                    <span>
+                      Parabéns! Identificamos aniversário este mês:{" "}
+                      <b>{birthdayDiscount}% de Desconto aplicado!</b>
+                    </span>
                   </div>
                 )}
 
                 <div className="pt-2">
-                  <Button type="submit" disabled={bookingMut.isPending} className="w-full gradient-primary text-primary-foreground shadow-glow">
-                    {bookingMut.isPending ? "Confirmando Agendamento..." : "Confirmar e Agendar Horário"}
+                  <Button
+                    type="submit"
+                    disabled={bookingMut.isPending}
+                    className="w-full gradient-primary text-primary-foreground shadow-glow"
+                  >
+                    {bookingMut.isPending
+                      ? "Confirmando Agendamento..."
+                      : "Confirmar e Agendar Horário"}
                   </Button>
                 </div>
               </form>
@@ -507,7 +601,9 @@ function PublicAgendamentoPage() {
 
               <div className="space-y-2">
                 <h2 className="font-display text-3xl">Agendamento Realizado!</h2>
-                <p className="text-sm text-muted-foreground">Obrigada, {clientForm.nome}. Seu horário foi reservado com sucesso.</p>
+                <p className="text-sm text-muted-foreground">
+                  Obrigada, {clientForm.nome}. Seu horário foi reservado com sucesso.
+                </p>
               </div>
 
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 rounded-2xl p-4 max-w-sm mx-auto space-y-2 text-sm text-left border border-purple-100/50 dark:border-purple-400/10">
@@ -530,12 +626,21 @@ function PublicAgendamentoPage() {
               </div>
 
               <div>
-                <Button className="glass border-0 hover:bg-accent/50 text-foreground" onClick={() => {
-                  setStep(1);
-                  setSelectedService(null);
-                  setSelectedTime("");
-                  setClientForm({ nome: "", telefone: "", email: "", data_nascimento: "", observacoes: "" });
-                }}>
+                <Button
+                  className="glass border-0 hover:bg-accent/50 text-foreground"
+                  onClick={() => {
+                    setStep(1);
+                    setSelectedService(null);
+                    setSelectedTime("");
+                    setClientForm({
+                      nome: "",
+                      telefone: "",
+                      email: "",
+                      data_nascimento: "",
+                      observacoes: "",
+                    });
+                  }}
+                >
                   Novo Agendamento
                 </Button>
               </div>
@@ -548,7 +653,9 @@ function PublicAgendamentoPage() {
           {/* Summary Box */}
           {step < 4 && selectedService && (
             <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-2xl p-5 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
-              <h3 className="font-display text-base border-b border-border/40 pb-2">Resumo da Reserva</h3>
+              <h3 className="font-display text-base border-b border-border/40 pb-2">
+                Resumo da Reserva
+              </h3>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Serviço:</span>
@@ -561,10 +668,12 @@ function PublicAgendamentoPage() {
                 {selectedTime && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Data/Hora:</span>
-                    <span className="font-medium">{format(selectedDate, "dd/MM")} às {selectedTime}</span>
+                    <span className="font-medium">
+                      {format(selectedDate, "dd/MM")} às {selectedTime}
+                    </span>
                   </div>
                 )}
-                
+
                 {birthdayDiscount && (
                   <div className="flex justify-between text-emerald-500 font-medium">
                     <span>Cupom Aniversário:</span>
@@ -583,10 +692,15 @@ function PublicAgendamentoPage() {
           {/* Portfolio carousel view */}
           {portfolio.length > 0 && (
             <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-2xl p-5 space-y-3 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
-              <h3 className="font-display text-base flex items-center gap-1.5"><Heart className="size-4 text-rose-500" /> Meu Portfólio</h3>
+              <h3 className="font-display text-base flex items-center gap-1.5">
+                <Heart className="size-4 text-rose-500" /> Meu Portfólio
+              </h3>
               <div className="grid grid-cols-2 gap-2">
-                {portfolio.slice(0, 4).map(p => (
-                  <div key={p.id} className="relative aspect-square rounded-xl overflow-hidden bg-accent/40">
+                {portfolio.slice(0, 4).map((p) => (
+                  <div
+                    key={p.id}
+                    className="relative aspect-square rounded-xl overflow-hidden bg-accent/40"
+                  >
                     <img src={p.imagem_url} alt={p.titulo} className="w-full h-full object-cover" />
                   </div>
                 ))}
@@ -597,10 +711,17 @@ function PublicAgendamentoPage() {
           {/* Testimonials/Reviews display */}
           <Card className="bg-white/80 dark:bg-card/80 backdrop-blur-xl border-0 rounded-2xl p-5 space-y-4 shadow-[0_2px_16px_rgba(91,30,140,0.06)]">
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-base flex items-center gap-1.5"><Star className="size-4 text-amber-400 fill-amber-400" /> Avaliações</h3>
-              
+              <h3 className="font-display text-base flex items-center gap-1.5">
+                <Star className="size-4 text-amber-400 fill-amber-400" /> Avaliações
+              </h3>
+
               {!showReviewForm && (
-                <Button size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => setShowReviewForm(true)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs h-7 px-2"
+                  onClick={() => setShowReviewForm(true)}
+                >
                   Avaliar
                 </Button>
               )}
@@ -608,44 +729,75 @@ function PublicAgendamentoPage() {
 
             {/* Leave a review subform */}
             {showReviewForm ? (
-              <form onSubmit={(e) => { e.preventDefault(); reviewMut.mutate(); }} className="space-y-3 p-3 bg-accent/30 rounded-xl">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  reviewMut.mutate();
+                }}
+                className="space-y-3 p-3 bg-accent/30 rounded-xl"
+              >
                 <div>
                   <Label className="text-[10px] uppercase">Seu Nome *</Label>
-                  <Input className="h-8 text-xs p-2" value={reviewForm.nome} onChange={e => setReviewForm({ ...reviewForm, nome: e.target.value })} required />
+                  <Input
+                    className="h-8 text-xs p-2"
+                    value={reviewForm.nome}
+                    onChange={(e) => setReviewForm({ ...reviewForm, nome: e.target.value })}
+                    required
+                  />
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase block">Nota (1 a 5 estrelas)</Label>
                   <div className="flex gap-1.5 mt-1">
-                    {[1, 2, 3, 4, 5].map(star => (
+                    {[1, 2, 3, 4, 5].map((star) => (
                       <button
                         key={star}
                         type="button"
                         onClick={() => setReviewForm({ ...reviewForm, nota: star })}
                         className="text-amber-500 focus:outline-none"
                       >
-                        <Star className={`size-4.5 ${reviewForm.nota >= star ? "fill-amber-500" : ""}`} />
+                        <Star
+                          className={`size-4.5 ${reviewForm.nota >= star ? "fill-amber-500" : ""}`}
+                        />
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase">Comentário</Label>
-                  <Textarea className="text-xs p-2 min-h-[50px]" value={reviewForm.comentario} placeholder="O que achou do serviço?" onChange={e => setReviewForm({ ...reviewForm, comentario: e.target.value })} />
+                  <Textarea
+                    className="text-xs p-2 min-h-[50px]"
+                    value={reviewForm.comentario}
+                    placeholder="O que achou do serviço?"
+                    onChange={(e) => setReviewForm({ ...reviewForm, comentario: e.target.value })}
+                  />
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" size="sm" disabled={reviewMut.isPending} className="flex-1 gradient-primary text-primary-foreground text-xs h-8">
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={reviewMut.isPending}
+                    className="flex-1 gradient-primary text-primary-foreground text-xs h-8"
+                  >
                     {reviewMut.isPending ? "Enviando..." : "Enviar"}
                   </Button>
-                  <Button type="button" size="sm" variant="ghost" className="text-xs h-8" onClick={() => setShowReviewForm(false)}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs h-8"
+                    onClick={() => setShowReviewForm(false)}
+                  >
                     Cancelar
                   </Button>
                 </div>
               </form>
             ) : reviews.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Sem avaliações ainda.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">
+                Sem avaliações ainda.
+              </p>
             ) : (
               <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
-                {reviews.slice(0, 3).map(r => (
+                {reviews.slice(0, 3).map((r) => (
                   <div key={r.id} className="border-b border-border/40 pb-2 space-y-1">
                     <div className="flex justify-between items-center text-xs">
                       <span className="font-semibold">{r.cliente_nome}</span>

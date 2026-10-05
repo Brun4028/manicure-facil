@@ -44,7 +44,11 @@ export function AiAssistantLauncher() {
           />
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={8} className="bg-[#171923] text-white border border-[#252836]">
+      <TooltipContent
+        side="bottom"
+        sideOffset={8}
+        className="bg-[#171923] text-white border border-[#252836]"
+      >
         {open ? "Fechar assistente IA" : "Assistente IA — sua consultora de gestão"}
       </TooltipContent>
     </Tooltip>

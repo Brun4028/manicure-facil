@@ -9,12 +9,25 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Bell, CheckCheck, Info, AlertCircle, CheckCircle, Gift, Cake, CalendarDays, Sparkles } from "lucide-react";
+import {
+  Bell,
+  CheckCheck,
+  Info,
+  AlertCircle,
+  CheckCircle,
+  Gift,
+  Cake,
+  CalendarDays,
+  Sparkles,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
+import { gerarNotificacoes, tocarNotificacao } from "@/lib/notifications";
+import { gerarRecorrenciasPendentes } from "@/lib/recorrencias";
+import { isRotaInterna } from "@/lib/internal-routes";
 
 type Notificacao = {
   id: string;
@@ -30,15 +43,51 @@ type Notificacao = {
   created_at: string;
 };
 
-const tipoConfig: Record<string, { icon: typeof Info; color: string; bg: string; border: string }> = {
-  info: { icon: Info, color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
-  sucesso: { icon: CheckCircle, color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-  aviso: { icon: AlertCircle, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
-  erro: { icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20" },
-  promocao: { icon: Gift, color: "text-[#D946EF]", bg: "bg-[#D946EF]/10", border: "border-[#D946EF]/20" },
-  lembrete: { icon: CalendarDays, color: "text-[#A855F7]", bg: "bg-[#A855F7]/10", border: "border-[#A855F7]/20" },
-  aniversario: { icon: Cake, color: "text-pink-500", bg: "bg-pink-500/10", border: "border-pink-500/20" },
-};
+const tipoConfig: Record<string, { icon: typeof Info; color: string; bg: string; border: string }> =
+  {
+    info: {
+      icon: Info,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+      border: "border-blue-500/20",
+    },
+    sucesso: {
+      icon: CheckCircle,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+      border: "border-emerald-500/20",
+    },
+    aviso: {
+      icon: AlertCircle,
+      color: "text-amber-500",
+      bg: "bg-amber-500/10",
+      border: "border-amber-500/20",
+    },
+    erro: {
+      icon: AlertCircle,
+      color: "text-red-500",
+      bg: "bg-red-500/10",
+      border: "border-red-500/20",
+    },
+    promocao: {
+      icon: Gift,
+      color: "text-[#D946EF]",
+      bg: "bg-[#D946EF]/10",
+      border: "border-[#D946EF]/20",
+    },
+    lembrete: {
+      icon: CalendarDays,
+      color: "text-[#A855F7]",
+      bg: "bg-[#A855F7]/10",
+      border: "border-[#A855F7]/20",
+    },
+    aniversario: {
+      icon: Cake,
+      color: "text-pink-500",
+      bg: "bg-pink-500/10",
+      border: "border-pink-500/20",
+    },
+  };
 
 export function NotificationsPopover() {
   const [open, setOpen] = useState(false);
@@ -58,7 +107,17 @@ export function NotificationsPopover() {
   const { data: notificacoes = [] } = useQuery({
     queryKey: ["notificacoes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("notificacoes_internas")
+      // Na abertura do app fazemos as duas pendências: lembretes/aniversários
+      // (throttle 5 min) e a geração dos horários futuros das recorrências
+      // (throttle 15 min). Nenhuma das duas lança exceção.
+      const [geracao, recorrencias] = await Promise.all([
+        gerarNotificacoes(),
+        gerarRecorrenciasPendentes(),
+      ]);
+      if (geracao.criadas > 0 && geracao.som) tocarNotificacao();
+      if (recorrencias.criadas > 0) qc.invalidateQueries({ queryKey: ["agendamentos"] });
+      const { data, error } = await supabase
+        .from("notificacoes_internas")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(20);
@@ -68,11 +127,14 @@ export function NotificationsPopover() {
     refetchInterval: 60_000, // Poll a cada 60s
   });
 
-  const naoLidas = notificacoes.filter(n => !n.lida).length;
+  const naoLidas = notificacoes.filter((n) => !n.lida).length;
 
   const markAsReadMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("notificacoes_internas").update({ lida: true }).eq("id", id);
+      const { error } = await supabase
+        .from("notificacoes_internas")
+        .update({ lida: true })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notificacoes"] }),
@@ -81,7 +143,10 @@ export function NotificationsPopover() {
 
   const markAllReadMut = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("notificacoes_internas").update({ lida: true }).eq("lida", false);
+      const { error } = await supabase
+        .from("notificacoes_internas")
+        .update({ lida: true })
+        .eq("lida", false);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notificacoes"] }),
@@ -89,15 +154,29 @@ export function NotificationsPopover() {
   });
 
   function handleAction(n: Notificacao) {
-    if (n.acao_link) {
-      navigate({ to: n.acao_link as any });
+    if (!n.acao_link) return;
+    // Links externos (ex.: WhatsApp com a mensagem já escrita) abrem em nova
+    // aba; links internos navegam dentro do sistema.
+    if (/^https?:\/\//i.test(n.acao_link)) {
+      window.open(n.acao_link, "_blank", "noopener,noreferrer");
       setOpen(false);
+      return;
     }
+    // Só navega se o link do banco for uma rota interna conhecida.
+    if (!isRotaInterna(n.acao_link)) return;
+    navigate({ to: n.acao_link });
+    setOpen(false);
   }
 
   return (
     <div ref={ref} className="relative">
-      <Button variant="ghost" size="icon" className="relative" onClick={() => setOpen(!open)} aria-label="Notificações">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative"
+        onClick={() => setOpen(!open)}
+        aria-label="Notificações"
+      >
         <Bell className="size-5" />
         {naoLidas > 0 && (
           <span className="absolute -top-0.5 -right-0.5 size-4.5 rounded-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] text-[9px] font-bold text-white grid place-items-center shadow-glow animate-pulse-soft">
@@ -114,11 +193,16 @@ export function NotificationsPopover() {
               <Bell className="size-4 text-[#D946EF]" />
               <span className="text-sm font-semibold text-card-foreground">Notificações</span>
               {naoLidas > 0 && (
-                <span className="text-[10px] bg-[#D946EF]/10 text-[#D946EF] px-2 py-0.5 rounded-full font-medium">{naoLidas} nova{naoLidas > 1 ? "s" : ""}</span>
+                <span className="text-[10px] bg-[#D946EF]/10 text-[#D946EF] px-2 py-0.5 rounded-full font-medium">
+                  {naoLidas} nova{naoLidas > 1 ? "s" : ""}
+                </span>
               )}
             </div>
             {naoLidas > 0 && (
-              <button onClick={() => markAllReadMut.mutate()} className="text-[10px] text-muted-foreground hover:text-[#D946EF] transition-colors flex items-center gap-1">
+              <button
+                onClick={() => markAllReadMut.mutate()}
+                className="text-[10px] text-muted-foreground hover:text-[#D946EF] transition-colors flex items-center gap-1"
+              >
                 <CheckCheck className="size-3" /> Marcar todas
               </button>
             )}
@@ -132,7 +216,7 @@ export function NotificationsPopover() {
                 <p className="text-xs text-muted-foreground">Nenhuma notificação ainda</p>
               </div>
             ) : (
-              notificacoes.map(n => {
+              notificacoes.map((n) => {
                 const cfg = tipoConfig[n.tipo] ?? tipoConfig.info;
                 const Icon = cfg.icon;
                 return (
@@ -145,19 +229,32 @@ export function NotificationsPopover() {
                     }}
                   >
                     <div className="flex gap-3">
-                      <div className={`size-9 rounded-xl ${cfg.bg} ${cfg.border} border grid place-items-center shrink-0 mt-0.5`}>
+                      <div
+                        className={`size-9 rounded-xl ${cfg.bg} ${cfg.border} border grid place-items-center shrink-0 mt-0.5`}
+                      >
                         <Icon className={`size-4 ${cfg.color}`} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className={`text-xs font-medium text-card-foreground ${!n.lida ? "font-semibold" : ""}`}>{n.titulo}</p>
+                          <p
+                            className={`text-xs font-medium text-card-foreground ${!n.lida ? "font-semibold" : ""}`}
+                          >
+                            {n.titulo}
+                          </p>
                           <span className="text-[9px] text-muted-foreground shrink-0 whitespace-nowrap">
-                            {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
+                            {formatDistanceToNow(new Date(n.created_at), {
+                              addSuffix: true,
+                              locale: ptBR,
+                            })}
                           </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{n.mensagem}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                          {n.mensagem}
+                        </p>
                         {n.acao_texto && (
-                          <span className="text-[10px] text-[#D946EF] hover:underline mt-1 inline-block font-medium">{n.acao_texto} →</span>
+                          <span className="text-[10px] text-[#D946EF] hover:underline mt-1 inline-block font-medium">
+                            {n.acao_texto} →
+                          </span>
                         )}
                       </div>
                     </div>

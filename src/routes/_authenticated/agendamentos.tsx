@@ -10,15 +10,54 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Calendar, Clock, CalendarDays, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Calendar,
+  Clock,
+  CalendarDays,
+  ArrowRight,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  MessageCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
+import { abrirWhatsApp, mensagens, type DadosMensagem } from "@/lib/whatsapp";
 import { z } from "zod";
-import { format, addDays, subMonths, addMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from "date-fns";
+import {
+  format,
+  addDays,
+  subMonths,
+  addMonths,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  isToday,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { BloqueioHorariosDialog } from "@/components/agenda/bloqueio-horarios-dialog";
@@ -32,9 +71,16 @@ type Status = "agendado" | "confirmado" | "concluido" | "cancelado";
 type Pagamento = "pix" | "dinheiro" | "debito" | "credito" | "pendente";
 
 type Ag = {
-  id: string; cliente_id: string | null; servico_id: string | null;
-  data_hora: string; duracao_min: number; valor: number; custo: number;
-  status: Status; pagamento: Pagamento; observacoes: string | null;
+  id: string;
+  cliente_id: string | null;
+  servico_id: string | null;
+  data_hora: string;
+  duracao_min: number;
+  valor: number;
+  custo: number;
+  status: Status;
+  pagamento: Pagamento;
+  observacoes: string | null;
 };
 
 const statusColor: Record<Status, string> = {
@@ -60,8 +106,8 @@ const schema = z.object({
   valor: z.number().min(0),
   custo: z.number().min(0),
   duracao_min: z.number().min(15).max(600),
-  status: z.enum(["agendado","confirmado","concluido","cancelado"]),
-  pagamento: z.enum(["pix","dinheiro","debito","credito","pendente"]),
+  status: z.enum(["agendado", "confirmado", "concluido", "cancelado"]),
+  pagamento: z.enum(["pix", "dinheiro", "debito", "credito", "pendente"]),
   observacoes: z.string().max(500).optional().or(z.literal("")),
 });
 
@@ -81,20 +127,32 @@ function AgendamentosPage() {
   // Drag & Drop mutation
   const moveAgMut = useMutation({
     mutationFn: async ({ id, newDate }: { id: string; newDate: string }) => {
-      const { error } = await supabase.from("agendamentos").update({ data_hora: newDate }).eq("id", id);
+      const { error } = await supabase
+        .from("agendamentos")
+        .update({ data_hora: newDate })
+        .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agendamentos"] }); toast.success("Agendamento movido!"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agendamentos"] });
+      toast.success("Agendamento movido!");
+    },
     onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
-  useEffect(() => { if (search.new) { setOpenNew(true); navigate({ to: "/agendamentos", search: {} as never, replace: true }); } }, [search.new, navigate]);
+  useEffect(() => {
+    if (search.new) {
+      setOpenNew(true);
+      navigate({ to: "/agendamentos", search: {} as never, replace: true });
+    }
+  }, [search.new, navigate]);
 
   const { data: ags, isLoading } = useQuery({
     queryKey: ["agendamentos"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("agendamentos")
-        .select("*, clientes(nome), servicos(nome)")
+      const { data, error } = await supabase
+        .from("agendamentos")
+        .select("*, clientes(nome, telefone), servicos(nome)")
         .order("data_hora", { ascending: true });
       if (error) throw error;
       return data;
@@ -109,12 +167,12 @@ function AgendamentosPage() {
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
   // Today's appointments for quick view
-  const hoje = ags?.filter((a: any) => isSameDay(new Date(a.data_hora), new Date())) ?? [];
+  const hoje = ags?.filter((a) => isSameDay(new Date(a.data_hora), new Date())) ?? [];
 
   // Agendamentos por dia (para calendário)
   const agsByDay = useMemo(() => {
-    const map = new Map<string, any[]>();
-    (ags ?? []).forEach((a: any) => {
+    const map = new Map<string, NonNullable<typeof ags>[number][]>();
+    (ags ?? []).forEach((a) => {
       const key = format(new Date(a.data_hora), "yyyy-MM-dd");
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(a);
@@ -146,7 +204,9 @@ function AgendamentosPage() {
           moveAgMut.mutate({ id: data.id, newDate: newDate.toISOString() });
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   return (
@@ -173,7 +233,8 @@ function AgendamentosPage() {
             </div>
             <BloqueioHorariosDialog />
             <AgendamentoDialog
-              open={openNew} setOpen={setOpenNew}
+              open={openNew}
+              setOpen={setOpenNew}
               onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })}
             />
           </div>
@@ -188,14 +249,29 @@ function AgendamentosPage() {
             Hoje • {hoje.length} agendamento{hoje.length > 1 ? "s" : ""}
           </p>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
-            {hoje.slice(0, 5).map((a: any) => (
-              <div key={a.id} className="shrink-0 bg-card/80 backdrop-blur-sm border border-border/60 rounded-xl p-3 min-w-[180px]">
+            {" "}
+            {hoje.slice(0, 5).map((a) => (
+              <div
+                key={a.id}
+                className="shrink-0 bg-card/80 backdrop-blur-sm border border-border/60 rounded-xl p-3 min-w-[180px]"
+              >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-card-foreground">{format(new Date(a.data_hora), "HH:mm")}</span>
-                  <Badge variant="outline" className={`text-[9px] ${statusColor[a.status as Status]}`}>{statusLabel[a.status as Status] ?? a.status}</Badge>
+                  <span className="text-xs font-semibold text-card-foreground">
+                    {format(new Date(a.data_hora), "HH:mm")}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] ${statusColor[a.status as Status]}`}
+                  >
+                    {statusLabel[a.status as Status] ?? a.status}
+                  </Badge>
                 </div>
-                <p className="text-xs font-medium truncate text-card-foreground">{a.clientes?.nome ?? "Cliente"}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{a.servicos?.nome ?? "Serviço"}</p>
+                <p className="text-xs font-medium truncate text-card-foreground">
+                  {a.clientes?.nome ?? "Cliente"}
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {a.servicos?.nome ?? "Serviço"}
+                </p>
               </div>
             ))}
           </div>
@@ -228,8 +304,13 @@ function AgendamentosPage() {
           {/* Calendar Grid */}
           <div className="p-4">
             <div className="grid grid-cols-7 gap-px">
-              {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map(d => (
-                <div key={d} className="text-center text-[10px] text-muted-foreground uppercase tracking-wider font-medium py-2">{d}</div>
+              {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d) => (
+                <div
+                  key={d}
+                  className="text-center text-[10px] text-muted-foreground uppercase tracking-wider font-medium py-2"
+                >
+                  {d}
+                </div>
               ))}
               {days.map((day, i) => {
                 const dayKey = format(day, "yyyy-MM-dd");
@@ -276,14 +357,18 @@ function AgendamentosPage() {
                     onDrop={(e) => handleDrop(e, dayKey)}
                     onDragLeave={() => setDragOverDay(null)}
                     className={`min-h-[80px] border border-border/30 rounded-lg p-1.5 transition-all ${
-                      !isCurrentMonth ? "opacity-30" : "hover:bg-accent/20 focus-visible:ring-2 focus-visible:ring-[#D946EF] focus-visible:outline-none"
+                      !isCurrentMonth
+                        ? "opacity-30"
+                        : "hover:bg-accent/20 focus-visible:ring-2 focus-visible:ring-[#D946EF] focus-visible:outline-none"
                     } ${isDayToday ? "ring-1 ring-[#D946EF]/30 bg-[#D946EF]/5" : ""} ${isDragOver ? "ring-2 ring-[#D946EF] bg-[#D946EF]/10" : ""}`}
                   >
-                    <div className={`text-[10px] font-medium mb-1 ${isDayToday ? "text-[#D946EF]" : "text-muted-foreground"}`}>
+                    <div
+                      className={`text-[10px] font-medium mb-1 ${isDayToday ? "text-[#D946EF]" : "text-muted-foreground"}`}
+                    >
                       {format(day, "dd")}
                     </div>
                     <div className="space-y-0.5">
-                      {dayAgs.slice(0, 3).map((a: any) => (
+                      {dayAgs.slice(0, 3).map((a) => (
                         <div
                           key={a.id}
                           id={`ag-${a.id}`}
@@ -308,7 +393,9 @@ function AgendamentosPage() {
                                 toast.info("Movimento cancelado");
                               } else {
                                 // Pick up this appointment
-                                toast.info(`Agendamento selecionado: ${a.clientes?.nome ?? "Cliente"}. Use Tab para navegar até o dia desejado e pressione Enter para soltar.`);
+                                toast.info(
+                                  `Agendamento selecionado: ${a.clientes?.nome ?? "Cliente"}. Use Tab para navegar até o dia desejado e pressione Enter para soltar.`,
+                                );
                                 setKeyboardDragId(a.id);
                                 setKeyboardDragSource(format(new Date(a.data_hora), "yyyy-MM-dd"));
                               }
@@ -320,17 +407,22 @@ function AgendamentosPage() {
                             }
                           }}
                           className={`text-[8px] leading-tight px-1 py-0.5 rounded truncate cursor-grab active:cursor-grabbing transition-colors focus-visible:ring-2 focus-visible:ring-[#D946EF] focus-visible:outline-none ${keyboardDragId === a.id ? "ring-2 ring-amber-500 bg-amber-500/20" : ""} ${
-                            a.status === "cancelado" ? "bg-rose-500/15 text-rose-500 line-through" :
-                            a.status === "concluido" ? "bg-emerald-500/15 text-emerald-500" :
-                            a.status === "confirmado" ? "bg-blue-500/15 text-blue-400" :
-                            "bg-[#D946EF]/10 text-[#D946EF]"
+                            a.status === "cancelado"
+                              ? "bg-rose-500/15 text-rose-500 line-through"
+                              : a.status === "concluido"
+                                ? "bg-emerald-500/15 text-emerald-500"
+                                : a.status === "confirmado"
+                                  ? "bg-blue-500/15 text-blue-400"
+                                  : "bg-[#D946EF]/10 text-[#D946EF]"
                           }`}
                         >
                           {format(new Date(a.data_hora), "HH:mm")} {a.clientes?.nome ?? ""}
                         </div>
                       ))}
                       {dayAgs.length > 3 && (
-                        <div className="text-[8px] text-muted-foreground px-1">+{dayAgs.length - 3} mais</div>
+                        <div className="text-[8px] text-muted-foreground px-1">
+                          +{dayAgs.length - 3} mais
+                        </div>
                       )}
                     </div>
                   </div>
@@ -343,28 +435,46 @@ function AgendamentosPage() {
         /* View: List */
         <div className="space-y-3">
           {isLoading ? (
-            <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-28 rounded-[20px] bg-muted" />)}</div>
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-28 rounded-[20px] bg-muted" />
+              ))}
+            </div>
           ) : !ags?.length ? (
             <Card className="bg-card border border-border rounded-[20px] p-12 text-center shadow-card">
               <div className="size-16 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 grid place-items-center mx-auto mb-4">
                 <CalendarDays className="size-7 text-[#D946EF]" />
               </div>
-              <p className="text-muted-foreground">Nenhum agendamento ainda. Clique em <strong className="text-[#D946EF]">Novo</strong> para começar.</p>
+              <p className="text-muted-foreground">
+                Nenhum agendamento ainda. Clique em <strong className="text-[#D946EF]">Novo</strong>{" "}
+                para começar.
+              </p>
             </Card>
           ) : (
-            ags.map((a: any) => (
-              <Card key={a.id} className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300">
+            ags.map((a) => (
+              <Card
+                key={a.id}
+                className="group bg-card border border-border p-5 rounded-[20px] shadow-card hover:border-[#D946EF]/30 transition-all duration-300"
+              >
                 <div className="flex flex-col md:flex-row md:items-center gap-4">
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="size-14 rounded-2xl bg-[#D946EF]/10 border border-[#D946EF]/20 text-[#D946EF] grid place-items-center shrink-0 text-center leading-none">
                       <div>
-                        <div className="text-[10px] font-medium opacity-70">{format(new Date(a.data_hora), "MMM", { locale: ptBR }).toUpperCase()}</div>
-                        <div className="text-xl font-bold">{format(new Date(a.data_hora), "dd")}</div>
+                        <div className="text-[10px] font-medium opacity-70">
+                          {format(new Date(a.data_hora), "MMM", { locale: ptBR }).toUpperCase()}
+                        </div>
+                        <div className="text-xl font-bold">
+                          {format(new Date(a.data_hora), "dd")}
+                        </div>
                       </div>
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-medium truncate text-base text-card-foreground">{a.clientes?.nome ?? "Cliente"}</h3>
-                      <p className="text-sm text-muted-foreground truncate">{a.servicos?.nome ?? "Serviço"}</p>
+                      <h3 className="font-medium truncate text-base text-card-foreground">
+                        {a.clientes?.nome ?? "Cliente"}
+                      </h3>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {a.servicos?.nome ?? "Serviço"}
+                      </p>
                       <div className="flex items-center gap-4 mt-1.5 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1.5">
                           <Calendar className="size-3.5" />
@@ -380,12 +490,36 @@ function AgendamentosPage() {
                   <div className="flex items-center gap-3">
                     <div className="text-right">
                       <div className="text-xl font-semibold text-card-foreground">
-                        {Number(a.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        {Number(a.valor).toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
                       </div>
-                      <Badge variant="outline" className={statusColor[a.status as Status] + " mt-1"}>{statusLabel[a.status as Status] ?? a.status}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={statusColor[a.status as Status] + " mt-1"}
+                      >
+                        {statusLabel[a.status as Status] ?? a.status}
+                      </Badge>
                     </div>
-                    <AgendamentoDialog ag={a} onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} trigger={<Button size="icon" variant="ghost" className="hover:bg-[#D946EF]/10 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"><Pencil className="size-4 text-[#D946EF]" /></Button>} />
-                    <DeleteAg id={a.id} onDone={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })} />
+                    <WhatsAg a={a} />
+                    <AgendamentoDialog
+                      ag={a}
+                      onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })}
+                      trigger={
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="hover:bg-[#D946EF]/10 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
+                        >
+                          <Pencil className="size-4 text-[#D946EF]" />
+                        </Button>
+                      }
+                    />
+                    <DeleteAg
+                      id={a.id}
+                      onDone={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })}
+                    />
                   </div>
                 </div>
               </Card>
@@ -400,8 +534,14 @@ function AgendamentosPage() {
 function DeleteAg({ id, onDone }: { id: string; onDone: () => void }) {
   const { confirm } = useConfirm();
   const mut = useMutation({
-    mutationFn: async () => { const { error } = await supabase.from("agendamentos").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Agendamento removido"); onDone(); },
+    mutationFn: async () => {
+      const { error } = await supabase.from("agendamentos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Agendamento removido");
+      onDone();
+    },
     onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
   return (
@@ -411,7 +551,8 @@ function DeleteAg({ id, onDone }: { id: string; onDone: () => void }) {
       onClick={() => {
         confirm({
           title: "Excluir agendamento?",
-          description: "Esta ação não pode ser desfeita. O horário será liberado para novos agendamentos.",
+          description:
+            "Esta ação não pode ser desfeita. O horário será liberado para novos agendamentos.",
           confirmText: "Sim, excluir",
           cancelText: "Cancelar",
           variant: "danger",
@@ -424,9 +565,75 @@ function DeleteAg({ id, onDone }: { id: string; onDone: () => void }) {
   );
 }
 
-function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setOpenProp }: {
-  ag?: Ag; onSaved: () => void; trigger?: React.ReactNode;
-  open?: boolean; setOpen?: (o: boolean) => void;
+type AgComRelacoes = {
+  data_hora: string;
+  valor: number;
+  status: Status;
+  clientes: { nome: string | null; telefone: string | null } | null;
+  servicos: { nome: string | null } | null;
+};
+
+/**
+ * WhatsApp do atendimento: escolhe a mensagem conforme o status
+ * (lembrete, confirmação, agradecimento ou convite de reagendamento).
+ */
+function WhatsAg({ a }: { a: AgComRelacoes }) {
+  const telefone = a.clientes?.telefone;
+  if (!telefone) return null;
+
+  const tipo =
+    a.status === "concluido"
+      ? "agradecimento"
+      : a.status === "cancelado"
+        ? "reagendamento"
+        : a.status === "confirmado"
+          ? "confirmacao"
+          : "lembrete";
+
+  const rotulo = {
+    lembrete: "Enviar lembrete no WhatsApp",
+    confirmacao: "Confirmar horário no WhatsApp",
+    agradecimento: "Agradecer pelo atendimento",
+    reagendamento: "Convidar para reagendar",
+  }[tipo];
+
+  const dados: DadosMensagem = {
+    cliente: a.clientes?.nome ?? "cliente",
+    dataHora: a.data_hora,
+    servico: a.servicos?.nome ?? null,
+    valor: a.valor,
+  };
+
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="hover:bg-[#25D366]/15 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
+      aria-label={rotulo}
+      title={rotulo}
+      onClick={() => {
+        if (!abrirWhatsApp(telefone, mensagens[tipo](dados))) {
+          toast.error("Número de WhatsApp inválido. Edite o telefone desta cliente.");
+        }
+      }}
+    >
+      <MessageCircle className="size-4 text-[#25D366]" aria-hidden="true" />
+    </Button>
+  );
+}
+
+function AgendamentoDialog({
+  ag,
+  onSaved,
+  trigger,
+  open: openProp,
+  setOpen: setOpenProp,
+}: {
+  ag?: Ag;
+  onSaved: () => void;
+  trigger?: React.ReactNode;
+  open?: boolean;
+  setOpen?: (o: boolean) => void;
 }) {
   const [openInternal, setOpenInternal] = useState(false);
   const open = openProp ?? openInternal;
@@ -456,15 +663,29 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
     };
   });
 
-  const { data: clientes } = useQuery({ queryKey: ["clientes-list"], queryFn: async () => {
-    const { data, error } = await supabase.from("clientes").select("id,nome").order("nome");
-    if (error) throw error; return data;
-  }, enabled: open });
+  const { data: clientes } = useQuery({
+    queryKey: ["clientes-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("clientes").select("id,nome").order("nome");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
 
-  const { data: servicos } = useQuery({ queryKey: ["servicos-list"], queryFn: async () => {
-    const { data, error } = await supabase.from("servicos").select("id,nome,valor,custo,duracao_min").eq("ativo", true).order("nome");
-    if (error) throw error; return data;
-  }, enabled: open });
+  const { data: servicos } = useQuery({
+    queryKey: ["servicos-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("servicos")
+        .select("id,nome,valor,custo,duracao_min")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
 
   // F3: Find nearby available slots
   const { data: allBookingsData } = useQuery({
@@ -472,7 +693,8 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
     queryFn: async () => {
       const u = (await supabase.auth.getUser()).data.user;
       if (!u) return [];
-      const { data } = await supabase.from("agendamentos")
+      const { data } = await supabase
+        .from("agendamentos")
         .select("id, data_hora, duracao_min, status")
         .neq("status", "cancelado");
       return data ?? [];
@@ -496,7 +718,7 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
         const hh = String(h).padStart(2, "0");
         const mm = String(m).padStart(2, "0");
         const timeStr = `${hh}:${mm}`;
-        
+
         const slotStart = new Date(baseDate);
         slotStart.setHours(h, m, 0, 0);
         if (isToday && slotStart.getTime() <= Date.now()) continue;
@@ -529,10 +751,13 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
       if (currentConflict) {
         // Find the 3 nearest free slots around the requested time
         return allSlots
-          .map(s => ({ hora: s.hora, diff: Math.abs(Number(s.hora.replace(":", "")) - Number(form.hora.replace(":", ""))) }))
+          .map((s) => ({
+            hora: s.hora,
+            diff: Math.abs(Number(s.hora.replace(":", "")) - Number(form.hora.replace(":", ""))),
+          }))
           .sort((a, b) => a.diff - b.diff)
           .slice(0, 3)
-          .map(s => s.hora);
+          .map((s) => s.hora);
       }
     }
     return [];
@@ -546,8 +771,11 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
 
       // Conflict check - also check overlapping times based on duration
       const { data: u } = await supabase.auth.getUser();
-      const { data: allSlots } = await supabase.from("agendamentos")
-        .select("id, data_hora, duracao_min").eq("user_id", u.user!.id).neq("status", "cancelado");
+      const { data: allSlots } = await supabase
+        .from("agendamentos")
+        .select("id, data_hora, duracao_min")
+        .eq("user_id", u.user!.id)
+        .neq("status", "cancelado");
 
       const requestedStart = new Date(data_hora).getTime();
       const requestedEnd = requestedStart + parsed.data.duracao_min * 60 * 1000;
@@ -559,7 +787,8 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
         return requestedStart < slotEnd && slotStart < requestedEnd;
       });
 
-      if (hasConflict) throw new Error("Conflito de horário! Já existe um agendamento neste período.");
+      if (hasConflict)
+        throw new Error("Conflito de horário! Já existe um agendamento neste período.");
 
       const payload = {
         cliente_id: parsed.data.cliente_id,
@@ -576,7 +805,9 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
       // Recurrence: save + create recorrencia
       if (!ag && recorrente) {
         // Save appointment first
-        const { error: insertErr } = await supabase.from("agendamentos").insert({ ...payload, user_id: u.user!.id } as any);
+        const { error: insertErr } = await supabase
+          .from("agendamentos")
+          .insert({ ...payload, user_id: u.user!.id });
         if (insertErr) throw insertErr;
 
         // Create recurrence record
@@ -593,52 +824,127 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
           observacoes: parsed.data.observacoes || null,
           data_inicio: parsed.data.data,
           data_fim: dataFim || null,
-          proxima_geracao: format(addDays(new Date(parsed.data.data), frequencia === "semanal" ? 7 : frequencia === "quinzenal" ? 14 : 30), "yyyy-MM-dd"),
-        } as any);
+          proxima_geracao: format(
+            addDays(
+              new Date(parsed.data.data),
+              frequencia === "semanal" ? 7 : frequencia === "quinzenal" ? 14 : 30,
+            ),
+            "yyyy-MM-dd",
+          ),
+        });
         if (recErr) throw recErr;
       } else {
         if (ag) {
-          const { error } = await supabase.from("agendamentos").update(payload as any).eq("id", ag.id);
+          const { error } = await supabase.from("agendamentos").update(payload).eq("id", ag.id);
           if (error) throw error;
         } else {
-          const { error } = await supabase.from("agendamentos").insert({ ...payload, user_id: u.user!.id } as any);
+          const { error } = await supabase
+            .from("agendamentos")
+            .insert({ ...payload, user_id: u.user!.id });
           if (error) throw error;
         }
       }
     },
-    onSuccess: () => { toast.success(ag ? "Agendamento atualizado" : "Agendamento criado"); onSaved(); setOpen(false); },
+    onSuccess: () => {
+      toast.success(ag ? "Agendamento atualizado" : "Agendamento criado");
+      onSaved();
+      setOpen(false);
+    },
     onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
   });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger ?? <Button className="gradient-primary text-primary-foreground shadow-glow"><Plus className="size-4 mr-1" /> Novo</Button>}
+        {trigger ?? (
+          <Button className="gradient-primary text-primary-foreground shadow-glow">
+            <Plus className="size-4 mr-1" /> Novo
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle className="font-display text-2xl">{ag ? "Editar agendamento" : "Novo agendamento"}</DialogTitle></DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
+        <DialogHeader>
+          <DialogTitle className="font-display text-2xl">
+            {ag ? "Editar agendamento" : "Novo agendamento"}
+          </DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+          className="space-y-3"
+        >
           <div>
             <Label>Cliente *</Label>
-            <Select value={form.cliente_id} onValueChange={(v) => setForm({ ...form, cliente_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-              <SelectContent>{clientes?.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+            <Select
+              value={form.cliente_id}
+              onValueChange={(v) => setForm({ ...form, cliente_id: v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar..." />
+              </SelectTrigger>
+              <SelectContent>
+                {clientes?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div>
             <Label>Serviço *</Label>
-            <Select value={form.servico_id} onValueChange={(v) => {
-              const s = servicos?.find(x => x.id === v);
-              setForm({ ...form, servico_id: v, valor: s ? Number(s.valor) : form.valor, custo: s ? Number(s.custo) : form.custo, duracao_min: s ? s.duracao_min : form.duracao_min });
-            }}>
-              <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-              <SelectContent>{servicos?.map(s => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}</SelectContent>
+            <Select
+              value={form.servico_id}
+              onValueChange={(v) => {
+                const s = servicos?.find((x) => x.id === v);
+                setForm({
+                  ...form,
+                  servico_id: v,
+                  valor: s ? Number(s.valor) : form.valor,
+                  custo: s ? Number(s.custo) : form.custo,
+                  duracao_min: s ? s.duracao_min : form.duracao_min,
+                });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar..." />
+              </SelectTrigger>
+              <SelectContent>
+                {servicos?.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div><Label>Data</Label><Input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} /></div>
-            <div><Label>Hora</Label><Input type="time" value={form.hora} onChange={(e) => setForm({ ...form, hora: e.target.value })} /></div>
-            <div><Label>Duração (min)</Label><Input type="number" value={form.duracao_min} onChange={(e) => setForm({ ...form, duracao_min: Number(e.target.value) })} /></div>
+            <div>
+              <Label>Data</Label>
+              <Input
+                type="date"
+                value={form.data}
+                onChange={(e) => setForm({ ...form, data: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Hora</Label>
+              <Input
+                type="time"
+                value={form.hora}
+                onChange={(e) => setForm({ ...form, hora: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Duração (min)</Label>
+              <Input
+                type="number"
+                value={form.duracao_min}
+                onChange={(e) => setForm({ ...form, duracao_min: Number(e.target.value) })}
+              />
+            </div>
           </div>
 
           {/* F3: Nearby slot suggestions */}
@@ -649,7 +955,7 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
                 Horário solicitado indisponível. Sugestões próximas:
               </div>
               <div className="flex flex-wrap gap-2">
-                {nearbySlots.map(time => (
+                {nearbySlots.map((time) => (
                   <button
                     key={time}
                     type="button"
@@ -664,14 +970,35 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} /></div>
-            <div><Label>Custo (R$)</Label><Input type="number" step="0.01" value={form.custo} onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })} /></div>
+            <div>
+              <Label>Valor (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={form.valor}
+                onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label>Custo (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={form.custo}
+                onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })}
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as Status })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm({ ...form, status: v as Status })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="agendado">Agendado</SelectItem>
                   <SelectItem value="confirmado">Confirmado</SelectItem>
@@ -682,8 +1009,13 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
             </div>
             <div>
               <Label>Pagamento</Label>
-              <Select value={form.pagamento} onValueChange={(v) => setForm({ ...form, pagamento: v as Pagamento })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={form.pagamento}
+                onValueChange={(v) => setForm({ ...form, pagamento: v as Pagamento })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pendente">Pendente</SelectItem>
                   <SelectItem value="pix">PIX</SelectItem>
@@ -706,14 +1038,21 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
                   className="size-4 accent-[#D946EF]"
                   aria-label="Repetir este agendamento"
                 />
-                <Label htmlFor="recorrente" className="text-sm font-medium cursor-pointer">Repetir agendamento</Label>
+                <Label htmlFor="recorrente" className="text-sm font-medium cursor-pointer">
+                  Repetir agendamento
+                </Label>
               </div>
               {recorrente && (
                 <div className="grid grid-cols-2 gap-3 ml-6">
                   <div>
                     <Label className="text-xs">Frequência</Label>
                     <Select value={frequencia} onValueChange={setFrequencia}>
-                      <SelectTrigger className="h-9 rounded-xl text-xs" aria-label="Frequência da recorrência"><SelectValue /></SelectTrigger>
+                      <SelectTrigger
+                        className="h-9 rounded-xl text-xs"
+                        aria-label="Frequência da recorrência"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="semanal">Semanal</SelectItem>
                         <SelectItem value="quinzenal">Quinzenal</SelectItem>
@@ -723,15 +1062,32 @@ function AgendamentoDialog({ ag, onSaved, trigger, open: openProp, setOpen: setO
                   </div>
                   <div>
                     <Label className="text-xs">Até</Label>
-                    <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-9 rounded-xl text-xs" aria-label="Data final da recorrência" />
+                    <Input
+                      type="date"
+                      value={dataFim}
+                      onChange={(e) => setDataFim(e.target.value)}
+                      className="h-9 rounded-xl text-xs"
+                      aria-label="Data final da recorrência"
+                    />
                   </div>
                 </div>
               )}
             </div>
           )}
-          <div><Label>Observações</Label><Textarea rows={2} value={form.observacoes ?? ""} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
+          <div>
+            <Label>Observações</Label>
+            <Textarea
+              rows={2}
+              value={form.observacoes ?? ""}
+              onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
+            />
+          </div>
           <DialogFooter>
-            <Button type="submit" disabled={mut.isPending} className="gradient-primary text-primary-foreground shadow-glow w-full">
+            <Button
+              type="submit"
+              disabled={mut.isPending}
+              className="gradient-primary text-primary-foreground shadow-glow w-full"
+            >
               {mut.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>

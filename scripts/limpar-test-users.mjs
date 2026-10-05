@@ -26,7 +26,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const env = fs.readFileSync(".env", "utf8");
 const get = (k) => {
-  const m = env.match(new RegExp("^" + k + "=\\s*\"?([^\"\\r\\n]+)", "m"));
+  const m = env.match(new RegExp("^" + k + '=\\s*"?([^"\\r\\n]+)', "m"));
   return m ? m[1].replace(/"/g, "").trim() : null;
 };
 
@@ -97,7 +97,10 @@ async function contarPorUsuario() {
     let rows;
     try {
       const { data, error } = await admin.from(tabela).select(col);
-      if (error) { puladas.add(tabela); continue; }
+      if (error) {
+        puladas.add(tabela);
+        continue;
+      }
       rows = data ?? [];
     } catch {
       puladas.add(tabela);
@@ -117,8 +120,14 @@ async function main() {
   console.log("🧹 LIMPEZA DE USUÁRIOS DE TESTE\n");
 
   // ═══ 0. Checagens de integridade da própria lista ═════════════════════════
-  log(TEST_USERS.length === 3, `Lista de remoção contém exatamente 3 usuários (tem ${TEST_USERS.length})`);
-  log(!TEST_USERS.some((t) => t.id === ADMIN.id), "O ID do administrador NÃO está na lista de remoção");
+  log(
+    TEST_USERS.length === 3,
+    `Lista de remoção contém exatamente 3 usuários (tem ${TEST_USERS.length})`,
+  );
+  log(
+    !TEST_USERS.some((t) => t.id === ADMIN.id),
+    "O ID do administrador NÃO está na lista de remoção",
+  );
 
   // ═══ 1. PRÉ-VALIDAÇÃO: IDs → e-mails devem bater exatamente ═══════════════
   console.log("\n── Pré-validação dos IDs ──");
@@ -139,8 +148,12 @@ async function main() {
 
   // ═══ 2. Pré-validação do admin ════════════════════════════════════════════
   const { data: adminData } = await admin.auth.admin.getUserById(ADMIN.id);
-  const adminOk = !!adminData?.user && (adminData.user.email ?? "").toLowerCase() === ADMIN.email.toLowerCase();
-  log(adminOk, `Administrador presente e intacto: ${adminData?.user?.email ?? "(não encontrado!)"}`);
+  const adminOk =
+    !!adminData?.user && (adminData.user.email ?? "").toLowerCase() === ADMIN.email.toLowerCase();
+  log(
+    adminOk,
+    `Administrador presente e intacto: ${adminData?.user?.email ?? "(não encontrado!)"}`,
+  );
 
   // ═══ 3. Estado antes (dados reais do admin) ═══════════════════════════════
   const antes = await contarPorUsuario();
@@ -148,13 +161,22 @@ async function main() {
   // Referência esperada (auditada em scripts/auditar-test-users.mjs). Se você
   // adicionar dados reais antes de rodar, estes números mudam e a pré-checagem
   // abaixo aborta propositalmente (fail-closed) — basta atualizar aqui.
-  const esperadoAdmin = { profiles: 1, contas: 1, clientes: 2, servicos: 4, agendamentos: 1, fidelidade_config: 1, horarios_trabalho: 5 };
+  const esperadoAdmin = {
+    profiles: 1,
+    contas: 1,
+    clientes: 2,
+    servicos: 4,
+    agendamentos: 1,
+    fidelidade_config: 1,
+    horarios_trabalho: 5,
+  };
   console.log("\n── Dados reais do admin ANTES da limpeza ──");
   for (const [t, n] of Object.entries(esperadoAdmin)) {
     const v = adminAntes[t] ?? 0;
     log(v === n, `admin.${t} = ${v} (esperado ${n})`);
   }
-  if (puladas.size > 0) log(false, `Tabelas não consultadas na pré-checagem: ${[...puladas].join(", ")}`);
+  if (puladas.size > 0)
+    log(false, `Tabelas não consultadas na pré-checagem: ${[...puladas].join(", ")}`);
 
   if (falhou) {
     console.log("\n⛔ Pré-validação falhou — nada foi removido.");
@@ -179,7 +201,10 @@ async function main() {
     let erroList = null;
     for (;;) {
       const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-      if (error) { erroList = error; break; }
+      if (error) {
+        erroList = error;
+        break;
+      }
       restantes.push(...data.users);
       if (data.users.length < 1000) break;
       page++;
@@ -197,10 +222,17 @@ async function main() {
 
   // 5b. Nenhum resíduo dos IDs removidos em qualquer tabela
   const depois = await contarPorUsuario();
-  if (puladas.size > 0) log(false, `Tabelas não consultadas na pós-validação (resíduos não verificados): ${[...puladas].join(", ")}`);
+  if (puladas.size > 0)
+    log(
+      false,
+      `Tabelas não consultadas na pós-validação (resíduos não verificados): ${[...puladas].join(", ")}`,
+    );
   for (const t of TEST_USERS) {
     const residuos = Object.entries(depois[t.id] ?? {});
-    log(residuos.length === 0, `Nenhum resíduo de ${t.email} (${residuos.length ? JSON.stringify(residuos) : "ok"})`);
+    log(
+      residuos.length === 0,
+      `Nenhum resíduo de ${t.email} (${residuos.length ? JSON.stringify(residuos) : "ok"})`,
+    );
   }
 
   // 5c. Dados reais do admin intactos (comparação antes x depois)
@@ -214,9 +246,12 @@ async function main() {
   const totalSemDono = Object.values(depois).filter((t) => Object.keys(t).length > 0).length;
   log(totalSemDono === 1, `Apenas 1 usuário com registros nas tabelas (tem ${totalSemDono})`);
 
-  console.log("\n" + (falhou
-    ? "❌ LIMPEZA CONCLUÍDA COM FALHAS — revisar saída acima."
-    : "🎉 Limpeza concluída com sucesso. Restou apenas a conta administradora com os dados reais intactos."));
+  console.log(
+    "\n" +
+      (falhou
+        ? "❌ LIMPEZA CONCLUÍDA COM FALHAS — revisar saída acima."
+        : "🎉 Limpeza concluída com sucesso. Restou apenas a conta administradora com os dados reais intactos."),
+  );
   process.exitCode = falhou ? 1 : 0;
 }
 
