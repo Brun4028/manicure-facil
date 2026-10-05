@@ -72,9 +72,8 @@ Quando você abrir o app pela primeira vez, verá um **wizard de configuração*
 ### Passo 3: Rodar o SQL
 
 1. No Supabase, vá em **SQL Editor** (menu lateral)
-2. Cole o script SQL que o wizard mostra
-3. Clique em **Run**
-4. Execute também o comando para se tornar admin
+2. Execute cada arquivo `.sql` da pasta `supabase/migrations/`, na ordem do nome (do mais antigo ao mais recente), um por vez, clicando em **Run**
+3. Depois execute também o comando para se tornar admin (o próprio wizard mostra ele)
 
 ### Passo 4: Configurar IA (opcional)
 

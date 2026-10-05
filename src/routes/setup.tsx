@@ -204,7 +204,7 @@ HOST=0.0.0.0
                     { icon: Key, text: "Colar as 3 chaves no formulário", color: "text-[#D946EF]" },
                     {
                       icon: Terminal,
-                      text: "Rodar o script SQL (copiar e colar)",
+                      text: "Rodar o SQL das migrations (arquivo por arquivo)",
                       color: "text-amber-400",
                     },
                     {
@@ -390,38 +390,28 @@ HOST=0.0.0.0
 
                   <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-4 mb-5">
                     <p className="text-sm text-[#D4D4D8] leading-relaxed">
-                      <strong className="text-white">Copie o script SQL abaixo</strong> e cole no{" "}
-                      <strong className="text-white">SQL Editor</strong> do Supabase, depois clique
-                      em <strong className="text-white">Run</strong>.
+                      <strong className="text-white">Execute o schema completo do banco</strong> no{" "}
+                      <strong className="text-white">SQL Editor</strong> do Supabase. O script está
+                      na pasta <strong className="text-white">supabase/migrations/</strong> do
+                      projeto — siga os passos abaixo:
                     </p>
                   </div>
                 </div>
 
-                {/* SQL Script */}
-                <div className="relative rounded-xl bg-[#0D0D12] border border-white/[0.06] overflow-hidden mb-4">
-                  <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06]">
-                    <span className="text-[11px] text-[#52525B] font-mono">SQL Editor</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyToClipboard(getFullSQLScript(), "full-sql")}
-                      className="h-7 text-[11px] text-[#A1A1AA] hover:text-white"
-                    >
-                      {copied === "full-sql" ? (
-                        <>
-                          <Check className="size-3 mr-1 text-emerald-400" /> Copiado!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="size-3 mr-1" /> Copiar tudo
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <pre className="p-4 text-[11px] text-[#A1A1AA] font-mono overflow-x-auto max-h-64 leading-relaxed">
-                    <code>{getFullSQLScript()}</code>
-                  </pre>
-                </div>
+                {/* Como rodar as migrations */}
+                <ol className="rounded-xl bg-[#0D0D12] border border-white/[0.06] p-4 mb-4 space-y-2 text-sm text-[#D4D4D8] list-decimal list-inside">
+                  <li>
+                    Abra o <strong className="text-white">SQL Editor</strong> no menu lateral do
+                    Supabase.
+                  </li>
+                  <li>
+                    Execute cada arquivo <code className="text-[11px] text-[#A1A1AA]">.sql</code> da
+                    pasta <code className="text-[11px] text-[#A1A1AA]">supabase/migrations/</code>,
+                    na ordem do nome (do mais antigo ao mais recente), um por vez, clicando em{" "}
+                    <strong className="text-white">Run</strong>.
+                  </li>
+                  <li>Volte aqui e execute também o comando de admin, logo abaixo.</li>
+                </ol>
 
                 {/* Admin promotion SQL */}
                 <div className="rounded-xl bg-[#D946EF]/10 border border-[#D946EF]/20 p-4 mb-4">
@@ -645,271 +635,4 @@ HOST=0.0.0.0
       </div>
     </div>
   );
-}
-
-/** SQL completo para configurar o banco (compacto para copiar) */
-function getFullSQLScript(): string {
-  return `-- ========================================
--- Manicure Fácil — Script de Configuração
--- Cole no SQL Editor do Supabase e clique Run
--- ========================================
-
--- 1. Status de conta
-CREATE TYPE public.conta_status AS ENUM ('ativo', 'inativo', 'bloqueado', 'suspenso');
-
--- 2. Tabela de contas
-CREATE TABLE IF NOT EXISTS public.contas (
-  user_id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  status public.conta_status NOT NULL DEFAULT 'ativo',
-  is_admin BOOLEAN NOT NULL DEFAULT false,
-  plano TEXT,
-  fonte TEXT NOT NULL DEFAULT 'admin',
-  kirvano_transacao_id TEXT,
-  trial_inicio TIMESTAMPTZ,
-  trial_fim TIMESTAMPTZ,
-  acesso_termina_em TIMESTAMPTZ,
-  motivo_bloqueio TEXT,
-  criado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
-  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_contas_status ON public.contas(status);
-CREATE INDEX IF NOT EXISTS idx_contas_fonte ON public.contas(fonte);
-
-GRANT SELECT ON public.contas TO authenticated;
-GRANT ALL ON public.contas TO service_role;
-REVOKE INSERT, UPDATE, DELETE ON public.contas FROM authenticated;
-
-ALTER TABLE public.contas ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "contas_own_select" ON public.contas
-  FOR SELECT TO authenticated
-  USING (auth.uid() = user_id);
-
--- 3. Função verificar_acesso
-CREATE OR REPLACE FUNCTION public.verificar_acesso()
-RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER
-SET search_path = public AS $$ SELECT true; $$;
-
-REVOKE EXECUTE ON FUNCTION public.verificar_acesso() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.verificar_acesso() TO authenticated;
-
--- 4. Trigger handle_new_user
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, nome)
-  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'nome', NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)));
-
-  INSERT INTO public.servicos (user_id, nome, valor, custo, duracao_min) VALUES
-    (NEW.id, 'Unha Simples', 35, 5, 45),
-    (NEW.id, 'Unha em Gel', 90, 20, 90),
-    (NEW.id, 'Pé e Mão', 70, 10, 90),
-    (NEW.id, 'Alongamento', 150, 40, 120);
-
-  INSERT INTO public.fidelidade_config (user_id, ativo, pontos_por_real, pontos_resgate, premio_resgate, niver_promo_ativa, niver_desconto_porcentagem, niver_dias_validade)
-  VALUES (NEW.id, false, 1.00, 100, 'Pé e Mão Simples', false, 10.00, 7);
-
-  INSERT INTO public.configuracoes (user_id, empresa_nome)
-  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'nome', 'Meu Salão'));
-
-  INSERT INTO public.horarios_trabalho (user_id, dia_semana, hora_inicio, hora_fim)
-  VALUES
-    (NEW.id, 1, '08:00', '18:00'), (NEW.id, 2, '08:00', '18:00'),
-    (NEW.id, 3, '08:00', '18:00'), (NEW.id, 4, '08:00', '18:00'),
-    (NEW.id, 5, '08:00', '18:00')
-  ON CONFLICT (user_id, dia_semana) DO NOTHING;
-
-  INSERT INTO public.contas (user_id, status)
-  VALUES (NEW.id, 'ativo'::public.conta_status)
-  ON CONFLICT (user_id) DO NOTHING;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
--- 5. Remover políticas públicas (segurança)
-DO $$ DECLARE t text; BEGIN
-  FOREACH t IN ARRAY ARRAY[
-    'profiles','servicos','clientes','agendamentos','avaliacoes',
-    'portfolio','promocoes','fidelidade_config'
-  ] LOOP
-    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'allow_public_select_'||t, t);
-  END LOOP;
-END $$;
-
--- 6. Revogar acesso anon
-REVOKE ALL ON public.contas FROM anon;
-REVOKE ALL ON public.clientes FROM anon;
-REVOKE ALL ON public.agendamentos FROM anon;
-REVOKE ALL ON public.servicos FROM anon;
-REVOKE ALL ON public.profiles FROM anon;
-REVOKE ALL ON public.fidelidade_config FROM anon;
-REVOKE ALL ON public.fidelidade_pontos FROM anon;
-REVOKE ALL ON public.fidelidade_historico FROM anon;
-REVOKE ALL ON public.avaliacoes FROM anon;
-REVOKE ALL ON public.portfolio FROM anon;
-REVOKE ALL ON public.promocoes FROM anon;
-REVOKE ALL ON public.vendas FROM anon;
-REVOKE ALL ON public.venda_itens FROM anon;
-REVOKE ALL ON public.produtos FROM anon;
-REVOKE ALL ON public.movimentacoes_estoque FROM anon;
-REVOKE ALL ON public.metas_mensais FROM anon;
-REVOKE ALL ON public.despesas FROM anon;
-REVOKE ALL ON public.horarios_trabalho FROM anon;
-REVOKE ALL ON public.bloqueios_agenda FROM anon;
-REVOKE ALL ON public.configuracoes FROM anon;
-REVOKE ALL ON public.notificacoes_internas FROM anon;
-REVOKE ALL ON public.recorrencias FROM anon;
-REVOKE ALL ON public.audit_log FROM anon;
-REVOKE ALL ON public.backup_log FROM anon;
-
--- 7. Políticas own_* (isolamento por usuário)
-DO $$ DECLARE t text; BEGIN
-  FOREACH t IN ARRAY ARRAY[
-    'clientes','servicos','agendamentos','produtos',
-    'movimentacoes_estoque','fidelidade_config','fidelidade_pontos',
-    'fidelidade_historico','promocoes','portfolio','vendas','venda_itens',
-    'metas_mensais','despesas','horarios_trabalho','configuracoes',
-    'notificacoes_internas','recorrencias'
-  ] LOOP
-    EXECUTE format('DROP POLICY IF EXISTS own_%I ON public.%I', t, t);
-    EXECUTE format(
-      'CREATE POLICY own_%I ON public.%I FOR ALL TO authenticated
-       USING (auth.uid() = user_id AND public.verificar_acesso())
-       WITH CHECK (auth.uid() = user_id AND public.verificar_acesso())',
-      t, t
-    );
-  END LOOP;
-END $$;
-
--- profiles (coluna id)
-DROP POLICY IF EXISTS "own_profiles_select" ON public.profiles;
-DROP POLICY IF EXISTS "own_profiles_insert" ON public.profiles;
-DROP POLICY IF EXISTS "own_profiles_update" ON public.profiles;
-CREATE POLICY "own_profiles_select" ON public.profiles
-  FOR SELECT TO authenticated USING (auth.uid() = id);
-CREATE POLICY "own_profiles_insert" ON public.profiles
-  FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
-CREATE POLICY "own_profiles_update" ON public.profiles
-  FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-
--- bloqueios_agenda
-DROP POLICY IF EXISTS "own_bloqueios" ON public.bloqueios_agenda;
-CREATE POLICY "own_bloqueios" ON public.bloqueios_agenda
-  FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
--- backup_log
-DROP POLICY IF EXISTS "own_backup_log" ON public.backup_log;
-CREATE POLICY "own_backup_log" ON public.backup_log
-  FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
--- audit_log
-DROP POLICY IF EXISTS "own_audit_log_insert" ON public.audit_log;
-DROP POLICY IF EXISTS "own_audit_log_select" ON public.audit_log;
-CREATE POLICY "own_audit_log_insert" ON public.audit_log
-  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "own_audit_log_select" ON public.audit_log
-  FOR SELECT TO authenticated USING (auth.uid() = user_id);
-
--- 8. Funções de agendamento/avaliação
-CREATE OR REPLACE FUNCTION public.agendar_servico(
-  p_user_id UUID, p_cliente_nome TEXT, p_cliente_telefone TEXT,
-  p_cliente_email TEXT DEFAULT NULL, p_cliente_data_nascimento DATE DEFAULT NULL,
-  p_cliente_observacoes TEXT DEFAULT NULL, p_servico_id UUID DEFAULT NULL,
-  p_data_hora TIMESTAMPTZ DEFAULT NULL, p_observacoes TEXT DEFAULT NULL,
-  p_valor_final NUMERIC(10,2) DEFAULT NULL
-) RETURNS JSONB LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
-DECLARE
-  v_cliente_id UUID; v_servico RECORD; v_agendamento_id UUID;
-  v_conflito BOOLEAN; v_valor_final NUMERIC(10,2);
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.contas c WHERE c.user_id = p_user_id AND c.status = 'ativo' AND (c.acesso_termina_em IS NULL OR c.acesso_termina_em > now())) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Agenda indisponível no momento');
-  END IF;
-  IF p_cliente_nome IS NULL OR trim(p_cliente_nome) = '' THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Nome do cliente é obrigatório');
-  END IF;
-  IF p_cliente_telefone IS NULL OR trim(p_cliente_telefone) = '' THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Telefone do cliente é obrigatório');
-  END IF;
-  IF p_servico_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Serviço não informado');
-  END IF;
-  IF p_data_hora IS NULL OR p_data_hora < now() THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Data/hora inválida ou no passado');
-  END IF;
-  SELECT id, nome, valor, custo, duracao_min, ativo INTO v_servico
-  FROM public.servicos WHERE id = p_servico_id AND user_id = p_user_id AND ativo = true;
-  IF v_servico.id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Serviço não encontrado ou inativo');
-  END IF;
-  SELECT EXISTS (SELECT 1 FROM public.agendamentos
-    WHERE user_id = p_user_id AND status != 'cancelado'
-      AND data_hora < p_data_hora + (v_servico.duracao_min || ' minutes')::INTERVAL
-      AND data_hora + (duracao_min || ' minutes')::INTERVAL > p_data_hora
-  ) INTO v_conflito;
-  IF v_conflito THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Conflito de horário');
-  END IF;
-  v_valor_final := ROUND(COALESCE(p_valor_final, v_servico.valor), 2);
-  IF v_valor_final < 0 THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Valor inválido');
-  END IF;
-  SELECT id INTO v_cliente_id FROM public.clientes
-  WHERE user_id = p_user_id AND telefone = p_cliente_telefone LIMIT 1;
-  IF v_cliente_id IS NULL THEN
-    INSERT INTO public.clientes (user_id, nome, telefone, email, data_nascimento, observacoes)
-    VALUES (p_user_id, p_cliente_nome, p_cliente_telefone, p_cliente_email, p_cliente_data_nascimento, p_cliente_observacoes)
-    RETURNING id INTO v_cliente_id;
-  END IF;
-  INSERT INTO public.agendamentos (user_id, cliente_id, servico_id, data_hora, duracao_min, valor, custo, status, pagamento, observacoes)
-  VALUES (p_user_id, v_cliente_id, p_servico_id, p_data_hora, v_servico.duracao_min, v_valor_final, v_servico.custo, 'agendado', 'pendente', p_observacoes)
-  RETURNING id INTO v_agendamento_id;
-  INSERT INTO public.audit_log (user_id, acao, entidade, entidade_id, detalhes)
-  VALUES (p_user_id, 'create', 'agendamento', v_agendamento_id::TEXT,
-    jsonb_build_object('source', 'public_booking', 'cliente_nome', p_cliente_nome, 'servico', v_servico.nome, 'valor', v_servico.valor));
-  RETURN jsonb_build_object('success', true, 'agendamento_id', v_agendamento_id, 'message', 'Agendamento realizado com sucesso');
-END; $$;
-
-REVOKE EXECUTE ON FUNCTION public.agendar_servico FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.agendar_servico TO service_role;
-
-CREATE OR REPLACE FUNCTION public.criar_avaliacao(
-  p_user_id UUID, p_cliente_nome TEXT, p_nota INTEGER, p_comentario TEXT DEFAULT NULL
-) RETURNS JSONB LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
-DECLARE v_id UUID; BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.contas c WHERE c.user_id = p_user_id AND c.status = 'ativo' AND (c.acesso_termina_em IS NULL OR c.acesso_termina_em > now())) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Conta indisponível');
-  END IF;
-  IF p_cliente_nome IS NULL OR trim(p_cliente_nome) = '' THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Nome é obrigatório');
-  END IF;
-  IF p_nota IS NULL OR p_nota < 1 OR p_nota > 5 THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Nota deve ser entre 1 e 5');
-  END IF;
-  INSERT INTO public.avaliacoes (user_id, cliente_nome, nota, comentario, publico)
-  VALUES (p_user_id, p_cliente_nome, p_nota, p_comentario, true) RETURNING id INTO v_id;
-  RETURN jsonb_build_object('success', true, 'avaliacao_id', v_id);
-END; $$;
-
-REVOKE EXECUTE ON FUNCTION public.criar_avaliacao FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.criar_avaliacao TO service_role;
-
--- 9. Utilitários admin
-CREATE OR REPLACE FUNCTION public.definir_admin(p_email TEXT)
-RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
-  UPDATE public.contas c SET is_admin = true, atualizado_em = now()
-  FROM auth.users u WHERE u.id = c.user_id AND lower(u.email) = lower(p_email);
-$$;
-REVOKE EXECUTE ON FUNCTION public.definir_admin FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.definir_admin TO service_role;
-
--- 10. Backfill contas existentes
-INSERT INTO public.contas (user_id, status)
-SELECT id, 'ativo'::public.conta_status FROM auth.users
-ON CONFLICT (user_id) DO NOTHING;
-
--- ✅ Script completo! Agora execute o comando de admin:
--- SELECT public.definir_admin('SEU_EMAIL_AQUI');`;
 }

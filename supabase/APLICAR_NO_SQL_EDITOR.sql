@@ -1,4 +1,11 @@
 -- =============================================================================
+-- ⚠️ ARQUIVO LEGADO — NÃO USE EM BANCO NOVO!
+-- Este script é um patch antigo: cria só 9 das 24 tabelas do app e falha em
+-- banco recém-criado (referencia tabelas que ainda não existem).
+-- Para instalar o Manicure Fácil do zero, execute os scripts de
+-- supabase/migrations/ na ordem do nome (do mais antigo ao mais recente).
+-- Mantido apenas como referência histórica.
+-- =============================================================================
 -- MANICURE FÁCIL — APLICAÇÃO COMPLETA (v4 FINAL — cria TODAS as tabelas faltantes)
 -- =============================================================================
 -- COMO USAR: Supabase Dashboard -> SQL Editor -> colar TUDO -> Run.
