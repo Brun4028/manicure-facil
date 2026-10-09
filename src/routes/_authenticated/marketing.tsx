@@ -77,8 +77,13 @@ type Promo = {
   data_inicio: string | null;
   data_fim: string | null;
   servicos_elegiveis: unknown;
+  valor_minimo?: number;
+  limite_usos?: number | null;
+  usos?: number;
   user_id?: string;
 };
+
+type ServicoOpcao = { id: string; nome: string };
 
 type Client = {
   id: string;
@@ -121,6 +126,9 @@ const defaultPromos: Promo[] = [
     data_inicio: null,
     data_fim: null,
     servicos_elegiveis: null,
+    valor_minimo: 0,
+    limite_usos: null,
+    usos: 0,
   },
   {
     id: "pr2",
@@ -131,6 +139,9 @@ const defaultPromos: Promo[] = [
     data_inicio: null,
     data_fim: null,
     servicos_elegiveis: null,
+    valor_minimo: 0,
+    limite_usos: null,
+    usos: 0,
   },
 ];
 
@@ -216,6 +227,16 @@ function MarketingPage() {
       } catch (e) {
         return [] as Client[];
       }
+    },
+  });
+
+  // Query Services (para restringir cupons a serviços específicos)
+  const servicosQuery = useQuery({
+    queryKey: ["servicos-marketing"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("servicos").select("id, nome").order("nome");
+      if (error) throw error;
+      return (data ?? []) as ServicoOpcao[];
     },
   });
 
@@ -481,7 +502,7 @@ function MarketingPage() {
                 Gerencie descontos para agendamentos e vendas
               </p>
             </div>
-            <PromoDialog onSaved={invalidate} />
+            <PromoDialog onSaved={invalidate} servicos={servicosQuery.data ?? []} />
           </div>
 
           {promosQuery.isLoading ? (
@@ -559,11 +580,23 @@ function MarketingPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 border-t border-border/40 pt-3 text-xs text-muted-foreground flex justify-between items-center">
-                      <span>
-                        Válido para:{" "}
-                        {promo.servicos_elegiveis ? "Serviços específicos" : "Todos os serviços"}
-                      </span>
+                    <div className="mt-4 border-t border-border/40 pt-3 space-y-1 text-xs text-muted-foreground">
+                      <div className="flex justify-between items-center">
+                        <span>
+                          Válido para:{" "}
+                          {promo.servicos_elegiveis ? "Serviços específicos" : "Todos os serviços"}
+                        </span>
+                        {Number(promo.valor_minimo ?? 0) > 0 && (
+                          <span>Mín: {brl(Number(promo.valor_minimo))}</span>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>
+                          Usos: {Number(promo.usos ?? 0)}
+                          {promo.limite_usos != null ? ` / ${promo.limite_usos}` : " / ilimitado"}
+                        </span>
+                        {promo.data_fim && <span>Até {promo.data_fim}</span>}
+                      </div>
                     </div>
                   </Card>
                 );
@@ -855,17 +888,43 @@ function PointsAdjustmentDialog({ clients, onSaved }: { clients: Client[]; onSav
 }
 
 // Dialog: Add/Edit promotion cupom
-function PromoDialog({ onSaved }: { onSaved: () => void }) {
+function PromoDialog({ onSaved, servicos }: { onSaved: () => void; servicos: ServicoOpcao[] }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     nome: "",
     ativo: true,
     tipo: "desconto_porcentagem" as "desconto_porcentagem" | "valor_fixo",
     valor: 10,
+    valor_minimo: 0,
+    limite_usos: "" as string,
     data_inicio: "",
     data_fim: "",
+    servicos_elegiveis: [] as string[],
   });
   const [isPending, setIsPending] = useState(false);
+
+  function reset() {
+    setForm({
+      nome: "",
+      ativo: true,
+      tipo: "desconto_porcentagem",
+      valor: 10,
+      valor_minimo: 0,
+      limite_usos: "",
+      data_inicio: "",
+      data_fim: "",
+      servicos_elegiveis: [],
+    });
+  }
+
+  function toggleServico(id: string) {
+    setForm((f) => ({
+      ...f,
+      servicos_elegiveis: f.servicos_elegiveis.includes(id)
+        ? f.servicos_elegiveis.filter((x) => x !== id)
+        : [...f.servicos_elegiveis, id],
+    }));
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -877,6 +936,14 @@ function PromoDialog({ onSaved }: { onSaved: () => void }) {
       toast.error("Insira um valor maior que 0");
       return;
     }
+    if (form.tipo === "desconto_porcentagem" && form.valor > 100) {
+      toast.error("A porcentagem deve ser de no máximo 100%");
+      return;
+    }
+    if (form.limite_usos !== "" && Number(form.limite_usos) < 1) {
+      toast.error("O limite de usos deve ser maior que 0 (ou vazio para ilimitado)");
+      return;
+    }
 
     setIsPending(true);
 
@@ -885,9 +952,11 @@ function PromoDialog({ onSaved }: { onSaved: () => void }) {
       ativo: form.ativo,
       tipo: form.tipo,
       valor: Number(form.valor),
+      valor_minimo: Number(form.valor_minimo) || 0,
+      limite_usos: form.limite_usos === "" ? null : Number(form.limite_usos),
       data_inicio: form.data_inicio || null,
       data_fim: form.data_fim || null,
-      servicos_elegiveis: null,
+      servicos_elegiveis: form.servicos_elegiveis.length > 0 ? form.servicos_elegiveis : null,
     };
 
     try {
@@ -912,14 +981,7 @@ function PromoDialog({ onSaved }: { onSaved: () => void }) {
     toast.success("Promoção cadastrada com sucesso!");
     onSaved();
     setOpen(false);
-    setForm({
-      nome: "",
-      ativo: true,
-      tipo: "desconto_porcentagem",
-      valor: 10,
-      data_inicio: "",
-      data_fim: "",
-    });
+    reset();
     setIsPending(false);
   };
 
@@ -930,7 +992,7 @@ function PromoDialog({ onSaved }: { onSaved: () => void }) {
           <Plus className="size-4 mr-1" /> Criar Cupom
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Novo Cupom Promocional</DialogTitle>
         </DialogHeader>
@@ -977,6 +1039,35 @@ function PromoDialog({ onSaved }: { onSaved: () => void }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
+              <Label>Compra Mínima (R$)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.valor_minimo}
+                onChange={(e) => setForm({ ...form, valor_minimo: Number(e.target.value) })}
+              />
+              <span className="text-[10px] text-muted-foreground mt-1 block">
+                0 = sem valor mínimo
+              </span>
+            </div>
+            <div>
+              <Label>Limite de Usos</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="Ilimitado"
+                value={form.limite_usos}
+                onChange={(e) => setForm({ ...form, limite_usos: e.target.value })}
+              />
+              <span className="text-[10px] text-muted-foreground mt-1 block">
+                Vazio = ilimitado
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <Label>Data Início (Opcional)</Label>
               <Input
                 type="date"
@@ -992,6 +1083,37 @@ function PromoDialog({ onSaved }: { onSaved: () => void }) {
                 onChange={(e) => setForm({ ...form, data_fim: e.target.value })}
               />
             </div>
+          </div>
+
+          <div>
+            <Label>Serviços Elegíveis</Label>
+            <p className="text-[10px] text-muted-foreground mb-2">
+              Deixe todos desmarcados para valer em qualquer serviço.
+            </p>
+            {servicos.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhum serviço cadastrado.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto border border-border/40 rounded-xl p-3">
+                {servicos.map((s) => {
+                  const on = form.servicos_elegiveis.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => toggleServico(s.id)}
+                      aria-pressed={on}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                        on
+                          ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white border-transparent shadow"
+                          : "bg-muted/40 text-muted-foreground border-border/50 hover:bg-accent/40"
+                      }`}
+                    >
+                      {s.nome}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between pt-2">

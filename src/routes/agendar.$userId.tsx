@@ -7,6 +7,7 @@ import {
   criarAgendamentoPublico,
   criarAvaliacaoPublica,
 } from "@/lib/public/booking.functions";
+import { avaliarCuponsPublico } from "@/lib/cupons.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,8 @@ import {
   Star,
   Heart,
   Cake,
+  Gift,
+  Info,
   ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -79,6 +82,22 @@ function PublicAgendamentoPage() {
       return res.data;
     },
   });
+
+  // Avalia automaticamente os cupons/promoções elegíveis para o serviço
+  // escolhido. A decisão real de aplicar e consumir acontece no servidor.
+  const cuponsQuery = useQuery({
+    queryKey: ["cupons-publico", userId, selectedService?.id],
+    enabled: !!selectedService,
+    queryFn: async () => {
+      if (!selectedService) return { cupom: null, rejeitados: [] };
+      const res = await avaliarCuponsPublico({
+        data: { userId, servicoId: selectedService.id, base: selectedService.valor },
+      });
+      if (!res.ok) return { cupom: null, rejeitados: [] };
+      return res.data;
+    },
+  });
+  const melhorCupomDisp = cuponsQuery.data?.cupom ?? null;
 
   const data = publicoQuery.data;
   // 🔧 UX: link com ID inválido/inativo → mostra a mensagem amigável do
@@ -248,19 +267,26 @@ function PublicAgendamentoPage() {
     }
   }, [clientForm.data_nascimento, loyaltyConfig]);
 
-  // Final Price calculator
+  // Final Price calculator — combina cupom e aniversário SEM acumular:
+  // aplica o MAIOR desconto entre os dois (mesma regra usada no servidor).
   const pricing = useMemo(() => {
-    if (!selectedService) return { original: 0, final: 0, discount: 0 };
+    if (!selectedService)
+      return {
+        original: 0,
+        final: 0,
+        discount: 0,
+        origem: null as null | "cupom" | "aniversario",
+      };
     const original = selectedService.valor;
-    let final = original;
-    let discount = 0;
-
-    if (birthdayDiscount) {
-      discount = original * (birthdayDiscount / 100);
-      final = original - discount;
-    }
-    return { original, final, discount };
-  }, [selectedService, birthdayDiscount]);
+    const descCupom = melhorCupomDisp?.desconto ?? 0;
+    const descAniv = birthdayDiscount ? (original * birthdayDiscount) / 100 : 0;
+    const usarCupom = melhorCupomDisp !== null && descCupom >= descAniv;
+    const desconto = usarCupom ? descCupom : descAniv;
+    const final = Math.max(0, original - desconto);
+    const origem: null | "cupom" | "aniversario" =
+      desconto <= 0 ? null : usarCupom ? "cupom" : "aniversario";
+    return { original, final, discount: desconto, origem };
+  }, [selectedService, birthdayDiscount, melhorCupomDisp]);
 
   // Booking Mutation — criação via server function (validação no servidor)
   const bookingMut = useMutation({
@@ -284,6 +310,7 @@ function PublicAgendamentoPage() {
           observacoes: clientForm.observacoes.trim() || "",
           servicoId: selectedService.id,
           dataHora: appointmentDate.toISOString(),
+          cupomId: pricing.origem === "cupom" ? (melhorCupomDisp?.cupom.id ?? null) : null,
         },
       });
       if (!res.ok) throw new Error(res.error);
@@ -566,14 +593,35 @@ function PublicAgendamentoPage() {
                   />
                 </div>
 
-                {/* Birthday promo alert */}
-                {birthdayDiscount && (
-                  <div className="bg-emerald-500/10 text-emerald-500 p-3.5 rounded-xl text-xs flex items-center gap-2 font-medium">
-                    <Cake className="size-4 shrink-0 text-emerald-500" />
-                    <span>
-                      Parabéns! Identificamos aniversário este mês:{" "}
-                      <b>{birthdayDiscount}% de Desconto aplicado!</b>
-                    </span>
+                {(pricing.origem !== null || (cuponsQuery.data?.rejeitados?.length ?? 0) > 0) && (
+                  <div className="space-y-2">
+                    {pricing.origem === "cupom" && melhorCupomDisp && (
+                      <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 p-3.5 rounded-xl text-xs flex items-center gap-2 font-medium">
+                        <Gift className="size-4 shrink-0" />
+                        <span>
+                          Cupom <b>{melhorCupomDisp.cupom.nome}</b> aplicado automaticamente:{" "}
+                          <b>-{brl(melhorCupomDisp.desconto)}</b>
+                        </span>
+                      </div>
+                    )}
+                    {pricing.origem === "aniversario" && (
+                      <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 p-3.5 rounded-xl text-xs flex items-center gap-2 font-medium">
+                        <Cake className="size-4 shrink-0" />
+                        <span>
+                          Parabéns! Identificamos seu aniversário:{" "}
+                          <b>{birthdayDiscount}% de desconto aplicado!</b>
+                        </span>
+                      </div>
+                    )}
+                    {pricing.origem === null && (cuponsQuery.data?.rejeitados?.length ?? 0) > 0 && (
+                      <div className="bg-muted/40 border border-border/60 rounded-xl p-3.5 text-[11px] text-muted-foreground flex items-start gap-2">
+                        <Info className="size-3.5 shrink-0 mt-0.5" />
+                        <span>
+                          Cupom <b>{cuponsQuery.data?.rejeitados?.[0]?.nome}</b> não pôde ser
+                          aplicado: {cuponsQuery.data?.rejeitados?.[0]?.motivo}.
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -674,15 +722,26 @@ function PublicAgendamentoPage() {
                   </div>
                 )}
 
-                {birthdayDiscount && (
-                  <div className="flex justify-between text-emerald-500 font-medium">
-                    <span>Cupom Aniversário:</span>
-                    <span>-{birthdayDiscount}%</span>
-                  </div>
+                {pricing.discount > 0 && (
+                  <>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Preço original:</span>
+                      <span>{brl(pricing.original)}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-500 font-medium">
+                      <span>
+                        {pricing.origem === "cupom"
+                          ? `Cupom ${melhorCupomDisp?.cupom.nome}`
+                          : "Desconto aniversário"}
+                        :
+                      </span>
+                      <span>-{brl(pricing.discount)}</span>
+                    </div>
+                  </>
                 )}
 
                 <div className="flex justify-between border-t border-border/40 pt-2 font-bold text-sm">
-                  <span>Valor Estimado:</span>
+                  <span>Valor Final:</span>
                   <span className="text-primary">{brl(pricing.final)}</span>
                 </div>
               </div>

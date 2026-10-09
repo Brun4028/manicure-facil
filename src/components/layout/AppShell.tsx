@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Users,
   CalendarDays,
+  MessageCircle,
   Scissors,
   Wallet,
   Moon,
@@ -28,6 +29,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { verificarAdmin } from "@/lib/admin/admin.functions";
+import { useLembretesPendentes } from "@/hooks/use-lembretes-pendentes";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet";
@@ -47,6 +49,7 @@ const nav = [
   { to: "/dashboard", label: "Menu Geral", icon: LayoutDashboard },
   { to: "/clientes", label: "Clientes", icon: Users },
   { to: "/agendamentos", label: "Agendamentos", icon: CalendarDays },
+  { to: "/lembretes", label: "Lembretes WhatsApp", icon: MessageCircle },
   { to: "/servicos", label: "Serviços", icon: Scissors },
   { to: "/financeiro", label: "Financeiro", icon: Wallet },
   { to: "/estoque", label: "Estoque & Vendas", icon: Package },
@@ -59,6 +62,7 @@ const labels: Record<string, string> = {
   dashboard: "Menu Geral",
   clientes: "Clientes",
   agendamentos: "Agendamentos",
+  lembretes: "Lembretes WhatsApp",
   servicos: "Serviços",
   financeiro: "Financeiro",
   estoque: "Estoque & Vendas",
@@ -72,12 +76,20 @@ function SidebarNavItem({
   item,
   pathname,
   collapsed,
+  badge,
 }: {
   item: (typeof nav)[number];
   pathname: string;
   collapsed: boolean;
+  badge?: number;
 }) {
   const active = pathname.startsWith(item.to);
+  const badgeEl =
+    badge && badge > 0 ? (
+      <span className="ml-auto grid place-items-center min-w-5 h-5 px-1.5 rounded-full bg-[#D946EF] text-white text-[10px] font-bold">
+        {badge > 99 ? "99+" : badge}
+      </span>
+    ) : null;
   const link = (
     <Link
       to={item.to}
@@ -95,6 +107,7 @@ function SidebarNavItem({
         aria-hidden="true"
       />
       {!collapsed && item.label}
+      {!collapsed && badgeEl}
     </Link>
   );
 
@@ -144,6 +157,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navItems = (isAdmin
     ? [...nav, { to: "/admin", label: "Admin", icon: ShieldCheck }]
     : [...nav]) as unknown as typeof nav;
+
+  // Contador de lembretes de WhatsApp pendentes — exibido no item de menu.
+  const { data: lembretesPendentes = 0 } = useLembretesPendentes();
 
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -204,6 +220,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 item={n}
                 pathname={pathname}
                 collapsed={desktopCollapsed}
+                badge={n.to === "/lembretes" ? lembretesPendentes : undefined}
               />
             ))}
           </nav>
@@ -355,6 +372,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                       >
                         <n.icon className="size-[18px] shrink-0" />
                         {n.label}
+                        {n.to === "/lembretes" && lembretesPendentes > 0 && (
+                          <span className="ml-auto grid place-items-center min-w-5 h-5 px-1.5 rounded-full bg-[#D946EF] text-white text-[10px] font-bold">
+                            {lembretesPendentes > 99 ? "99+" : lembretesPendentes}
+                          </span>
+                        )}
                       </Link>
                     </SheetClose>
                   );

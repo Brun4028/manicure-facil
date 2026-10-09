@@ -289,6 +289,7 @@ export type Database = {
           lembrete_whatsapp: boolean;
           lembrete_antecipacao_min: number;
           notificacao_sonora: boolean;
+          permite_fora_expediente: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -308,6 +309,7 @@ export type Database = {
           lembrete_whatsapp?: boolean;
           lembrete_antecipacao_min?: number;
           notificacao_sonora?: boolean;
+          permite_fora_expediente?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -327,6 +329,7 @@ export type Database = {
           lembrete_whatsapp?: boolean;
           lembrete_antecipacao_min?: number;
           notificacao_sonora?: boolean;
+          permite_fora_expediente?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -679,6 +682,9 @@ export type Database = {
           data_inicio: string | null;
           data_fim: string | null;
           servicos_elegiveis: Json | null;
+          valor_minimo: number;
+          limite_usos: number | null;
+          usos: number;
           created_at: string;
         };
         Insert: {
@@ -691,6 +697,9 @@ export type Database = {
           data_inicio?: string | null;
           data_fim?: string | null;
           servicos_elegiveis?: Json | null;
+          valor_minimo?: number;
+          limite_usos?: number | null;
+          usos?: number;
           created_at?: string;
         };
         Update: {
@@ -703,6 +712,137 @@ export type Database = {
           data_inicio?: string | null;
           data_fim?: string | null;
           servicos_elegiveis?: Json | null;
+          valor_minimo?: number;
+          limite_usos?: number | null;
+          usos?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      cupom_usos: {
+        Row: {
+          id: string;
+          user_id: string;
+          promocao_id: string;
+          cliente_id: string | null;
+          origem: string;
+          entidade_id: string | null;
+          valor_desconto: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          promocao_id: string;
+          cliente_id?: string | null;
+          origem?: string;
+          entidade_id?: string | null;
+          valor_desconto?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          promocao_id?: string;
+          cliente_id?: string | null;
+          origem?: string;
+          entidade_id?: string | null;
+          valor_desconto?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cupom_usos_promocao_id_fkey";
+            columns: ["promocao_id"];
+            isOneToOne: false;
+            referencedRelation: "promocoes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lembretes_whatsapp: {
+        Row: {
+          id: string;
+          user_id: string;
+          chave: string;
+          tipo: string;
+          cliente_id: string | null;
+          agendamento_id: string | null;
+          cliente_nome: string;
+          telefone: string | null;
+          motivo: string;
+          mensagem: string;
+          data_referencia: string | null;
+          status: string;
+          adiado_ate: string | null;
+          resolvido_em: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          chave: string;
+          tipo: string;
+          cliente_id?: string | null;
+          agendamento_id?: string | null;
+          cliente_nome: string;
+          telefone?: string | null;
+          motivo: string;
+          mensagem: string;
+          data_referencia?: string | null;
+          status?: string;
+          adiado_ate?: string | null;
+          resolvido_em?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          chave?: string;
+          tipo?: string;
+          cliente_id?: string | null;
+          agendamento_id?: string | null;
+          cliente_nome?: string;
+          telefone?: string | null;
+          motivo?: string;
+          mensagem?: string;
+          data_referencia?: string | null;
+          status?: string;
+          adiado_ate?: string | null;
+          resolvido_em?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      expediente_intervalos: {
+        Row: {
+          id: string;
+          user_id: string;
+          dia_semana: number;
+          nome: string;
+          hora_inicio: string;
+          hora_fim: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          dia_semana: number;
+          nome?: string;
+          hora_inicio: string;
+          hora_fim: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          dia_semana?: number;
+          nome?: string;
+          hora_inicio?: string;
+          hora_fim?: string;
           created_at?: string;
         };
         Relationships: [];

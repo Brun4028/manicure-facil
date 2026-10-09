@@ -39,10 +39,31 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageCircle,
+  Gift,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { abrirWhatsApp, mensagens, type DadosMensagem } from "@/lib/whatsapp";
+import {
+  melhorCupom,
+  melhorDesconto,
+  descontoAniversario,
+  validarCupom,
+  paraCupom,
+  brl,
+  COLUNAS_CUPOM,
+} from "@/lib/cupons-logica";
+import { consumirCupomInterno } from "@/lib/cupons.functions";
+import {
+  gerarSlots,
+  avaliarHorario,
+  dataLocalKey,
+  type HorarioTrabalho,
+  type IntervaloExpediente,
+  type BloqueioAgenda,
+  type AgendamentoOcupado,
+} from "@/lib/expediente-logica";
 import { z } from "zod";
 import {
   format,
@@ -641,6 +662,8 @@ function AgendamentoDialog({
 
   const [recorrente, setRecorrente] = useState(false);
   const [frequencia, setFrequencia] = useState<string>("semanal");
+  const [aplicarDesconto, setAplicarDesconto] = useState(true);
+  const [overrideExpediente, setOverrideExpediente] = useState(false);
   const [dataFim, setDataFim] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() + 6);
@@ -666,7 +689,10 @@ function AgendamentoDialog({
   const { data: clientes } = useQuery({
     queryKey: ["clientes-list"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("clientes").select("id,nome").order("nome");
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id,nome,data_nascimento")
+        .order("nome");
       if (error) throw error;
       return data;
     },
@@ -702,71 +728,208 @@ function AgendamentoDialog({
     enabled: open,
   });
 
+  // ── Expediente configurável (horários, pausas e bloqueios) ─────────────
+  const { data: expediente } = useQuery({
+    queryKey: ["horarios-trabalho"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("horarios_trabalho")
+        .select("dia_semana,hora_inicio,hora_fim,ativo");
+      if (error) throw error;
+      return (data ?? []).map((h) => ({
+        dia_semana: Number(h.dia_semana),
+        hora_inicio: h.hora_inicio,
+        hora_fim: h.hora_fim,
+        ativo: h.ativo,
+      })) as HorarioTrabalho[];
+    },
+    enabled: open,
+  });
+
+  const { data: intervalos } = useQuery({
+    queryKey: ["expediente-intervalos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("expediente_intervalos")
+        .select("dia_semana,nome,hora_inicio,hora_fim");
+      if (error) return [] as IntervaloExpediente[];
+      return (data ?? []).map((i) => ({
+        dia_semana: Number(i.dia_semana),
+        nome: i.nome,
+        hora_inicio: i.hora_inicio,
+        hora_fim: i.hora_fim,
+      })) as IntervaloExpediente[];
+    },
+    enabled: open,
+  });
+
+  const { data: bloqueios } = useQuery({
+    queryKey: ["bloqueios-agenda"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bloqueios_agenda")
+        .select("data_inicio,data_fim,horario_inicio,horario_fim");
+      if (error) throw error;
+      return (data ?? []).map((b) => ({
+        data_inicio: b.data_inicio,
+        data_fim: b.data_fim,
+        hora_inicio: b.horario_inicio,
+        hora_fim: b.horario_fim,
+      })) as BloqueioAgenda[];
+    },
+    enabled: open,
+  });
+
+  const { data: config } = useQuery({
+    queryKey: ["configuracoes-expediente"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("configuracoes")
+        .select("permite_fora_expediente")
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+    enabled: open,
+  });
+  const permiteForaExpediente = !!config?.permite_fora_expediente;
+
+  // ── Cupons + aniversário (mesma lógica pura usada no servidor) ─────────
+  const { data: promocoes } = useQuery({
+    queryKey: ["promocoes-cupom"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("promocoes").select(COLUNAS_CUPOM);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: open,
+  });
+
+  const { data: fid } = useQuery({
+    queryKey: ["fidelidade-niver"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fidelidade_config")
+        .select("niver_promo_ativa,niver_desconto_porcentagem")
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+    enabled: open,
+  });
+
+  const baseValor = Number(form.valor) || 0;
+
+  const cupons = useMemo(
+    () => (promocoes ?? []).filter((p) => p.ativo).map(paraCupom),
+    [promocoes],
+  );
+
+  const melhor = useMemo(
+    () => melhorCupom(cupons, { base: baseValor, servicoId: form.servico_id || null }),
+    [cupons, baseValor, form.servico_id],
+  );
+
+  const cuponsRejeitados = useMemo(
+    () =>
+      cupons
+        .map((c) => ({
+          nome: c.nome,
+          r: validarCupom(c, { base: baseValor, servicoId: form.servico_id || null }),
+        }))
+        .filter((x) => !x.r.elegivel || x.r.motivo)
+        .map((x) => ({ nome: x.nome, motivo: x.r.motivo ?? "Não elegível" })),
+    [cupons, baseValor, form.servico_id],
+  );
+
+  const pctAniversario =
+    fid?.niver_promo_ativa === true ? Number(fid.niver_desconto_porcentagem ?? 0) : 0;
+  const clienteSel = (clientes ?? []).find((c) => c.id === form.cliente_id);
+  const descontoAniv = descontoAniversario(
+    baseValor,
+    clienteSel?.data_nascimento ?? null,
+    pctAniversario > 0,
+    pctAniversario,
+  );
+
+  const fonte = melhorDesconto(melhor, descontoAniv, pctAniversario);
+  const podeDescontar = !ag && !recorrente;
+  const descontoAplicado = podeDescontar && aplicarDesconto ? (fonte?.desconto ?? 0) : 0;
+  const valorFinal = Math.max(0, Math.round((baseValor - descontoAplicado) * 100) / 100);
+
+  // ── Ocupados (ignora o próprio agendamento ao editar) ──────────────────
+  type OcupadoComId = AgendamentoOcupado & { id: string };
+  const ocupados = useMemo<OcupadoComId[]>(
+    () =>
+      (allBookingsData ?? [])
+        .filter((x) => !(ag && x.id === ag.id))
+        .map((x) => ({
+          id: x.id,
+          data_hora: x.data_hora,
+          duracao_min: x.duracao_min || 60,
+        })),
+    [allBookingsData, ag],
+  );
+
+  const avaliacao = useMemo(
+    () =>
+      avaliarHorario({
+        data: new Date(`${form.data}T00:00:00`),
+        hora: form.hora,
+        duracaoMin: form.duracao_min,
+        expediente: expediente ?? [],
+        intervalos: intervalos ?? [],
+        bloqueios: bloqueios ?? [],
+        ocupados,
+        ignorarAgendamentoId: ag?.id,
+      }),
+    [form.data, form.hora, form.duracao_min, expediente, intervalos, bloqueios, ocupados, ag?.id],
+  );
+
+  const bloqueioSalvar = !avaliacao.permitido && !permiteForaExpediente && !overrideExpediente;
+
+  // Slots segundo o expediente/intervalos/bloqueios configurados.
+  const slots = useMemo(() => {
+    if (!form.data) return [];
+    const dataObj = new Date(`${form.data}T00:00:00`);
+    if (Number.isNaN(dataObj.getTime())) return [];
+    const hoje = new Date();
+    const isToday = dataLocalKey(dataObj) === dataLocalKey(hoje);
+    const agora = `${String(hoje.getHours()).padStart(2, "0")}:${String(hoje.getMinutes()).padStart(2, "0")}`;
+    return gerarSlots({
+      data: dataObj,
+      duracaoMin: form.duracao_min,
+      expediente: expediente ?? [],
+      intervalos: intervalos ?? [],
+      bloqueios: bloqueios ?? [],
+      ocupados,
+      passoMin: 30,
+      ignoraAntesDe: isToday ? agora : undefined,
+    });
+  }, [form.data, form.duracao_min, expediente, intervalos, bloqueios, ocupados]);
+
+  // Se o horário escolhido não estiver disponível, sugerir os 3 mais próximos.
   const nearbySlots = useMemo(() => {
-    if (!form.data || !form.duracao_min || !allBookingsData) return [];
-    const baseDate = new Date(`${form.data}T00:00:00`);
-    const today = new Date();
-    const isToday = form.data === format(today, "yyyy-MM-dd");
-
-    const allSlots: { hora: string }[] = [];
-    const startHour = 8;
-    const endHour = 18;
-    const interval = 30;
-
-    for (let h = startHour; h < endHour; h++) {
-      for (let m = 0; m < 60; m += interval) {
-        const hh = String(h).padStart(2, "0");
-        const mm = String(m).padStart(2, "0");
-        const timeStr = `${hh}:${mm}`;
-
-        const slotStart = new Date(baseDate);
-        slotStart.setHours(h, m, 0, 0);
-        if (isToday && slotStart.getTime() <= Date.now()) continue;
-
-        const slotEnd = slotStart.getTime() + form.duracao_min * 60 * 1000;
-        const hasConflict = allBookingsData.some((slot) => {
-          if (ag && slot.id === ag.id) return false;
-          const sStart = new Date(slot.data_hora).getTime();
-          const sEnd = sStart + (slot.duracao_min || 60) * 60 * 1000;
-          return slotStart.getTime() < sEnd && sStart < slotEnd;
-        });
-
-        if (!hasConflict) allSlots.push({ hora: timeStr });
-      }
-    }
-
-    // If current selected hour conflicts, suggest nearby
-    if (form.hora) {
-      const currentSlotStart = new Date(baseDate);
-      const [ch, cm] = form.hora.split(":").map(Number);
-      currentSlotStart.setHours(ch, cm, 0, 0);
-      const currentSlotEnd = currentSlotStart.getTime() + form.duracao_min * 60 * 1000;
-      const currentConflict = allBookingsData.some((slot) => {
-        if (ag && slot.id === ag.id) return false;
-        const sStart = new Date(slot.data_hora).getTime();
-        const sEnd = sStart + (slot.duracao_min || 60) * 60 * 1000;
-        return currentSlotStart.getTime() < sEnd && sStart < currentSlotEnd;
-      });
-
-      if (currentConflict) {
-        // Find the 3 nearest free slots around the requested time
-        return allSlots
-          .map((s) => ({
-            hora: s.hora,
-            diff: Math.abs(Number(s.hora.replace(":", "")) - Number(form.hora.replace(":", ""))),
-          }))
-          .sort((a, b) => a.diff - b.diff)
-          .slice(0, 3)
-          .map((s) => s.hora);
-      }
-    }
-    return [];
-  }, [form.data, form.duracao_min, form.hora, open, allBookingsData, ag?.id]);
+    if (!form.hora) return [];
+    const livres = slots.filter((s) => s.disponivel).map((s) => s.hora);
+    if (livres.includes(form.hora)) return [];
+    const alvo = Number(form.hora.replace(":", ""));
+    return livres
+      .map((h) => ({ h, diff: Math.abs(Number(h.replace(":", "")) - alvo) }))
+      .sort((a, b) => a.diff - b.diff)
+      .slice(0, 3)
+      .map((x) => x.h);
+  }, [slots, form.hora]);
 
   const mut = useMutation({
     mutationFn: async () => {
       const parsed = schema.safeParse(form);
       if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+
+      if (!avaliacao.permitido && !permiteForaExpediente && !overrideExpediente) {
+        throw new Error(avaliacao.motivo ?? "Horário indisponível no expediente.");
+      }
+
       const data_hora = new Date(`${parsed.data.data}T${parsed.data.hora}:00`).toISOString();
 
       // Conflict check - also check overlapping times based on duration
@@ -787,7 +950,7 @@ function AgendamentoDialog({
         return requestedStart < slotEnd && slotStart < requestedEnd;
       });
 
-      if (hasConflict)
+      if (hasConflict && !permiteForaExpediente && !overrideExpediente)
         throw new Error("Conflito de horário! Já existe um agendamento neste período.");
 
       const payload = {
@@ -795,22 +958,22 @@ function AgendamentoDialog({
         servico_id: parsed.data.servico_id,
         data_hora,
         duracao_min: parsed.data.duracao_min,
-        valor: parsed.data.valor,
+        valor: valorFinal,
         custo: parsed.data.custo,
         status: parsed.data.status,
         pagamento: parsed.data.pagamento,
         observacoes: parsed.data.observacoes || null,
       };
 
+      let agendamentoId: string | null = null;
+
       // Recurrence: save + create recorrencia
       if (!ag && recorrente) {
-        // Save appointment first
         const { error: insertErr } = await supabase
           .from("agendamentos")
           .insert({ ...payload, user_id: u.user!.id });
         if (insertErr) throw insertErr;
 
-        // Create recurrence record
         const horaTime = `${String(new Date(data_hora).getHours()).padStart(2, "0")}:${String(new Date(data_hora).getMinutes()).padStart(2, "0")}`;
         const { error: recErr } = await supabase.from("recorrencias").insert({
           user_id: u.user!.id,
@@ -833,15 +996,32 @@ function AgendamentoDialog({
           ),
         });
         if (recErr) throw recErr;
+      } else if (ag) {
+        const { error } = await supabase.from("agendamentos").update(payload).eq("id", ag.id);
+        if (error) throw error;
       } else {
-        if (ag) {
-          const { error } = await supabase.from("agendamentos").update(payload).eq("id", ag.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
-            .from("agendamentos")
-            .insert({ ...payload, user_id: u.user!.id });
-          if (error) throw error;
+        const { data: created, error } = await supabase
+          .from("agendamentos")
+          .insert({ ...payload, user_id: u.user!.id })
+          .select("id")
+          .single();
+        if (error) throw error;
+        agendamentoId = created?.id ?? null;
+      }
+
+      // Consome o cupom (limite de usos) quando ele foi o desconto aplicado.
+      if (agendamentoId && fonte?.origem === "cupom" && descontoAplicado > 0) {
+        const res = await consumirCupomInterno({
+          data: {
+            cupomId: fonte.cupom.id,
+            base: baseValor,
+            clienteId: parsed.data.cliente_id,
+            origem: "agendamento",
+            entidadeId: agendamentoId,
+          },
+        });
+        if (!res.ok) {
+          toast.warning(`Agendamento salvo, mas o cupom não foi consumido: ${res.error}`);
         }
       }
     },
@@ -969,6 +1149,25 @@ function AgendamentoDialog({
               </div>
             </div>
           )}
+
+          {/* Aviso de expediente/intervalo/bloqueio + autorização da profissional */}
+          {!avaliacao.permitido && !permiteForaExpediente && (
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 space-y-2">
+              <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
+                <span>{avaliacao.motivo}</span>
+              </div>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={overrideExpediente}
+                  onChange={(e) => setOverrideExpediente(e.target.checked)}
+                  className="size-3.5 accent-[#D946EF]"
+                />
+                <span>Salvar mesmo assim (autorizar este horário)</span>
+              </label>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Valor (R$)</Label>
@@ -989,6 +1188,46 @@ function AgendamentoDialog({
               />
             </div>
           </div>
+
+          {/* Descontos: cupom automático e/ou aniversário (não cumulativos) */}
+          {!ag && !recorrente && (fonte || cuponsRejeitados.length > 0) && (
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 space-y-2 text-xs">
+              {fonte ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                      <Gift className="size-3.5" />
+                      {fonte.origem === "cupom"
+                        ? `Cupom ${fonte.cupom.nome}`
+                        : `Aniversário (${fonte.percentual}%)`}
+                    </span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      -{brl(fonte.desconto)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Valor final</span>
+                    <span className="font-semibold text-card-foreground">{brl(valorFinal)}</span>
+                  </div>
+                  <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={aplicarDesconto}
+                      onChange={(e) => setAplicarDesconto(e.target.checked)}
+                      className="size-3.5 accent-[#D946EF]"
+                    />
+                    <span>Aplicar este desconto no agendamento</span>
+                  </label>
+                </>
+              ) : (
+                cuponsRejeitados.slice(0, 2).map((r) => (
+                  <div key={r.nome} className="text-muted-foreground">
+                    Cupom <b>{r.nome}</b> não aplicável: {r.motivo}.
+                  </div>
+                ))
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Status</Label>
@@ -1085,7 +1324,7 @@ function AgendamentoDialog({
           <DialogFooter>
             <Button
               type="submit"
-              disabled={mut.isPending}
+              disabled={mut.isPending || bloqueioSalvar}
               className="gradient-primary text-primary-foreground shadow-glow w-full"
             >
               {mut.isPending ? "Salvando..." : "Salvar"}

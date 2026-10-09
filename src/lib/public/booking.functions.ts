@@ -15,6 +15,13 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import {
+  validarCupom,
+  descontoAniversario,
+  paraCupom,
+  COLUNAS_CUPOM,
+  type Cupom,
+} from "@/lib/cupons-logica";
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -33,6 +40,7 @@ const agendamentoSchema = z.object({
   observacoes: z.string().trim().max(1000).optional(),
   servicoId: z.string().uuid("Serviço inválido"),
   dataHora: z.string().min(1, "Data/hora inválida"),
+  cupomId: z.string().uuid("Cupom inválido").nullable().optional(),
 });
 
 const avaliacaoSchema = z.object({
@@ -200,23 +208,45 @@ export const criarAgendamentoPublico = createServerFn({ method: "POST" })
       return { ok: false, error: "Serviço não encontrado." };
     }
 
-    let descontoPct = 0;
-    if (data.dataNascimento) {
-      const { data: fid } = await supabaseAdmin
-        .from("fidelidade_config")
-        .select("niver_promo_ativa, niver_desconto_porcentagem")
+    const base = Number(servico.valor) || 0;
+
+    // Desconto de aniversário (mesma regra da página pública)
+    const { data: fid } = await supabaseAdmin
+      .from("fidelidade_config")
+      .select("niver_promo_ativa, niver_desconto_porcentagem")
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    const descontoAniv = descontoAniversario(
+      base,
+      data.dataNascimento || null,
+      !!fid?.niver_promo_ativa,
+      Number(fid?.niver_desconto_porcentagem ?? 0),
+    );
+
+    // Cupom (quando informado) — validado NO SERVIDOR, nunca no navegador
+    let cupom: Cupom | null = null;
+    let descontoCupom = 0;
+    if (data.cupomId) {
+      const { data: promo } = await supabaseAdmin
+        .from("promocoes")
+        .select(COLUNAS_CUPOM)
+        .eq("id", data.cupomId)
         .eq("user_id", data.userId)
         .maybeSingle();
-      const nascimento = new Date(`${data.dataNascimento}T00:00:00`);
-      if (
-        fid?.niver_promo_ativa &&
-        !isNaN(nascimento.getTime()) &&
-        nascimento.getMonth() === new Date().getMonth()
-      ) {
-        descontoPct = Number(fid.niver_desconto_porcentagem ?? 0);
+      if (promo) {
+        const c = paraCupom(promo);
+        const val = validarCupom(c, { base, servicoId: data.servicoId });
+        if (val.elegivel) {
+          cupom = c;
+          descontoCupom = val.desconto;
+        }
       }
     }
-    const valorFinal = Math.round(servico.valor * (100 - descontoPct)) / 100;
+
+    // NUNCA acumula: aplica o MAIOR entre cupom e aniversário.
+    const usarCupom = cupom !== null && descontoCupom >= descontoAniv;
+    const descontoFinal = usarCupom ? descontoCupom : descontoAniv;
+    const valorFinal = Math.max(0, Math.round((base - descontoFinal) * 100) / 100);
 
     const result = await supabaseAdmin.rpc("agendar_servico", {
       p_user_id: data.userId,
@@ -241,7 +271,31 @@ export const criarAgendamentoPublico = createServerFn({ method: "POST" })
       return { ok: false, error: payload.error ?? "Não foi possível realizar o agendamento." };
     }
 
-    return { ok: true, data: { agendamento_id: payload.agendamento_id ?? null } };
+    const agendamentoId = payload.agendamento_id ?? null;
+
+    // Consome o cupom SOMENTE quando ele foi de fato o desconto aplicado.
+    // UPDATE condicional (usos < limite) evita estourar o limite em corrida.
+    if (usarCupom && cupom && agendamentoId) {
+      const { data: atualizado } = await supabaseAdmin
+        .from("promocoes")
+        .update({ usos: cupom.usos + 1 })
+        .eq("id", cupom.id)
+        .eq("user_id", data.userId)
+        .lt("usos", cupom.limite_usos ?? 2147483647)
+        .select("id")
+        .maybeSingle();
+      if (atualizado) {
+        await supabaseAdmin.from("cupom_usos").insert({
+          user_id: data.userId,
+          promocao_id: cupom.id,
+          origem: "agendamento",
+          entidade_id: agendamentoId,
+          valor_desconto: descontoCupom,
+        });
+      }
+    }
+
+    return { ok: true, data: { agendamento_id: agendamentoId } };
   });
 
 // ─── Criar avaliação (delega para a função SQL validada) ───────────────────

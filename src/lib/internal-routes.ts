@@ -11,6 +11,7 @@
 export const ROTAS_INTERNAS = [
   "/dashboard",
   "/agendamentos",
+  "/lembretes",
   "/clientes",
   "/servicos",
   "/financeiro",
