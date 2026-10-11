@@ -119,6 +119,11 @@ export function getServerConfig() {
     // Google Gemini
     geminiApiKey: getServerEnv("GEMINI_API_KEY"),
     geminiModel: getServerEnv("GEMINI_MODEL") ?? "gemini-flash-latest",
+    // ─── Créditos de IA (uso diário por conta) ─────────────────────
+    // Limite de perguntas reais à IA por dia (saudações, respostas rápidas
+    // e cache NÃO consomem). Reset automático à meia-noite no fuso abaixo.
+    iaCreditosDiarios: Number(getServerEnv("IA_CREDITOS_DIARIOS") ?? 50),
+    iaCreditosTimezone: getServerEnv("IA_CREDITOS_TIMEZONE") ?? "America/Sao_Paulo",
     // ─── Rate Limiting Configuration ────────────────────────────────
     // Define limites de rate limiting por categoria
     rateLimit: {

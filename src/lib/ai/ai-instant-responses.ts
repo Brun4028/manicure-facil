@@ -270,6 +270,34 @@ export function getInstantQuickResponse(
     };
   }
 
+  // ─── 8. Despedidas / Até logo / Tchau ───────────────────────────────────────
+  if (
+    /^(tchau|chau|ate logo|ate mais|ate breve|xau|falou|vou indo|bye|bye bye|tchauzinho|abracos|beijos)$/.test(
+      collapsed,
+    ) ||
+    /^(ate a proxima|ate depois|ate mais tarde|boa noite e ate|falamos depois|vou sair|vou embora|ate amanha|ate ja)$/.test(
+      collapsed,
+    )
+  ) {
+    const despedidaVariations = [
+      `Tchau${nameGreeting}! ✨ Foi um prazer enorme te ajudar hoje. Volte sempre que precisar de um apoio para fazer seu salão crescer ainda mais! 💅`,
+      `Até logo${nameGreeting}! 💖 Que seu resto de dia seja cheio de sucesso e muitos atendimentos maravilhosos. Estou sempre por aqui quando precisar!`,
+      `Até mais${nameGreeting}! 🥰 Boa jornada de trabalho! Se surgir alguma dúvida rapidinha, é só chamar que respondo na hora! ✨`,
+      `Xau${nameGreeting}! 💅 Fico muito feliz de ter sido útil hoje. Volte quando quiser, estou sempre à disposição!`,
+      `Até a próxima${nameGreeting}! 🌸 Sucesso no seu atendimento e nos seus negócios!`,
+      `Até amanhã${nameGreeting}! ✨ Descansa tranquila e que amanhã seja ainda melhor!`,
+    ];
+
+    return {
+      text: pickRandom(despedidaVariations),
+      suggestions: [
+        "Como registrar um agendamento?",
+        "Dicas para aumentar meu faturamento",
+        "Como funciona o ranking de clientes?",
+      ],
+    };
+  }
+
   // Se não coincidiu com nenhuma resposta rápida pré-definida, retorna null para ir à IA completa
   return null;
 }

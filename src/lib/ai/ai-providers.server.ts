@@ -433,7 +433,11 @@ export async function callGemini(
 
   for (const msg of messages) {
     if (msg.role === "system") {
-      systemContent = msg.content;
+      if (systemContent) {
+        systemContent += "\n\n" + msg.content;
+      } else {
+        systemContent = msg.content;
+      }
     } else {
       contents.push({
         role: msg.role === "assistant" ? "model" : "user",
@@ -442,8 +446,18 @@ export async function callGemini(
     }
   }
 
-  if (systemContent && contents.length > 0) {
-    contents[0].parts[0].text = `${systemContent}\n\n${contents[0].parts[0].text}`;
+  // Remove leading model messages (welcome messages)
+  while (contents.length > 0 && contents[0]?.role === "model") {
+    contents.shift();
+  }
+
+  // Se não houver conteúdo user e só tivermos system, criar um turno mínimo
+  if (contents.length === 0 && systemContent) {
+    contents.push({
+      role: "user",
+      parts: [{ text: systemContent }],
+    });
+    systemContent = "";
   }
 
   // ── Resiliência de Modelos Gemini com Fallback Automático ──
@@ -482,6 +496,7 @@ export async function callGemini(
                 temperature,
                 maxOutputTokens: maxTokens,
               },
+              ...(systemContent ? { systemInstruction: { parts: [{ text: systemContent }] } } : {}),
             }),
           },
         );

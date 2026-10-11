@@ -894,6 +894,30 @@ export type Database = {
           },
         ];
       };
+      ia_creditos: {
+        Row: {
+          user_id: string;
+          creditos_restantes: number;
+          limite_diario: number;
+          dia: string;
+          atualizado_em: string;
+        };
+        Insert: {
+          user_id: string;
+          creditos_restantes?: number;
+          limite_diario?: number;
+          dia?: string;
+          atualizado_em?: string;
+        };
+        Update: {
+          user_id?: string;
+          creditos_restantes?: number;
+          limite_diario?: number;
+          dia?: string;
+          atualizado_em?: string;
+        };
+        Relationships: [];
+      };
       produtos: {
         Row: {
           id: string;
@@ -1239,6 +1263,14 @@ export type Database = {
           valor: number;
           saldo_acumulado: number;
         }[];
+      };
+      consumir_ia_credito: {
+        Args: { p_user_id: string; p_dia: string };
+        Returns: number;
+      };
+      devolver_ia_credito: {
+        Args: { p_user_id: string };
+        Returns: number | undefined;
       };
     };
     Enums: {

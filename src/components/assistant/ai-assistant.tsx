@@ -26,17 +26,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { supabase } from "@/integrations/supabase/client";
 import { BrainCircuit, X, Send, Settings2, Trash2, Eraser, Sparkle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import {
-  sendToAi,
-  getAiErrorMessage,
-  EMPTY_AI_CONTEXT,
-  type AiMessage,
-  type AiContext,
-} from "@/lib/ai/ai-service";
+import { fetchAiCreditos, type AiMessage, type AiContext } from "@/lib/ai/ai-service";
+import type { CreditosInfo } from "@/lib/ai/ai-creditos";
+import { useAiPanelOpen, setAiPanelOpen } from "./ai-panel-store";
+import { sendToAi, getAiErrorMessage, EMPTY_AI_CONTEXT } from "@/lib/ai/ai-service";
 import { aiCache } from "@/lib/ai/ai-cache";
 import { MarkdownContent } from "./markdown-content";
 import { AiSettingsDialog, getAiSettings } from "./ai-settings-dialog";
-import { setAiPanelOpen, useAiPanelOpen } from "./ai-panel-store";
 
 // ─── Constantes ─────────────────────────────────────────────────────────────
 
@@ -231,6 +227,7 @@ export function AiAssistant() {
   const [input, setInput] = useState("");
   const [isWaiting, setIsWaiting] = useState(false);
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
+  const [creditos, setCreditos] = useState<CreditosInfo | null>(null);
   // Rastreia qual mensagem do assistente está com a animação em voo.
   // Evita que uma resposta antiga (de uma sessão anterior do painel) libere
   // o input enquanto uma mensagem MAIS NOVA ainda está sendo digitada.
@@ -307,16 +304,12 @@ export function AiAssistant() {
     }
   }, [open]);
 
-  // ── Auto-reset de segurança ────────────────────────────────────────
-  // Se `isWaiting` ou `streamingMsgId` ficarem presos (ex: exceção numa
-  // animação assíncrona), o input do chat permaneceria desabilitado para
-  // sempre. Ao reabrir o painel, garantimos que o estado sempre volte a
-  // zero — o input nunca pode ficar bloqueado.
   useEffect(() => {
     if (open) {
       setIsWaiting(false);
       setStreamingMsgId(null);
       activeStreamRef.current = null;
+      void fetchAiCreditos().then((c) => c && setCreditos(c));
     }
   }, [open]);
 
@@ -391,6 +384,10 @@ export function AiAssistant() {
             provider: settings.provider,
           },
         );
+
+        if (response.creditos) {
+          setCreditos(response.creditos);
+        }
 
         // Anima caractere por caractere
         // 🔧 PROTEÇÃO: o setTimeout é assíncrono — qualquer exceção aqui
@@ -505,11 +502,10 @@ export function AiAssistant() {
     setMessages([INITIAL_MESSAGE]);
     aiCache.clear();
     setInput("");
-    // Limpar a conversa também libera o estado de espera, caso haja
-    // uma requisição/animacão em voo — o input nunca fica preso.
     setIsWaiting(false);
     setStreamingMsgId(null);
     activeStreamRef.current = null;
+    void fetchAiCreditos().then((c) => c && setCreditos(c));
   }, []);
 
   // ── Lista de mensagens memoizada ────────────────────────────────
@@ -642,10 +638,15 @@ export function AiAssistant() {
                     </h2>
                     <p className="flex items-center gap-1.5 text-[10px] text-white/80 truncate mt-0.5">
                       <span
-                        className="size-1.5 rounded-full bg-emerald-300 animate-pulse-soft"
+                        className={`size-1.5 rounded-full animate-pulse-soft ${creditos?.semCreditos ? "bg-amber-300" : "bg-emerald-300"}`}
                         aria-hidden="true"
                       />
-                      Online · Consultora de gestão inteligente
+                      Online ·{" "}
+                      {creditos
+                        ? creditos.semCreditos
+                          ? "💎 Créditos esgotados hoje"
+                          : `💎 ${creditos.restantes}/${creditos.limite}`
+                        : "Consultora de gestão inteligente"}
                     </p>
                   </div>
                 </div>
@@ -722,9 +723,17 @@ export function AiAssistant() {
                 </form>
               </div>
               <div className="flex items-center justify-between mt-2 px-1">
-                <p className="text-[10px] text-muted-foreground/80 truncate">
+                <p
+                  className={`text-[10px] truncate ${
+                    creditos?.semCreditos
+                      ? "text-amber-500"
+                      : creditos && creditos.restantes <= 5
+                        ? "text-amber-500/90"
+                        : "text-muted-foreground/80"
+                  }`}
+                >
                   {context
-                    ? `${context.totalClientes} clientes • ${context.totalAgendamentos} agendamentos`
+                    ? `${context.totalClientes} clientes • ${context.totalAgendamentos} agendamentos${creditos ? ` • 💎 ${creditos.restantes} créditos` : ""}`
                     : "Carregando dados..."}
                 </p>
                 <button

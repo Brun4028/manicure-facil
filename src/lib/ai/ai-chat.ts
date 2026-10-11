@@ -28,6 +28,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { aiLogger } from "./ai-logger";
 import { AiServiceError, mensagemAmigavel, type AiErrorCode } from "./ai-errors";
+import { formatarTempoRestante, type CreditosInfo } from "./ai-creditos";
 
 // ─── Limites de segurança ───────────────────────────────────────────────────
 
@@ -106,6 +107,10 @@ export type AiChatSuccess = {
   ok: true;
   text: string;
   suggestions?: string[];
+  /** Status de créditos da IA (contador atualizado a cada resposta real). */
+  creditos?: CreditosInfo;
+  /** true quando a mensagem avisa que os créditos de IA acabaram. */
+  semCreditos?: boolean;
 };
 
 export type AiChatFailure = {
@@ -272,6 +277,18 @@ export const getAiConfigStatus = createServerFn({ method: "POST" })
     },
   );
 
+// ─── Status de créditos de IA (contador do painel) ──────────────────────────
+// Retorna os créditos restantes hoje + tempo até o reset automático.
+// Chamada quando o painel é aberto para semear o contador visual.
+
+export const getAiCreditos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<CreditosInfo> => {
+    const userId = (context as { userId?: string } | undefined)?.userId ?? "unknown";
+    const { getCreditosInfo } = await import("./ai-creditos.server");
+    return getCreditosInfo(userId);
+  });
+
 // Corpo principal da server function (era o corpo do handler acima).
 async function handleAiChat(
   data: z.infer<typeof inputSchema>,
@@ -349,6 +366,42 @@ async function handleAiChat(
     return success(cachedHit.text, cachedHit.suggestions);
   }
 
+  // ── Créditos de IA (uso diário) ─────────────────────────────
+  // SOMENTE aqui (após instant responses e cache, antes do provedor) os
+  // créditos são verificados/consumidos. Saudações, respostas rápidas e
+  // cache NUNCA gastam crédito — só a chamada real à IA.
+  const { getCreditosInfo, consumirCredito, devolverCredito } =
+    await import("./ai-creditos.server");
+
+  const creditosAntes = await getCreditosInfo(userId);
+  if (creditosAntes.semCreditos) {
+    const texto =
+      `💎 **Seus créditos de IA de hoje acabaram!**\n\n` +
+      `Você utilizou todos os **${creditosAntes.limite} créditos** do dia. ` +
+      `Eles se renovam automaticamente em **${formatarTempoRestante(creditosAntes.resetsEmMs)}** (à meia-noite).\n\n` +
+      `Enquanto isso, continuo por aqui! Posso responder dúvidas rápidas e mostrar como usar o sistema sem gastar créditos. ✨`;
+    return {
+      ok: true,
+      text: texto,
+      suggestions: [
+        "Como funciona o sistema?",
+        "Como cadastrar uma nova cliente?",
+        "Sugestões de promoções",
+      ],
+      creditos: creditosAntes,
+      semCreditos: true,
+    };
+  }
+
+  // Consome 1 crédito ANTES da chamada real. Se o provedor falhar, o crédito
+  // é reembolsado no catch abaixo (devolverCredito).
+  await consumirCredito(userId);
+  const creditosDepois: CreditosInfo = {
+    ...creditosAntes,
+    restantes: Math.max(0, creditosAntes.restantes - 1),
+    semCreditos: creditosAntes.restantes - 1 <= 0,
+  };
+
   // ── Monta mensagens para a IA ────────────────────────────────
   // 🔒 SEGURANÇA: perguntas de conhecimento geral (escopo `shared` do
   // cache) NÃO recebem os dados do negócio no prompt — a resposta nasce
@@ -397,7 +450,7 @@ async function handleAiChat(
         aiServerCache.set("user", userId, cacheKey, result);
       }
     }
-    return success(result.text, result.suggestions);
+    return { ...success(result.text, result.suggestions), creditos: creditosDepois };
   };
 
   try {
@@ -451,6 +504,13 @@ async function handleAiChat(
             primaryError,
           );
 
+          // Ambos falharam — reembolsa o crédito (chamada não foi concluída)
+          try {
+            await devolverCredito(userId);
+          } catch {
+            /* ignore */
+          }
+
           // Ambos falharam — reporta o erro do provedor PRIMÁRIO (o real),
           // que é o mais relevante para o usuário.
           return toFailureEnvelope(primaryError);
@@ -463,6 +523,13 @@ async function handleAiChat(
       { provider, model: "primary", startTime, messageLength: message.length, userId },
       primaryError,
     );
+
+    // Falhou antes de gerar resposta — reembolsa o crédito consumido
+    try {
+      await devolverCredito(userId);
+    } catch {
+      /* ignore */
+    }
 
     // Converte qualquer erro (AiServiceError ou não) em envelope
     return toFailureEnvelope(primaryError);

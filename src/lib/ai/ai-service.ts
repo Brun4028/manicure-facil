@@ -11,10 +11,11 @@
  * e a normalização completa de erros vive em `ai-errors.ts`.
  */
 
-import { getAiChatResponse } from "./ai-chat";
+import { getAiChatResponse, getAiCreditos } from "./ai-chat";
 import { aiCache } from "./ai-cache";
 import { getInstantQuickResponse } from "./ai-instant-responses";
 import { AiServiceError, normalizeErrorToAiError, isAiError, type AiErrorCode } from "./ai-errors";
+import type { CreditosInfo } from "./ai-creditos";
 
 // Re-export para compatibilidade com imports existentes
 export { AiServiceError, isAiError, type AiErrorCode };
@@ -56,6 +57,10 @@ export type AiContext = {
 export type AiResponse = {
   text: string;
   suggestions?: string[];
+  /** Status de créditos da IA (contador atualizado a cada resposta real) */
+  creditos?: CreditosInfo;
+  /** true quando a mensagem avisa que os créditos de IA acabaram. */
+  semCreditos?: boolean;
 };
 
 /** Contexto padrão usado quando os dados ainda não carregaram */
@@ -265,11 +270,18 @@ export async function sendToAi(
       const result: AiResponse = {
         text: response.text,
         suggestions: response.suggestions,
+        creditos: response.creditos,
+        semCreditos: response.semCreditos,
       };
 
-      // Armazena em cache (exceto respostas muito curtas)
-      if (result.text.length > 50) {
-        aiCache.set(trimmedMessage, recentHistory, result);
+      // Armazena em cache (exceto respostas muito curtas e o aviso de
+      // créditos esgotados — que NÃO pode ser cacheado, senão o usuário
+      // veria "créditos esgotados" até depois do reset diário).
+      if (result.text.length > 50 && !result.semCreditos) {
+        aiCache.set(trimmedMessage, recentHistory, {
+          text: result.text,
+          suggestions: result.suggestions,
+        });
       }
 
       return result;
@@ -296,6 +308,16 @@ export async function sendToAi(
 
 export function getFallbackResponse(): AiResponse {
   return fallbackResponse();
+}
+
+export async function fetchAiCreditos(): Promise<CreditosInfo | undefined> {
+  try {
+    const res = await getAiCreditos();
+    return res as CreditosInfo;
+  } catch (error) {
+    console.error("[AI] Falha ao carregar créditos:", error);
+    return undefined;
+  }
 }
 
 export function getAiErrorMessage(error: unknown): string {
