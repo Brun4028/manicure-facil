@@ -1,0 +1,20 @@
+# =============================================================================
+# .dev.vars.example — Manicure Fácil (Cloudflare Workers Local Preview)
+# =============================================================================
+# Copie este arquivo para .dev.vars para executar `npm run preview:cf` localmente:
+#   cp .dev.vars.example .dev.vars
+#
+# O arquivo .dev.vars é lido pelo Wrangler durante o desenvolvimento local
+# e NUNCA é commitado no Git (já está protegido no .gitignore).
+#
+# Em PRODUÇÃO (Cloudflare), configure estes segredos via Dashboard ou CLI:
+#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   npx wrangler secret put GEMINI_API_KEY
+# =============================================================================
+
+# Chave secreta service_role do Supabase (obrigatória para agendamento público e painel admin)
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-aqui
+
+# Chave da API Google Gemini (para o assistente de inteligência artificial)
+GEMINI_API_KEY=sua-chave-gemini-aqui
+

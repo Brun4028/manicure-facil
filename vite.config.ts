@@ -86,11 +86,24 @@ export default defineConfig({
   // Vercel/TanStack Start). `NITRO_PRESET` permite um override explícito
   // (ex.: NITRO_PRESET=vercel) em qualquer ambiente.
   //
-  // No sandbox Lovable Cloud o preset é sobrescrito para cloudflare-module
-  // automaticamente (comportamento da própria config) — deploy na nuvem
-  // continua funcionando sem alterações.
+  // Cloudflare Workers: quando acionado via script `build:cf` (ou com
+  // `NITRO_PRESET=cloudflare_module` / `CLOUDFLARE=1`), compila com o preset
+  // nativo `cloudflare_module` gerando a estrutura para o Worker `manicure-facil`.
   nitro: {
-    preset: process.env.NITRO_PRESET || (process.env.VERCEL ? "vercel" : "node-server"),
+    preset:
+      process.env.NITRO_PRESET ||
+      (process.env.VERCEL
+        ? "vercel"
+        : process.env.npm_lifecycle_event === "build:cf" ||
+            process.env.npm_lifecycle_event === "preview:cf" ||
+            process.env.npm_lifecycle_event === "deploy:cf" ||
+            process.env.CLOUDFLARE
+          ? "cloudflare_module"
+          : "node-server"),
+    cloudflare: {
+      deployConfig: true,
+      nodeCompat: true,
+    },
   },
   vite: {
     build: {

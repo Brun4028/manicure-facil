@@ -114,21 +114,6 @@ interface RateLimitEntry {
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
-// Limpeza periódica do rate limit store (a cada 5 minutos)
-if (typeof setInterval !== "undefined") {
-  setInterval(
-    () => {
-      const now = Date.now();
-      for (const [key, entry] of rateLimitStore.entries()) {
-        if (now > entry.resetAt) {
-          rateLimitStore.delete(key);
-        }
-      }
-    },
-    5 * 60 * 1000,
-  );
-}
-
 type RateLimitConfig = {
   /** Máximo de requisições */
   maxRequests: number;
@@ -195,6 +180,12 @@ function checkRateLimit(
   config: RateLimitConfig,
 ): { allowed: boolean; remaining: number; retryAfter: number } {
   const now = Date.now();
+  // Limpeza preguiçosa sem depender de timers no escopo global
+  if (rateLimitStore.size > 200) {
+    for (const [k, v] of rateLimitStore.entries()) {
+      if (now > v.resetAt) rateLimitStore.delete(k);
+    }
+  }
   const entry = rateLimitStore.get(key);
 
   if (!entry || now > entry.resetAt) {

@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "manicure-facil",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2024-09-19",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".output/public"
+  },
+  "vars": {
+    "VITE_SUPABASE_URL": "https://xirthhekebwmnldrefbx.supabase.co",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpcnRoaGVrZWJ3bW5sZHJlZmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MDc0NDMsImV4cCI6MjA5NzQ4MzQ0M30.pBxtHxfdT5PYrF_GTHE3-vwYepdgHO_n-avoQUSNXw4",
+    "SUPABASE_URL": "https://xirthhekebwmnldrefbx.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpcnRoaGVrZWJ3bW5sZHJlZmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MDc0NDMsImV4cCI6MjA5NzQ4MzQ0M30.pBxtHxfdT5PYrF_GTHE3-vwYepdgHO_n-avoQUSNXw4",
+    "ADMIN_EMAILS": "ronaldoangelica9@gmail.com",
+    "AI_PROVIDER": "gemini",
+    "GEMINI_MODEL": "gemini-flash-latest",
+    "RATE_LIMIT_TRUSTED_HEADER": "cf-connecting-ip"
+  }
+}
+

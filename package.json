@@ -7,7 +7,10 @@
     "dev": "vite dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "build:cf": "vite build",
     "preview": "vite preview",
+    "preview:cf": "wrangler dev",
+    "deploy:cf": "wrangler deploy",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -62,6 +65,7 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "wrangler": "^4.158.0"
   }
 }
