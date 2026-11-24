@@ -41,6 +41,7 @@ import { z } from "zod";
 import { differenceInDays } from "date-fns";
 import { ClienteHistoryDialog } from "@/components/clientes/cliente-history-dialog";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { WhatsAppMessageDialog } from "@/components/whatsapp/whatsapp-message-dialog";
 
 export const Route = createFileRoute("/_authenticated/clientes")({
   component: ClientesPage,
@@ -559,11 +560,30 @@ function ClienteDialog({
               rows={2}
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {cliente && (
+              <WhatsAppMessageDialog
+                cliente={{
+                  id: cliente.id,
+                  nome: form.nome,
+                  telefone: form.telefone,
+                }}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="sm:mr-auto text-xs border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/10 flex items-center gap-1.5"
+                  >
+                    <MessageCircle className="size-3.5" />
+                    Enviar WhatsApp
+                  </Button>
+                }
+              />
+            )}
             <Button
               type="submit"
               disabled={mut.isPending}
-              className="gradient-primary text-primary-foreground shadow-glow w-full"
+              className="gradient-primary text-primary-foreground shadow-glow w-full sm:w-auto"
               aria-label={mut.isPending ? "Salvando cliente" : "Salvar cliente"}
             >
               {mut.isPending ? "Salvando..." : "Salvar"}
@@ -576,12 +596,10 @@ function ClienteDialog({
 }
 
 /**
- * Abre a conversa no WhatsApp já com a mensagem certa para a ocasião:
- * parabéns no aniversário, mensagem carinhosa nos demais dias.
+ * Abre o WhatsApp com a mensagem ideal para a ocasião (aniversário, conversa,
+ * agendamento), permitindo que a profissional revise antes de enviar.
  */
 function WhatsBtn({ cliente }: { cliente: Cliente }) {
-  if (!cliente.telefone) return null;
-
   const hoje = new Date();
   const nascimento = cliente.data_nascimento
     ? new Date(`${cliente.data_nascimento}T00:00:00`)
@@ -592,24 +610,27 @@ function WhatsBtn({ cliente }: { cliente: Cliente }) {
     nascimento.getDate() === hoje.getDate() &&
     nascimento.getMonth() === hoje.getMonth();
 
-  const texto = aniversarioHoje
-    ? mensagens.aniversario({ cliente: cliente.nome })
-    : mensagens.conversa({ cliente: cliente.nome });
+  const tipo = aniversarioHoje ? "aniversario" : "conversa";
 
   return (
-    <Button
-      size="icon"
-      variant="ghost"
-      className="hover:bg-[#25D366]/15"
-      aria-label={`Enviar mensagem no WhatsApp para ${cliente.nome}`}
-      title={aniversarioHoje ? "Parabenizar no WhatsApp" : "Conversar no WhatsApp"}
-      onClick={() => {
-        if (!abrirWhatsApp(cliente.telefone, texto)) {
-          toast.error("Número de WhatsApp inválido. Edite o telefone desta cliente.");
-        }
+    <WhatsAppMessageDialog
+      cliente={{
+        id: cliente.id,
+        nome: cliente.nome,
+        telefone: cliente.telefone,
       }}
-    >
-      <MessageCircle className="size-4 text-[#25D366]" aria-hidden="true" />
-    </Button>
+      tipoPadrao={tipo}
+      trigger={
+        <Button
+          size="icon"
+          variant="ghost"
+          className="hover:bg-[#25D366]/15"
+          aria-label={`Enviar mensagem no WhatsApp para ${cliente.nome}`}
+          title={aniversarioHoje ? "Parabenizar no WhatsApp" : "Conversar no WhatsApp"}
+        >
+          <MessageCircle className="size-4 text-[#25D366]" aria-hidden="true" />
+        </Button>
+      }
+    />
   );
 }

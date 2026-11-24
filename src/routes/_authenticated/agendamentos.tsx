@@ -82,6 +82,8 @@ import {
 import { ptBR } from "date-fns/locale";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { BloqueioHorariosDialog } from "@/components/agenda/bloqueio-horarios-dialog";
+import { CompartilharLinkDialog } from "@/components/agenda/compartilhar-link-dialog";
+import { WhatsAppMessageDialog } from "@/components/whatsapp/whatsapp-message-dialog";
 
 export const Route = createFileRoute("/_authenticated/agendamentos")({
   validateSearch: (s: Record<string, unknown>) => ({ new: s.new ? 1 : undefined }),
@@ -252,6 +254,7 @@ function AgendamentosPage() {
                 Lista
               </button>
             </div>
+            <CompartilharLinkDialog />
             <BloqueioHorariosDialog />
             <AgendamentoDialog
               open={openNew}
@@ -595,12 +598,13 @@ type AgComRelacoes = {
 };
 
 /**
- * WhatsApp do atendimento: escolhe a mensagem conforme o status
- * (lembrete, confirmação, agradecimento ou convite de reagendamento).
+ * WhatsApp do atendimento: prepara a mensagem ideal conforme o status
+ * (lembrete, confirmação, agradecimento ou convite de reagendamento)
+ * e permite que a profissional revise antes de abrir o WhatsApp.
  */
 function WhatsAg({ a }: { a: AgComRelacoes }) {
-  const telefone = a.clientes?.telefone;
-  if (!telefone) return null;
+  const clienteNome = a.clientes?.nome?.trim() || "Cliente";
+  const telefone = a.clientes?.telefone ?? null;
 
   const tipo =
     a.status === "concluido"
@@ -608,8 +612,8 @@ function WhatsAg({ a }: { a: AgComRelacoes }) {
       : a.status === "cancelado"
         ? "reagendamento"
         : a.status === "confirmado"
-          ? "confirmacao"
-          : "lembrete";
+          ? "lembrete"
+          : "confirmacao";
 
   const rotulo = {
     lembrete: "Enviar lembrete no WhatsApp",
@@ -618,28 +622,33 @@ function WhatsAg({ a }: { a: AgComRelacoes }) {
     reagendamento: "Convidar para reagendar",
   }[tipo];
 
-  const dados: DadosMensagem = {
-    cliente: a.clientes?.nome ?? "cliente",
-    dataHora: a.data_hora,
-    servico: a.servicos?.nome ?? null,
-    valor: a.valor,
-  };
-
   return (
-    <Button
-      size="icon"
-      variant="ghost"
-      className="hover:bg-[#25D366]/15 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
-      aria-label={rotulo}
-      title={rotulo}
-      onClick={() => {
-        if (!abrirWhatsApp(telefone, mensagens[tipo](dados))) {
-          toast.error("Número de WhatsApp inválido. Edite o telefone desta cliente.");
-        }
+    <WhatsAppMessageDialog
+      cliente={{
+        id: a.cliente_id ?? undefined,
+        nome: clienteNome,
+        telefone,
       }}
-    >
-      <MessageCircle className="size-4 text-[#25D366]" aria-hidden="true" />
-    </Button>
+      agendamento={{
+        id: a.id,
+        data_hora: a.data_hora,
+        servico: a.servicos?.nome ?? undefined,
+        valor: a.valor,
+        status: a.status,
+      }}
+      tipoPadrao={tipo}
+      trigger={
+        <Button
+          size="icon"
+          variant="ghost"
+          className="hover:bg-[#25D366]/15 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
+          aria-label={rotulo}
+          title={rotulo}
+        >
+          <MessageCircle className="size-4 text-[#25D366]" aria-hidden="true" />
+        </Button>
+      }
+    />
   );
 }
 
@@ -1321,11 +1330,37 @@ function AgendamentoDialog({
               onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {ag && (
+              <WhatsAppMessageDialog
+                cliente={{
+                  id: ag.cliente_id ?? undefined,
+                  nome: clientes?.find((c) => c.id === form.cliente_id)?.nome ?? "Cliente",
+                  telefone: clientes?.find((c) => c.id === form.cliente_id)?.telefone ?? null,
+                }}
+                agendamento={{
+                  id: ag.id,
+                  data_hora: `${form.data}T${form.hora}:00`,
+                  servico: servicos?.find((s) => s.id === form.servico_id)?.nome,
+                  valor: form.valor,
+                  status: form.status,
+                }}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="sm:mr-auto text-xs border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/10 flex items-center gap-1.5"
+                  >
+                    <MessageCircle className="size-3.5" />
+                    Enviar WhatsApp
+                  </Button>
+                }
+              />
+            )}
             <Button
               type="submit"
               disabled={mut.isPending || bloqueioSalvar}
-              className="gradient-primary text-primary-foreground shadow-glow w-full"
+              className="gradient-primary text-primary-foreground shadow-glow w-full sm:w-auto"
             >
               {mut.isPending ? "Salvando..." : "Salvar"}
             </Button>

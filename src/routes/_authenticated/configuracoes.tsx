@@ -13,7 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
-import { Building2, Clock, Bell, Save } from "lucide-react";
+import { Building2, Clock, Bell, Save, Share2 } from "lucide-react";
+import { CompartilharLinkDialog } from "@/components/agenda/compartilhar-link-dialog";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: ConfiguracoesPage,
@@ -116,6 +117,26 @@ function ConfiguracoesPage() {
         className="space-y-6"
         aria-label="Formulário de configurações"
       >
+        {/* Link de Agendamento Online */}
+        <Card className="bg-card border border-border p-6 rounded-[20px] shadow-card bg-gradient-to-br from-[#D946EF]/5 via-transparent to-transparent">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-gradient-to-br from-[#D946EF] to-[#A855F7] grid place-items-center text-white shadow-glow">
+                <Share2 className="size-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-semibold text-card-foreground">
+                  Seu Link de Agendamento Público
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Compartilhe com suas clientes para agendamentos online rápidos e sem login
+                </p>
+              </div>
+            </div>
+            <CompartilharLinkDialog />
+          </div>
+        </Card>
+
         {/* Empresa */}
         <Card className="bg-card border border-border p-6 rounded-[20px] shadow-card">
           <div className="flex items-center gap-3 mb-6">

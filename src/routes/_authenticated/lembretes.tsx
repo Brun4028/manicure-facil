@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
 import { abrirWhatsApp } from "@/lib/whatsapp";
+import { WhatsAppMessageDialog } from "@/components/whatsapp/whatsapp-message-dialog";
 import {
   adiarLembrete,
   gerarLembretes,
@@ -490,18 +491,42 @@ function LembreteCard({
         </div>
 
         <div className="flex flex-wrap md:flex-col gap-2 shrink-0">
-          <Button
-            size="sm"
-            className="h-9 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] text-white"
-            disabled={!temTelefone}
-            onClick={() => {
-              if (!abrirWhatsApp(l.telefone, l.mensagem)) {
-                toast.error("Número de WhatsApp inválido. Atualize o cadastro da cliente.");
-              }
+          <WhatsAppMessageDialog
+            cliente={{
+              id: l.cliente_id ?? undefined,
+              nome: l.cliente_nome,
+              telefone: l.telefone,
             }}
-          >
-            <MessageCircle className="size-3.5 mr-1.5" /> Abrir WhatsApp
-          </Button>
+            agendamento={
+              l.agendamento_id
+                ? {
+                    id: l.agendamento_id,
+                    data_hora: l.data_referencia ?? undefined,
+                  }
+                : undefined
+            }
+            tipoPadrao={
+              l.tipo === "agendamento_proximo"
+                ? "lembrete"
+                : l.tipo === "agendamento_confirmado"
+                  ? "confirmacao"
+                  : l.tipo === "aniversario"
+                    ? "aniversario"
+                    : l.tipo === "inatividade"
+                      ? "reativacao"
+                      : "personalizada"
+            }
+            onEnviado={onResolver}
+            trigger={
+              <Button
+                size="sm"
+                className="h-9 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] text-white"
+                disabled={!temTelefone}
+              >
+                <MessageCircle className="size-3.5 mr-1.5" /> Abrir WhatsApp
+              </Button>
+            }
+          />
           <div className="flex gap-2">
             <Button
               size="sm"

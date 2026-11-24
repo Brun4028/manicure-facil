@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog";
+import { CompartilharLinkDialog } from "@/components/agenda/compartilhar-link-dialog";
 import {
   Users,
   CalendarDays,
@@ -582,6 +583,7 @@ function Dashboard() {
       <PageHeader
         title="Menu Geral"
         subtitle={format(now, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+        actions={<CompartilharLinkDialog />}
       />
 
       {/* Welcome greeting */}

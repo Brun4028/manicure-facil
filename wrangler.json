@@ -3,9 +3,7 @@
   "name": "manicure-facil",
   "main": ".output/server/index.mjs",
   "compatibility_date": "2024-09-19",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "binding": "ASSETS",
     "directory": ".output/public"
@@ -21,4 +19,3 @@
     "RATE_LIMIT_TRUSTED_HEADER": "cf-connecting-ip"
   }
 }
-

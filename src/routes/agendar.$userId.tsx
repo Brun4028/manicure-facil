@@ -25,9 +25,13 @@ import {
   Gift,
   Info,
   ChevronLeft,
+  MessageCircle,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { mensagemErroAmigavel } from "@/lib/user-errors";
+import { abrirWhatsApp } from "@/lib/whatsapp";
+import { gerarSlots } from "@/lib/expediente-logica";
 import { format, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -74,8 +78,11 @@ function PublicAgendamentoPage() {
 
   // Busca única dos dados públicos da manicure — 100% via server function
   // no backend (service_role). O navegador nunca consulta o banco com a chave anon.
+  // Atualiza dinamicamente para manter a agenda sempre em tempo real.
   const publicoQuery = useQuery({
     queryKey: ["public_manicure", userId],
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const res = await getDadosPublicosManicure({ data: { userId } });
       if (!res.ok) throw new Error(res.error);
@@ -107,80 +114,36 @@ function PublicAgendamentoPage() {
       ? publicoQuery.error.message
       : "Perfil indisponível no momento."
     : null;
-  const services: Serv[] = data?.servicos ?? [];
-  const bookings: { data_hora: string; duracao_min: number; status: string }[] =
-    data?.agendamentos ?? [];
+  const services: Serv[] = useMemo(() => data?.servicos ?? [], [data?.servicos]);
+  const bookings: { data_hora: string; duracao_min: number; status: string }[] = useMemo(
+    () => data?.agendamentos ?? [],
+    [data?.agendamentos],
+  );
   const loyaltyConfig = data?.fidelidade ?? null;
-  const portfolio: Photo[] = data?.portfolio ?? [];
-  const reviews: Review[] = data?.avaliacoes ?? [];
+  const portfolio: Photo[] = useMemo(() => data?.portfolio ?? [], [data?.portfolio]);
+  const reviews: Review[] = useMemo(() => data?.avaliacoes ?? [], [data?.avaliacoes]);
   const perfil = data?.perfil;
-  // 🔧 NOVO: expediente e bloqueios da manicure (vindos da server function)
-  const horarios: { dia_semana: number; hora_inicio: string; hora_fim: string }[] =
-    data?.horarios ?? [];
+  // 🔧 NOVO: expediente, intervalos e bloqueios da manicure (vindos da server function)
+  const horarios: { dia_semana: number; hora_inicio: string; hora_fim: string }[] = useMemo(
+    () => data?.horarios ?? [],
+    [data?.horarios],
+  );
+  const intervalos: { dia_semana: number; nome: string; hora_inicio: string; hora_fim: string }[] =
+    useMemo(() => data?.intervalos ?? [], [data?.intervalos]);
   const bloqueios: {
     data_inicio: string;
     data_fim: string | null;
     hora_inicio: string | null;
     hora_fim: string | null;
-  }[] = data?.bloqueios ?? [];
+  }[] = useMemo(() => data?.bloqueios ?? [], [data?.bloqueios]);
 
-  // Generate date options (next 10 days)
+  // Generate date options (next 14 days)
   const dateOptions = useMemo(() => {
-    return Array.from({ length: 10 }, (_, i) => addDays(new Date(), i));
+    return Array.from({ length: 14 }, (_, i) => addDays(new Date(), i));
   }, []);
 
-  // 🔧 NOVO: helpers de expediente/bloqueio — espelham a validação do banco
-  // (agendar_servico) para que a página NÃO ofereça horários que seriam
-  // rejeitados no envio.
+  // Helpers de expediente/bloqueio — espelham a validação do banco (agendar_servico)
   const diasComExpediente = useMemo(() => new Set(horarios.map((h) => h.dia_semana)), [horarios]);
-
-  const slotBloqueado = useCallback(
-    (date: Date, horaInicio: string, duracaoMin: number): boolean => {
-      const [h, m] = horaInicio.split(":").map(Number);
-      const slotStart = new Date(date);
-      slotStart.setHours(h, m, 0, 0);
-      const slotInicioStr = horaInicio;
-      const slotFimStr = (() => {
-        const fim = new Date(slotStart.getTime() + duracaoMin * 60 * 1000);
-        return `${String(fim.getHours()).padStart(2, "0")}:${String(fim.getMinutes()).padStart(2, "0")}`;
-      })();
-
-      const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-
-      for (const b of bloqueios) {
-        const inicio = b.data_inicio;
-        const fim = b.data_fim ?? b.data_inicio;
-        if (dayKey < inicio || dayKey > fim) continue;
-        // Bloqueio de dia inteiro
-        if (b.hora_inicio === null) return true;
-        // Bloqueio com janela de horário — checagem de OVERLAP
-        const bi = b.hora_inicio;
-        const bf = b.hora_fim ?? b.hora_inicio;
-        if (slotInicioStr < bf && slotFimStr > bi) return true;
-      }
-      return false;
-    },
-    [bloqueios],
-  );
-
-  const slotDentroDoExpediente = useCallback(
-    (date: Date, horaInicio: string, duracaoMin: number): boolean => {
-      // Sem expediente configurado → não restringe (comportamento antigo)
-      if (horarios.length === 0) return true;
-      const dow = date.getDay();
-      const slotFim = (() => {
-        const [h, m] = horaInicio.split(":").map(Number);
-        const fim = new Date(date);
-        fim.setHours(h, m, 0, 0);
-        fim.setTime(fim.getTime() + duracaoMin * 60 * 1000);
-        return `${String(fim.getHours()).padStart(2, "0")}:${String(fim.getMinutes()).padStart(2, "0")}`;
-      })();
-      return horarios.some(
-        (h) => h.dia_semana === dow && horaInicio >= h.hora_inicio && slotFim <= h.hora_fim,
-      );
-    },
-    [horarios],
-  );
 
   const diaTotalmenteBloqueado = useCallback(
     (date: Date): boolean => {
@@ -195,60 +158,49 @@ function PublicAgendamentoPage() {
     [horarios, diasComExpediente, bloqueios],
   );
 
-  // Time Slot generator & overlap checker
+  // Time Slot generator & overlap checker — usa a lógica pura unificada
   const timeSlots = useMemo(() => {
     if (!selectedService) return [];
 
-    // Janela padrão de horários (08:00–18:00 a cada 30 min). A disponibilidade
-    // real é filtrada pelo expediente da manicure (horarios_trabalho) e pelos
-    // bloqueios — espelhando a validação do banco.
-    const startHour = 8;
-    const endHour = 18;
-    const intervalMin = 30;
-    const slots: string[] = [];
-
-    for (let h = startHour; h < endHour; h++) {
-      for (let m = 0; m < 60; m += intervalMin) {
-        const hh = String(h).padStart(2, "0");
-        const mm = String(m).padStart(2, "0");
-        slots.push(`${hh}:${mm}`);
-      }
-    }
-
-    // Filter slots based on overlaps
-    return slots.map((time) => {
-      // Slot start & end time
-      const slotDate = new Date(selectedDate);
-      const [h, m] = time.split(":").map(Number);
-      slotDate.setHours(h, m, 0, 0);
-      const slotStart = slotDate.getTime();
-      const slotEnd = slotStart + selectedService.duracao_min * 60 * 1000;
-
-      // Check overlap
-      const isBooked = bookings.some((b) => {
-        if (b.status === "cancelado") return false;
-        const bStart = new Date(b.data_hora).getTime();
-        const bEnd = bStart + b.duracao_min * 60 * 1000;
-        return slotStart < bEnd && bStart < slotEnd;
-      });
-
-      // 🔧 NOVO: fora do expediente ou bloqueado → indisponível
-      const foraDoExpediente = !slotDentroDoExpediente(
-        selectedDate,
-        time,
-        selectedService.duracao_min,
-      );
-      const bloqueado = slotBloqueado(selectedDate, time, selectedService.duracao_min);
-
-      // Also prevent booking past hours if selected date is today
-      const isPast = isSameDay(selectedDate, new Date()) && slotStart < Date.now();
-
-      return {
-        time,
-        available: !isBooked && !isPast && !foraDoExpediente && !bloqueado,
-      };
+    const slots = gerarSlots({
+      data: selectedDate,
+      duracaoMin: selectedService.duracao_min,
+      expediente: horarios.map((h) => ({ ...h, ativo: true })),
+      intervalos,
+      bloqueios,
+      ocupados: bookings.map((b) => ({ data_hora: b.data_hora, duracao_min: b.duracao_min })),
+      passoMin: 30,
+      ignoraAntesDe: isSameDay(selectedDate, new Date()) ? format(new Date(), "HH:mm") : undefined,
     });
-  }, [selectedService, selectedDate, bookings, slotDentroDoExpediente, slotBloqueado]);
+
+    return slots.map((s) => ({
+      time: s.hora,
+      available: s.disponivel,
+      motivo: s.motivo,
+    }));
+  }, [selectedService, selectedDate, horarios, intervalos, bloqueios, bookings]);
+
+  // Apenas horários realmente disponíveis são apresentados à cliente
+  const availableSlots = useMemo(() => {
+    return timeSlots.filter((slot) => slot.available);
+  }, [timeSlots]);
+
+  // Limpa o horário caso a cliente troque de dia e o horário anterior não esteja livre
+  useEffect(() => {
+    if (selectedTime && !availableSlots.some((s) => s.time === selectedTime)) {
+      setSelectedTime("");
+    }
+  }, [availableSlots, selectedTime]);
+
+  // Máscara dinâmica de telefone brasileiro (celular ou fixo)
+  const formatPhoneBR = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    if (digits.length <= 2) return digits ? `(${digits}` : "";
+    if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    if (digits.length <= 10)
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+  };
 
   // Birthday discount checker (compare only month, ignore year)
   const birthdayDiscount = useMemo(() => {
@@ -291,14 +243,15 @@ function PublicAgendamentoPage() {
   // Booking Mutation — criação via server function (validação no servidor)
   const bookingMut = useMutation({
     mutationFn: async () => {
-      if (!selectedService || !selectedTime) throw new Error("Serviço e horário inválidos");
-      if (!clientForm.nome.trim() || !clientForm.telefone.trim())
-        throw new Error("Preencha seu nome e telefone");
+      if (!selectedService || !selectedTime)
+        throw new Error("Selecione o procedimento e o horário desejado");
+      if (!clientForm.nome.trim()) throw new Error("Por favor, preencha seu nome");
+      const digitosTel = clientForm.telefone.replace(/\D/g, "");
+      if (digitosTel.length < 10) throw new Error("Informe seu WhatsApp completo com DDD");
 
-      // Format ISO Date Time
-      const appointmentDate = new Date(selectedDate);
-      const [h, m] = selectedTime.split(":").map(Number);
-      appointmentDate.setHours(h, m, 0, 0);
+      // Format ISO Date Time a partir do dia e horário selecionados
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const appointmentDate = new Date(`${dateStr}T${selectedTime}:00`);
 
       const res = await criarAgendamentoPublico({
         data: {
@@ -485,24 +438,30 @@ function PublicAgendamentoPage() {
 
               {/* Hours Grid */}
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Horários disponíveis:</Label>
-                {timeSlots.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-6 text-center">
-                    Nenhum horário disponível para a data selecionada.
-                  </p>
+                <Label className="text-xs text-muted-foreground">
+                  Horários livres para agendamento:
+                </Label>
+                {availableSlots.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-muted-foreground bg-muted/20 rounded-2xl border border-dashed border-border/60 p-4 space-y-1">
+                    <Clock className="size-5 mx-auto text-muted-foreground/60 mb-1" />
+                    <p className="font-medium text-foreground">
+                      Nenhum horário disponível para esta data
+                    </p>
+                    <p className="text-[11px]">
+                      Todos os horários estão ocupados, em intervalo ou fora do expediente. Escolha
+                      outro dia acima.
+                    </p>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                    {timeSlots.map((slot) => (
+                    {availableSlots.map((slot) => (
                       <button
                         key={slot.time}
-                        disabled={!slot.available}
                         onClick={() => setSelectedTime(slot.time)}
-                        className={`py-2 rounded-xl text-center text-xs font-medium transition-all ${
-                          !slot.available
-                            ? "opacity-30 bg-muted/20 cursor-not-allowed"
-                            : selectedTime === slot.time
-                              ? "gradient-primary text-primary-foreground shadow-glow scale-105 font-bold"
-                              : "glass hover:bg-accent/40"
+                        className={`py-2.5 rounded-xl text-center text-xs font-medium transition-all ${
+                          selectedTime === slot.time
+                            ? "gradient-primary text-primary-foreground shadow-glow scale-105 font-bold ring-2 ring-purple-400/50"
+                            : "glass hover:bg-purple-500/10 hover:border-purple-300/40 text-foreground"
                         }`}
                       >
                         {slot.time}
@@ -554,7 +513,10 @@ function PublicAgendamentoPage() {
                     <Input
                       value={clientForm.telefone}
                       placeholder="(99) 99999-9999"
-                      onChange={(e) => setClientForm({ ...clientForm, telefone: e.target.value })}
+                      maxLength={15}
+                      onChange={(e) =>
+                        setClientForm({ ...clientForm, telefone: formatPhoneBR(e.target.value) })
+                      }
                       required
                     />
                   </div>
@@ -672,6 +634,32 @@ function PublicAgendamentoPage() {
                   <span className="text-primary">{brl(pricing.final)}</span>
                 </div>
               </div>
+
+              {perfil?.telefone && (
+                <div className="max-w-sm mx-auto w-full pt-1">
+                  <Button
+                    type="button"
+                    className="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white shadow-md font-medium text-xs h-10 rounded-xl flex items-center justify-center gap-2"
+                    onClick={() => {
+                      const msg =
+                        `Olá, ${perfil.nome || "tudo bem"}! 💅\n` +
+                        `Acabei de fazer um agendamento online pelo seu link:\n\n` +
+                        `• *Serviço:* ${selectedService.nome}\n` +
+                        `• *Data:* ${format(selectedDate, "dd/MM/yyyy")}\n` +
+                        `• *Horário:* ${selectedTime}\n` +
+                        `• *Cliente:* ${clientForm.nome}\n` +
+                        (clientForm.observacoes
+                          ? `• *Observações:* ${clientForm.observacoes}\n`
+                          : "") +
+                        `\nAguardo a sua confirmação! 😊`;
+                      abrirWhatsApp(perfil.telefone, msg);
+                    }}
+                  >
+                    <MessageCircle className="size-4" />
+                    Enviar confirmação no WhatsApp
+                  </Button>
+                </div>
+              )}
 
               <div>
                 <Button

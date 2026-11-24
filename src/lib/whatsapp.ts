@@ -16,6 +16,7 @@ export type DadosMensagem = {
   servico?: string | null;
   valor?: number | null;
   salao?: string | null;
+  linkAgendamento?: string | null;
 };
 
 /** Remove tudo que não é dígito (parênteses, traços, espaços, +55...). */
@@ -63,11 +64,20 @@ export function linkWhatsApp(
 /**
  * Abre a conversa no WhatsApp. Retorna `false` quando o número é inválido
  * (para a tela chamar um toast amigável em vez de falhar em silêncio).
+ * Funciona de forma resiliente em dispositivos móveis e navegadores desktop.
  */
 export function abrirWhatsApp(telefone: string | null | undefined, mensagem?: string): boolean {
   const link = linkWhatsApp(telefone, mensagem);
   if (!link) return false;
-  window.open(link, "_blank", "noopener,noreferrer");
+  try {
+    const win = window.open(link, "_blank", "noopener,noreferrer");
+    if (!win || win.closed || typeof win.closed === "undefined") {
+      // Caso pop-up seja bloqueado (comum em navegadores móveis rigorosos)
+      window.location.href = link;
+    }
+  } catch {
+    window.location.href = link;
+  }
   return true;
 }
 
@@ -142,6 +152,14 @@ export const mensagens = {
 
   /** Mensagem genérica quando só temos o nome da cliente. */
   conversa: (d: DadosMensagem) => `Oi, ${d.cliente}! Tudo bem? 😊${assinatura(d)}`,
+
+  /** Compartilhar link público de agendamento com a cliente. */
+  linkAgendamento: (d: DadosMensagem) =>
+    `Oi, ${d.cliente}! 💅\n` +
+    `Para facilitar seus agendamentos, agora você pode escolher seu horário e serviço diretamente pelo meu link online:\n\n` +
+    `👉 ${d.linkAgendamento || ""}\n\n` +
+    `É só acessar, escolher o serviço e o melhor horário disponível. Te espero! ✨` +
+    assinatura(d),
 };
 
 export type TipoMensagem = keyof typeof mensagens;

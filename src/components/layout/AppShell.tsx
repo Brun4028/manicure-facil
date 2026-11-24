@@ -36,6 +36,7 @@ import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet";
 import { ProfileDialog } from "@/components/profile/profile-dialog";
 import { AiAssistantLauncher } from "@/components/assistant/ai-assistant-launcher";
 import { NotificationsPopover } from "@/components/notifications/notifications-popover";
+import { CompartilharLinkDialog } from "@/components/agenda/compartilhar-link-dialog";
 import logoIconWhite from "@/assets/logo-icon-white.png";
 
 // O painel do Assistente IA puxa o react-markdown (~150 KB). Carregamos de
@@ -230,31 +231,31 @@ export function AppShell({ children }: { children: ReactNode }) {
             className={`border-t border-[#252836] space-y-2 p-4 ${desktopCollapsed ? "px-2.5" : ""}`}
           >
             {user && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size={desktopCollapsed ? "icon" : "sm"}
-                    className={`glass border-0 hover:bg-accent/40 text-[10px] text-muted-foreground truncate ${
-                      desktopCollapsed ? "w-full aspect-square" : "w-full justify-start"
-                    }`}
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/agendar/${user.id}`);
-                      toast.success("Link de agendamento copiado com sucesso!");
-                    }}
-                  >
-                    <LinkIcon
-                      className={`shrink-0 text-primary ${desktopCollapsed ? "size-4" : "size-3.5 mr-2"}`}
-                    />
-                    {!desktopCollapsed && "Copiar Link Público"}
-                  </Button>
-                </TooltipTrigger>
-                {desktopCollapsed && (
-                  <TooltipContent side="right" sideOffset={12}>
-                    Copiar Link Público
-                  </TooltipContent>
-                )}
-              </Tooltip>
+              <CompartilharLinkDialog
+                trigger={
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size={desktopCollapsed ? "icon" : "sm"}
+                        className={`glass border-0 hover:bg-accent/40 text-[10px] text-muted-foreground truncate ${
+                          desktopCollapsed ? "w-full aspect-square" : "w-full justify-start"
+                        }`}
+                      >
+                        <LinkIcon
+                          className={`shrink-0 text-primary ${desktopCollapsed ? "size-4" : "size-3.5 mr-2"}`}
+                        />
+                        {!desktopCollapsed && "Link de Agendamento"}
+                      </Button>
+                    </TooltipTrigger>
+                    {desktopCollapsed && (
+                      <TooltipContent side="right" sideOffset={12}>
+                        Link de Agendamento
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                }
+              />
             )}
             <button
               type="button"
@@ -386,18 +387,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               {/* Bottom */}
               <div className="p-4 border-t border-[#252836] space-y-2">
                 {user && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start bg-[#1F2128] border border-[#252836] text-[#A1A1AA] hover:bg-[#D946EF]/10 hover:border-[#D946EF]/30 text-[10px] truncate transition-all"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/agendar/${user.id}`);
-                      toast.success("Link de agendamento copiado com sucesso!");
-                    }}
-                  >
-                    <LinkIcon className="size-3.5 mr-2 shrink-0 text-[#D946EF]" />
-                    Copiar Link Público
-                  </Button>
+                  <CompartilharLinkDialog
+                    trigger={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start bg-[#1F2128] border border-[#252836] text-[#A1A1AA] hover:bg-[#D946EF]/10 hover:border-[#D946EF]/30 text-[10px] truncate transition-all"
+                      >
+                        <LinkIcon className="size-3.5 mr-2 shrink-0 text-[#D946EF]" />
+                        Link de Agendamento
+                      </Button>
+                    }
+                  />
                 )}
                 <div className="text-[10px] text-[#A1A1AA] truncate">{user?.email}</div>
                 <Button

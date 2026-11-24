@@ -53,7 +53,7 @@ const avaliacaoSchema = z.object({
 // ─── Envelope tipado de resposta ────────────────────────────────────────────
 
 export type PublicoManicure = {
-  perfil: { nome: string | null; avatar_url: string | null };
+  perfil: { nome: string | null; avatar_url: string | null; telefone: string | null };
   servicos: { id: string; nome: string; valor: number; duracao_min: number }[];
   agendamentos: { data_hora: string; duracao_min: number; status: string }[];
   portfolio: { id: string; titulo: string; imagem_url: string; tags: string[] | null }[];
@@ -65,11 +65,11 @@ export type PublicoManicure = {
     data: string;
   }[];
   fidelidade: { niver_promo_ativa: boolean; niver_desconto_porcentagem: number } | null;
-  // 🔧 NOVO: expediente e bloqueios da manicure — usados pela página pública
-  // para desabilitar slots fora do horário de trabalho / em dias bloqueados
-  // (antes a página oferecia 08h-18h em TODOS os dias e o banco rejeitava no
-  // final). Incluídos apenas horários ativos e bloqueios a partir de hoje.
+  // 🔧 NOVO: expediente, intervalos e bloqueios da manicure — usados pela página pública
+  // para desabilitar slots fora do horário de trabalho / em pausas / em dias bloqueados.
+  // Incluídos apenas horários ativos e bloqueios a partir de hoje.
   horarios: { dia_semana: number; hora_inicio: string; hora_fim: string }[];
+  intervalos: { dia_semana: number; nome: string; hora_inicio: string; hora_fim: string }[];
   bloqueios: {
     data_inicio: string;
     data_fim: string | null;
@@ -112,55 +112,72 @@ export const getDadosPublicosManicure = createServerFn({ method: "POST" })
     // (ex.: Brasil UTC-3 — à noite, a data UTC já é o dia seguinte). O check
     // client-side/DB faz a comparação exata por dia.
     const hoje = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const [perfil, servicos, agendamentos, portfolio, avaliacoes, fidelidade, horarios, bloqueios] =
-      await Promise.all([
-        supabaseAdmin.from("profiles").select("nome, avatar_url").eq("id", userId).maybeSingle(),
-        supabaseAdmin
-          .from("servicos")
-          .select("id, nome, valor, duracao_min")
-          .eq("user_id", userId)
-          .eq("ativo", true)
-          .order("nome"),
-        supabaseAdmin
-          .from("agendamentos")
-          .select("data_hora, duracao_min, status")
-          .eq("user_id", userId)
-          .neq("status", "cancelado")
-          .gte("data_hora", agora)
-          .order("data_hora", { ascending: true })
-          .limit(500),
-        supabaseAdmin
-          .from("portfolio")
-          .select("id, titulo, imagem_url, tags")
-          .eq("user_id", userId)
-          .eq("publico", true)
-          .order("created_at", { ascending: false })
-          .limit(60),
-        supabaseAdmin
-          .from("avaliacoes")
-          .select("id, cliente_nome, nota, comentario, data")
-          .eq("user_id", userId)
-          .eq("publico", true)
-          .order("data", { ascending: false })
-          .limit(100),
-        supabaseAdmin
-          .from("fidelidade_config")
-          .select("niver_promo_ativa, niver_desconto_porcentagem")
-          .eq("user_id", userId)
-          .maybeSingle(),
-        supabaseAdmin
-          .from("horarios_trabalho")
-          .select("dia_semana, hora_inicio, hora_fim")
-          .eq("user_id", userId)
-          .eq("ativo", true),
-        supabaseAdmin
-          .from("bloqueios_agenda")
-          .select("data_inicio, data_fim, horario_inicio, horario_fim")
-          .eq("user_id", userId)
-          .or(`data_fim.is.null,data_fim.gte.${hoje}`)
-          .order("data_inicio", { ascending: true })
-          .limit(100),
-      ]);
+    const [
+      perfil,
+      servicos,
+      agendamentos,
+      portfolio,
+      avaliacoes,
+      fidelidade,
+      horarios,
+      bloqueios,
+      intervalos,
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("profiles")
+        .select("nome, avatar_url, telefone")
+        .eq("id", userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("servicos")
+        .select("id, nome, valor, duracao_min")
+        .eq("user_id", userId)
+        .eq("ativo", true)
+        .order("nome"),
+      supabaseAdmin
+        .from("agendamentos")
+        .select("data_hora, duracao_min, status")
+        .eq("user_id", userId)
+        .neq("status", "cancelado")
+        .gte("data_hora", agora)
+        .order("data_hora", { ascending: true })
+        .limit(500),
+      supabaseAdmin
+        .from("portfolio")
+        .select("id, titulo, imagem_url, tags")
+        .eq("user_id", userId)
+        .eq("publico", true)
+        .order("created_at", { ascending: false })
+        .limit(60),
+      supabaseAdmin
+        .from("avaliacoes")
+        .select("id, cliente_nome, nota, comentario, data")
+        .eq("user_id", userId)
+        .eq("publico", true)
+        .order("data", { ascending: false })
+        .limit(100),
+      supabaseAdmin
+        .from("fidelidade_config")
+        .select("niver_promo_ativa, niver_desconto_porcentagem")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("horarios_trabalho")
+        .select("dia_semana, hora_inicio, hora_fim")
+        .eq("user_id", userId)
+        .eq("ativo", true),
+      supabaseAdmin
+        .from("bloqueios_agenda")
+        .select("data_inicio, data_fim, horario_inicio, horario_fim")
+        .eq("user_id", userId)
+        .or(`data_fim.is.null,data_fim.gte.${hoje}`)
+        .order("data_inicio", { ascending: true })
+        .limit(100),
+      supabaseAdmin
+        .from("expediente_intervalos")
+        .select("dia_semana, nome, hora_inicio, hora_fim")
+        .eq("user_id", userId),
+    ]);
 
     // NOTE: no banco real, bloqueios_agenda usa horario_inicio/horario_fim
     // (o nome na migration original divergiu — ver relatório de auditoria).
@@ -174,7 +191,7 @@ export const getDadosPublicosManicure = createServerFn({ method: "POST" })
     return {
       ok: true,
       data: {
-        perfil: perfil.data ?? { nome: null, avatar_url: null },
+        perfil: perfil.data ?? { nome: null, avatar_url: null, telefone: null },
         servicos: servicos.data ?? [],
         agendamentos: agendamentos.data ?? [],
         portfolio: portfolio.data ?? [],
@@ -184,6 +201,12 @@ export const getDadosPublicosManicure = createServerFn({ method: "POST" })
           dia_semana: Number(h.dia_semana),
           hora_inicio: h.hora_inicio,
           hora_fim: h.hora_fim,
+        })),
+        intervalos: (intervalos.data ?? []).map((i) => ({
+          dia_semana: Number(i.dia_semana),
+          nome: i.nome ?? "Intervalo",
+          hora_inicio: i.hora_inicio,
+          hora_fim: i.hora_fim,
         })),
         bloqueios: bloqueiosMapeados,
       },
