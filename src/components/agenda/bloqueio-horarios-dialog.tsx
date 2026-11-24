@@ -40,7 +40,7 @@ type Bloqueio = {
   id: string;
   user_id: string;
   titulo: string;
-  tipo: "feriado" | "ferias" | "personalizado" | "almoco";
+  tipo: "feriado" | "ferias" | "personalizado" | "pessoal" | "almoco";
   data_inicio: string;
   data_fim: string;
   horario_inicio: string | null;
@@ -60,6 +60,11 @@ const TIPO_CONFIG: Record<string, { icon: typeof CalendarOff; label: string; col
     color: "text-blue-500 bg-blue-500/10 border-blue-500/20",
   },
   personalizado: {
+    icon: Coffee,
+    label: "Personalizado",
+    color: "text-amber-500 bg-amber-500/10 border-amber-500/20",
+  },
+  pessoal: {
     icon: Coffee,
     label: "Personalizado",
     color: "text-amber-500 bg-amber-500/10 border-amber-500/20",
@@ -100,19 +105,37 @@ export function BloqueioHorariosDialog() {
 
   const saveMut = useMutation({
     mutationFn: async () => {
+      const titulo = form.titulo.trim();
+      if (!titulo) throw new Error("Informe o título do bloqueio.");
+      if (!form.data_inicio) throw new Error("Informe a data de início.");
+
+      const dataFim = form.tipo === "ferias" ? form.data_fim : form.data_inicio;
+      if (!dataFim) throw new Error("Informe a data de fim.");
+      if (dataFim < form.data_inicio)
+        throw new Error("A data de fim deve ser igual ou posterior à data de início.");
+
+      const comHorario = form.tipo === "personalizado" || form.tipo === "almoco";
+      let horarioInicio: string | null = null;
+      let horarioFim: string | null = null;
+      if (comHorario) {
+        if (!form.horario_inicio || !form.horario_fim)
+          throw new Error("Informe o horário de início e de fim.");
+        if (form.horario_fim <= form.horario_inicio)
+          throw new Error("O horário final deve ser maior que o inicial.");
+        horarioInicio = form.horario_inicio;
+        horarioFim = form.horario_fim;
+      }
+
       const u = (await supabase.auth.getUser()).data.user;
       if (!u) throw new Error("Não autenticado");
       const payload = {
         user_id: u.id,
-        titulo: form.titulo,
-        tipo: form.tipo,
+        titulo,
+        tipo: form.tipo === "personalizado" ? "pessoal" : form.tipo,
         data_inicio: form.data_inicio,
-        data_fim:
-          form.tipo === "feriado" || form.tipo === "personalizado" || form.tipo === "almoco"
-            ? form.data_inicio
-            : form.data_fim,
-        horario_inicio: form.horario_inicio || null,
-        horario_fim: form.horario_fim || null,
+        data_fim: dataFim,
+        horario_inicio: horarioInicio,
+        horario_fim: horarioFim,
       };
       if (editing) {
         const { error } = await supabase
@@ -162,7 +185,7 @@ export function BloqueioHorariosDialog() {
     setEditing(b);
     setForm({
       titulo: b.titulo,
-      tipo: b.tipo,
+      tipo: b.tipo === "pessoal" ? "personalizado" : b.tipo,
       data_inicio: b.data_inicio,
       data_fim: b.data_fim,
       horario_inicio: b.horario_inicio ?? "",
@@ -313,6 +336,7 @@ export function BloqueioHorariosDialog() {
                       value={form.data_inicio}
                       onChange={(e) => setForm({ ...form, data_inicio: e.target.value })}
                       className="h-10 rounded-xl"
+                      required
                     />
                   </div>
                   {form.tipo === "ferias" ? (
@@ -323,6 +347,7 @@ export function BloqueioHorariosDialog() {
                         value={form.data_fim}
                         onChange={(e) => setForm({ ...form, data_fim: e.target.value })}
                         className="h-10 rounded-xl"
+                        required
                       />
                     </div>
                   ) : form.tipo === "personalizado" || form.tipo === "almoco" ? (
@@ -334,6 +359,7 @@ export function BloqueioHorariosDialog() {
                           value={form.horario_inicio}
                           onChange={(e) => setForm({ ...form, horario_inicio: e.target.value })}
                           className="h-10 rounded-xl"
+                          required
                         />
                       </div>
                       <div>
@@ -343,6 +369,7 @@ export function BloqueioHorariosDialog() {
                           value={form.horario_fim}
                           onChange={(e) => setForm({ ...form, horario_fim: e.target.value })}
                           className="h-10 rounded-xl"
+                          required
                         />
                       </div>
                     </div>

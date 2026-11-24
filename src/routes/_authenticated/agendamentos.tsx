@@ -121,6 +121,17 @@ const statusLabel: Record<Status, string> = {
   cancelado: "Cancelado",
 };
 
+function invalidarViewsAgenda(qc: ReturnType<typeof useQueryClient>) {
+  [
+    "agendamentos",
+    "agendamentos-all",
+    "dashboard",
+    "dashboard-smart-assistant",
+    "dashboard-return-reminder",
+    "cliente-historico",
+  ].forEach((queryKey) => qc.invalidateQueries({ queryKey: [queryKey] }));
+}
+
 const schema = z.object({
   cliente_id: z.string().uuid("Selecione uma cliente"),
   servico_id: z.string().uuid("Selecione um serviço"),
@@ -150,6 +161,30 @@ function AgendamentosPage() {
   // Drag & Drop mutation
   const moveAgMut = useMutation({
     mutationFn: async ({ id, newDate }: { id: string; newDate: string }) => {
+      const { data: atual, error: erroAtual } = await supabase
+        .from("agendamentos")
+        .select("duracao_min")
+        .eq("id", id)
+        .maybeSingle();
+      if (erroAtual) throw erroAtual;
+      if (!atual) throw new Error("Agendamento não encontrado.");
+
+      const inicio = new Date(newDate).getTime();
+      const fim = inicio + (atual.duracao_min || 60) * 60 * 1000;
+      const { data: ocupados, error: erroOcupados } = await supabase
+        .from("agendamentos")
+        .select("id, data_hora, duracao_min")
+        .neq("id", id)
+        .neq("status", "cancelado");
+      if (erroOcupados) throw erroOcupados;
+
+      const conflito = (ocupados ?? []).some((slot) => {
+        const ini = new Date(slot.data_hora).getTime();
+        const fimSlot = ini + (slot.duracao_min || 60) * 60 * 1000;
+        return inicio < fimSlot && ini < fim;
+      });
+      if (conflito) throw new Error("Conflito de horário! Já existe um agendamento neste período.");
+
       const { error } = await supabase
         .from("agendamentos")
         .update({ data_hora: newDate })
@@ -157,7 +192,7 @@ function AgendamentosPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agendamentos"] });
+      invalidarViewsAgenda(qc);
       toast.success("Agendamento movido!");
     },
     onError: (e: Error) => toast.error(mensagemErroAmigavel(e.message)),
@@ -257,9 +292,10 @@ function AgendamentosPage() {
             <CompartilharLinkDialog />
             <BloqueioHorariosDialog />
             <AgendamentoDialog
+              key={openNew ? "novo-aberto" : "novo-fechado"}
               open={openNew}
               setOpen={setOpenNew}
-              onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })}
+              onSaved={() => invalidarViewsAgenda(qc)}
             />
           </div>
         }
@@ -350,10 +386,14 @@ function AgendamentosPage() {
                     aria-label={`${format(day, "dd 'de' MMMM")}${dayAgs.length > 0 ? `, ${dayAgs.length} agendamento${dayAgs.length > 1 ? "s" : ""}` : ""}${keyboardDragId ? ". Pressione Enter para soltar agendamento aqui." : ""}`}
                     tabIndex={isCurrentMonth ? 0 : -1}
                     onKeyDown={(e) => {
-                      if (keyboardDragId && (e.key === "Enter" || e.key === " ")) {
+                      if (
+                        keyboardDragSource &&
+                        keyboardDragId &&
+                        (e.key === "Enter" || e.key === " ")
+                      ) {
                         e.preventDefault();
                         // Drop the appointment on this day
-                        const oldDate = new Date(keyboardDragSource + "T00:00:00");
+                        const oldDate = new Date(keyboardDragSource);
                         const newDate = new Date(dayKey + "T" + format(oldDate, "HH:mm:ss"));
                         if (newDate.getTime() !== oldDate.getTime()) {
                           moveAgMut.mutate({ id: keyboardDragId, newDate: newDate.toISOString() });
@@ -421,7 +461,7 @@ function AgendamentosPage() {
                                   `Agendamento selecionado: ${a.clientes?.nome ?? "Cliente"}. Use Tab para navegar até o dia desejado e pressione Enter para soltar.`,
                                 );
                                 setKeyboardDragId(a.id);
-                                setKeyboardDragSource(format(new Date(a.data_hora), "yyyy-MM-dd"));
+                                setKeyboardDragSource(a.data_hora);
                               }
                             }
                             if (e.key === "Escape" && keyboardDragId) {
@@ -528,8 +568,9 @@ function AgendamentosPage() {
                     </div>
                     <WhatsAg a={a} />
                     <AgendamentoDialog
+                      key={`${a.id}-${a.data_hora}-${a.valor}-${a.status}`}
                       ag={a}
-                      onSaved={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })}
+                      onSaved={() => invalidarViewsAgenda(qc)}
                       trigger={
                         <Button
                           size="icon"
@@ -540,10 +581,7 @@ function AgendamentosPage() {
                         </Button>
                       }
                     />
-                    <DeleteAg
-                      id={a.id}
-                      onDone={() => qc.invalidateQueries({ queryKey: ["agendamentos"] })}
-                    />
+                    <DeleteAg id={a.id} onDone={() => invalidarViewsAgenda(qc)} />
                   </div>
                 </div>
               </Card>
@@ -590,6 +628,8 @@ function DeleteAg({ id, onDone }: { id: string; onDone: () => void }) {
 }
 
 type AgComRelacoes = {
+  id: string;
+  cliente_id: string | null;
   data_hora: string;
   valor: number;
   status: Status;
@@ -700,7 +740,7 @@ function AgendamentoDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clientes")
-        .select("id,nome,data_nascimento")
+        .select("id,nome,telefone,data_nascimento")
         .order("nome");
       if (error) throw error;
       return data;
@@ -942,11 +982,13 @@ function AgendamentoDialog({
       const data_hora = new Date(`${parsed.data.data}T${parsed.data.hora}:00`).toISOString();
 
       // Conflict check - also check overlapping times based on duration
-      const { data: u } = await supabase.auth.getUser();
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+      if (!user) throw new Error("Sessão expirada. Entre novamente.");
       const { data: allSlots } = await supabase
         .from("agendamentos")
         .select("id, data_hora, duracao_min")
-        .eq("user_id", u.user!.id)
+        .eq("user_id", user.id)
         .neq("status", "cancelado");
 
       const requestedStart = new Date(data_hora).getTime();
@@ -980,12 +1022,12 @@ function AgendamentoDialog({
       if (!ag && recorrente) {
         const { error: insertErr } = await supabase
           .from("agendamentos")
-          .insert({ ...payload, user_id: u.user!.id });
+          .insert({ ...payload, user_id: user.id });
         if (insertErr) throw insertErr;
 
         const horaTime = `${String(new Date(data_hora).getHours()).padStart(2, "0")}:${String(new Date(data_hora).getMinutes()).padStart(2, "0")}`;
         const { error: recErr } = await supabase.from("recorrencias").insert({
-          user_id: u.user!.id,
+          user_id: user.id,
           cliente_id: parsed.data.cliente_id,
           servico_id: parsed.data.servico_id,
           frequencia,
@@ -1011,7 +1053,7 @@ function AgendamentoDialog({
       } else {
         const { data: created, error } = await supabase
           .from("agendamentos")
-          .insert({ ...payload, user_id: u.user!.id })
+          .insert({ ...payload, user_id: user.id })
           .select("id")
           .single();
         if (error) throw error;

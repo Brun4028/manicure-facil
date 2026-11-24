@@ -192,18 +192,30 @@ export function WhatsAppMessageDialog({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
 
-      <DialogContent className="sm:max-w-xl bg-card/95 backdrop-blur-xl border border-border/80 shadow-2xl p-5 md:p-6">
-        <DialogHeader className="text-left space-y-1.5 pb-2 border-b border-border/40">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
+      <DialogContent
+        className="grid-cols-[minmax(0,1fr)] w-[calc(100%-2rem)] max-w-xl min-w-0 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-card/95 backdrop-blur-xl border border-border/80 shadow-2xl p-5 md:p-6"
+        style={{
+          width: "calc(100% - 2rem)",
+          maxWidth: "36rem",
+          minWidth: 0,
+          gridTemplateColumns: "minmax(0, 1fr)",
+          maxHeight: "calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))",
+          paddingTop: "max(1.25rem, env(safe-area-inset-top))",
+          paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
+          overflowX: "hidden",
+        }}
+      >
+        <DialogHeader className="min-w-0 max-w-full text-left space-y-1.5 pb-2 pr-7 border-b border-border/40">
+          <div className="flex items-center justify-between gap-3 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className="size-9 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 grid place-items-center text-[#25D366] shrink-0">
                 <MessageCircle className="size-5" />
               </div>
-              <div>
-                <DialogTitle className="font-display text-lg flex items-center gap-2">
+              <div className="min-w-0">
+                <DialogTitle className="font-display text-base sm:text-lg leading-snug break-words">
                   Preparar Mensagem WhatsApp
                 </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground">
+                <DialogDescription className="text-xs text-muted-foreground leading-snug break-words">
                   Revise e ajuste o texto antes de abrir a conversa no WhatsApp
                 </DialogDescription>
               </div>
@@ -213,7 +225,7 @@ export function WhatsAppMessageDialog({
 
         <div className="space-y-4 pt-1">
           {/* Card da Cliente e Telefone */}
-          <div className="bg-muted/40 border border-border/60 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="bg-muted/40 border border-border/60 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs min-w-0 max-w-full">
             <div className="flex items-center gap-2 min-w-0">
               <div className="size-8 rounded-full gradient-primary grid place-items-center text-white text-xs font-bold shrink-0">
                 {cliente.nome.charAt(0).toUpperCase()}
@@ -233,32 +245,32 @@ export function WhatsAppMessageDialog({
             </div>
 
             {/* Telefone e Edição rápida */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 min-w-0 max-w-full sm:shrink-0">
               {editandoTelefone ? (
-                <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 w-full min-w-0 sm:w-auto">
                   <Input
                     size={1}
                     value={telefoneEditavel}
                     placeholder="DDD + Número (ex: 11999998888)"
                     onChange={(e) => setTelefoneEditavel(e.target.value)}
-                    className="h-8 text-xs w-44"
+                    className="h-8 text-xs min-w-0 flex-1 sm:flex-none sm:w-44"
                     autoFocus
                   />
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-8 text-[11px] px-2"
+                    className="h-8 text-[11px] px-2 shrink-0"
                     onClick={() => setEditandoTelefone(false)}
                   >
                     OK
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 min-w-0 max-w-full">
                   <Badge
                     variant="outline"
-                    className={`text-[11px] font-mono ${
+                    className={`text-[11px] font-mono max-w-full overflow-hidden text-ellipsis whitespace-nowrap ${
                       numeroValido
                         ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                         : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
@@ -297,7 +309,10 @@ export function WhatsAppMessageDialog({
             <Label className="text-xs text-muted-foreground flex items-center gap-1">
               <Sparkles className="size-3 text-primary" /> Escolha o modelo da mensagem:
             </Label>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <div
+              className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none w-full min-w-0 max-w-full"
+              style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}
+            >
               {TEMPLATES.map((t) => {
                 const ativo = tipoSelecionado === t.id;
                 return (
@@ -333,7 +348,7 @@ export function WhatsAppMessageDialog({
               value={mensagemTexto}
               onChange={(e) => setMensagemTexto(e.target.value)}
               placeholder="Digite aqui a mensagem..."
-              className="font-sans text-xs leading-relaxed resize-none bg-background/80 focus-visible:ring-1 focus-visible:ring-[#25D366]"
+              className="font-sans text-xs leading-relaxed resize-none bg-background/80 focus-visible:ring-1 focus-visible:ring-[#25D366] w-full min-w-0 max-w-full"
             />
           </div>
 
@@ -342,9 +357,9 @@ export function WhatsAppMessageDialog({
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block">
               Pré-visualização no WhatsApp:
             </span>
-            <div className="bg-[#EFEAE2] dark:bg-[#0B141A] rounded-2xl p-3 border border-border/40 overflow-hidden">
-              <div className="max-w-[85%] ml-auto bg-[#D9FDD3] dark:bg-[#005C4B] text-[#111B21] dark:text-[#E9EDEF] rounded-2xl rounded-tr-xs p-3 text-xs shadow-sm space-y-1.5">
-                <p className="whitespace-pre-wrap leading-relaxed text-xs break-words">
+            <div className="bg-[#EFEAE2] dark:bg-[#0B141A] rounded-2xl p-3 border border-border/40 overflow-hidden w-full min-w-0 max-w-full">
+              <div className="max-w-[85%] w-full min-w-0 ml-auto bg-[#D9FDD3] dark:bg-[#005C4B] text-[#111B21] dark:text-[#E9EDEF] rounded-2xl rounded-tr-xs p-3 text-xs shadow-sm space-y-1.5">
+                <p className="whitespace-pre-wrap leading-relaxed text-xs break-words [overflow-wrap:anywhere]">
                   {mensagemTexto || "Sua mensagem aparecerá aqui..."}
                 </p>
                 <div className="flex items-center justify-end gap-1 text-[9px] text-[#667781] dark:text-[#8696A0]">
@@ -356,12 +371,12 @@ export function WhatsAppMessageDialog({
           </div>
         </div>
 
-        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-3 border-t border-border/40">
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-3 border-t border-border/40 w-full min-w-0 max-w-full">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="text-xs text-muted-foreground hover:text-foreground"
+            className="w-full sm:w-auto justify-center text-xs text-muted-foreground hover:text-foreground"
             onClick={() => setIsOpen(false)}
           >
             Fechar
@@ -371,7 +386,7 @@ export function WhatsAppMessageDialog({
             type="button"
             variant="outline"
             size="sm"
-            className="text-xs glass hover:bg-accent/40"
+            className="w-full sm:w-auto justify-center text-xs glass hover:bg-accent/40"
             onClick={handleCopiar}
           >
             {copiado ? (
@@ -385,7 +400,7 @@ export function WhatsAppMessageDialog({
           <Button
             type="button"
             size="sm"
-            className="bg-[#25D366] hover:bg-[#1ebe5d] text-white font-medium text-xs shadow-md shadow-[#25D366]/20 flex items-center justify-center gap-1.5 sm:ml-auto"
+            className="w-full sm:w-auto justify-center whitespace-nowrap bg-[#25D366] hover:bg-[#1ebe5d] text-white font-medium text-xs shadow-md shadow-[#25D366]/20 flex items-center gap-1.5 sm:ml-auto"
             onClick={handleEnviarWhatsApp}
           >
             <MessageCircle className="size-4" />
