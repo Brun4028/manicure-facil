@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useAuth } from "@/hooks/use-auth";
 
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
@@ -113,31 +114,10 @@ const defaultPhotos: Photo[] = [
   },
 ];
 
-const defaultReviews: Review[] = [
-  {
-    id: "re1",
-    cliente_nome: "Juliana Mendes",
-    nota: 5,
-    comentario:
-      "Atendimento impecável! O alongamento dura muito e o ambiente com o tema Rosé é super relaxante.",
-    data: new Date().toISOString(),
-    publico: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "re2",
-    cliente_nome: "Renata Abreu",
-    nota: 4,
-    comentario: "Muito caprichosa e pontual. Adorei a francesinha champagne!",
-    data: new Date().toISOString(),
-    publico: true,
-    created_at: new Date().toISOString(),
-  },
-];
-
 function PortfolioPage() {
   usePageTitle("Portfólio & Avaliações — Manicure Fácil");
 
+  const { user } = useAuth();
   const qc = useQueryClient();
   const { confirm: confirmDelPhoto, confirm: confirmDelReview } = useConfirm();
   const [activeTab, setActiveTab] = useState("portfolio");
@@ -161,20 +141,46 @@ function PortfolioPage() {
 
   // Query Reviews
   const reviewsQuery = useQuery({
-    queryKey: ["avaliacoes"],
+    queryKey: ["avaliacoes", user?.id],
+    enabled: !!user,
+    refetchInterval: 15_000,
     queryFn: async () => {
+      if (!user) return [] as Review[];
       try {
         const { data, error } = await supabase
           .from("avaliacoes")
           .select("*")
+          .eq("user_id", user.id)
           .order("data", { ascending: false });
         if (error) throw error;
         return data as Review[];
-      } catch (e) {
-        return fallbackDb.get<Review>("avaliacoes", defaultReviews);
+      } catch {
+        return [] as Review[];
       }
     },
   });
+
+  const [novasAvaliacoes, setNovasAvaliacoes] = useState(0);
+  const idsConhecidos = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (activeTab === "avaliacoes") setNovasAvaliacoes(0);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!reviewsQuery.data) return;
+    const ids = new Set(reviewsQuery.data.map((r) => r.id));
+    const anteriores = idsConhecidos.current;
+    if (anteriores === null) {
+      idsConhecidos.current = ids;
+      return;
+    }
+    const chegadas = Array.from(ids).filter((id) => !anteriores.has(id)).length;
+    if (chegadas > 0 && activeTab !== "avaliacoes") {
+      setNovasAvaliacoes((total) => total + chegadas);
+    }
+    idsConhecidos.current = ids;
+  }, [reviewsQuery.data, activeTab]);
 
   const photos = photosQuery.data ?? [];
   const reviews = reviewsQuery.data ?? [];
@@ -212,12 +218,8 @@ function PortfolioPage() {
 
   const deleteReviewMut = useMutation({
     mutationFn: async (id: string) => {
-      try {
-        const { error } = await supabase.from("avaliacoes").delete().eq("id", id);
-        if (error) throw error;
-      } catch {
-        fallbackDb.delete("avaliacoes", id, defaultReviews);
-      }
+      const { error } = await supabase.from("avaliacoes").delete().eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Avaliação excluída");
@@ -252,6 +254,11 @@ function PortfolioPage() {
             className="rounded-xl flex items-center gap-1.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20"
           >
             <Star className="size-4" /> Avaliações ({stats.total})
+            {novasAvaliacoes > 0 && (
+              <span className="ml-1 rounded-full bg-gradient-to-r from-[#D946EF] to-[#A855F7] px-1.5 py-0.5 text-[9px] font-bold text-white">
+                {novasAvaliacoes > 9 ? "9+" : novasAvaliacoes} novo{novasAvaliacoes > 1 ? "s" : ""}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -457,9 +464,14 @@ function PortfolioPage() {
                             })}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-lg">
-                          <Star className="size-3 text-amber-500 fill-amber-500" />
-                          <span className="text-xs font-bold text-amber-500">{r.nota}</span>
+                        <div className="flex items-center gap-0.5 bg-amber-500/10 px-2 py-0.5 rounded-lg">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <Star
+                              key={i}
+                              className={`size-3 ${i < r.nota ? "text-amber-500 fill-amber-500" : "text-muted-foreground/30"}`}
+                            />
+                          ))}
+                          <span className="ml-1 text-xs font-bold text-amber-500">{r.nota}</span>
                         </div>
                       </div>
 
@@ -480,16 +492,11 @@ function PortfolioPage() {
                                 .update({ publico: val })
                                 .eq("id", r.id);
                               if (error) throw error;
-                            } catch {
-                              fallbackDb.update<Review>(
-                                "avaliacoes",
-                                r.id,
-                                { publico: val },
-                                defaultReviews,
-                              );
+                              toast.success(val ? "Exibido no perfil" : "Ocultado do perfil");
+                              invalidate();
+                            } catch (e) {
+                              toast.error(mensagemErroAmigavel((e as Error).message));
                             }
-                            toast.success(val ? "Exibido no perfil" : "Ocultado do perfil");
-                            invalidate();
                           }}
                         />
                       </div>

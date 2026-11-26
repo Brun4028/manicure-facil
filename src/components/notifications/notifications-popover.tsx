@@ -186,7 +186,7 @@ export function NotificationsPopover() {
       </Button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[min(380px,calc(100vw_-_2rem))] max-h-[500px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-fade-up">
+        <div className="fixed inset-x-4 top-16 z-50 mx-auto mt-2 max-h-[500px] w-auto max-w-[380px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-fade-up md:absolute md:left-auto md:right-0 md:top-full md:mx-0 md:w-[380px]">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border/40">
             <div className="flex items-center gap-2">

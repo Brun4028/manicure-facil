@@ -6,8 +6,9 @@
  * acontece aqui, usando a mesma lógica pura compartilhada (cupons-logica).
  *
  * Fluxos:
- * - Público (/agendar/:id): `avaliarCuponsPublico` (leitura) +
- *   `consumirCupomPublico` (consumo atômico dentro do agendamento).
+ * - Público (/agendar/:id): `avaliarCuponsPublico` (leitura); o consumo atômico
+ *   acontece somente dentro de `criarAgendamentoPublico`, com o tenant validado
+ *   pelo serviço e pela conta ativa no RPC de agendamento.
  * - Interno (agenda + PDV): `avaliarCuponsInterno` (leitura) +
  *   `consumirCupomInterno` (consumo).
  *
@@ -176,52 +177,3 @@ export const consumirCupomInterno = createServerFn({ method: "POST" })
       return { ok: true, desconto: validacao.desconto };
     },
   );
-
-// ─── Consumo (público, service_role) — chamado pelo agendamento público ─────
-
-const consumirPublicoSchema = z.object({
-  userId: z.string().uuid("Identificador inválido"),
-  cupomId: z.string().uuid("Cupom inválido"),
-  base: z.number().min(0),
-  entidadeId: z.string().uuid().nullable().optional(),
-});
-
-export const consumirCupomPublico = createServerFn({ method: "POST" })
-  .validator(consumirPublicoSchema)
-  .handler(async ({ data }): Promise<{ ok: boolean; error?: string; desconto?: number }> => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const { data: row } = await supabaseAdmin
-      .from("promocoes")
-      .select(COLUNAS_CUPOM)
-      .eq("user_id", data.userId)
-      .eq("id", data.cupomId)
-      .maybeSingle();
-    if (!row) return { ok: false, error: "Cupom não encontrado." };
-
-    const cupom = paraCupom(row);
-    const validacao = validarCupom(cupom, { base: data.base });
-    if (!validacao.elegivel) {
-      return { ok: false, error: validacao.motivo ?? "Cupom não é válido para esta compra." };
-    }
-
-    const { data: atualizado } = await supabaseAdmin
-      .from("promocoes")
-      .update({ usos: cupom.usos + 1 })
-      .eq("id", cupom.id)
-      .eq("user_id", data.userId)
-      .lt("usos", cupom.limite_usos ?? 2147483647)
-      .select("id")
-      .maybeSingle();
-    if (!atualizado) return { ok: false, error: "Limite de usos do cupom atingido." };
-
-    await supabaseAdmin.from("cupom_usos").insert({
-      user_id: data.userId,
-      promocao_id: cupom.id,
-      origem: "agendamento",
-      entidade_id: data.entidadeId ?? null,
-      valor_desconto: validacao.desconto,
-    });
-
-    return { ok: true, desconto: validacao.desconto };
-  });

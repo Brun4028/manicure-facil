@@ -10,13 +10,10 @@
  */
 
 // Determinado uma vez na inicialização do módulo
-const IS_PRODUCTION: boolean = (() => {
-  try {
-    return typeof process !== "undefined" && process.env?.NODE_ENV === "production";
-  } catch {
-    return false;
-  }
-})();
+const IS_PRODUCTION: boolean =
+  typeof window === "undefined" ||
+  (window.location.protocol === "https:" &&
+    !["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname));
 
 let warned = false;
 

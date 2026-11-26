@@ -22,10 +22,20 @@ import path from "node:path";
 // chegam diretamente via bindings / env. Em dev no Node, usamos o módulo fs
 // resolvido dinamicamente via process.getBuiltinModule sem importar estaticamente
 // node:fs (evitando quebrar o bundle na borda).
-function getFsModule(): { statSync: Function; readFileSync: Function } | null {
+type FsModule = {
+  statSync: (path: string, options: { throwIfNoEntry: false }) => { mtimeMs: number } | undefined;
+  readFileSync: (path: string, encoding: "utf8") => string;
+};
+
+type ProcessWithBuiltinModule = typeof process & {
+  getBuiltinModule?: (id: string) => unknown;
+};
+
+function getFsModule(): FsModule | null {
   try {
-    if (typeof process !== "undefined" && typeof (process as any).getBuiltinModule === "function") {
-      return (process as any).getBuiltinModule("node:fs") ?? null;
+    const nodeProcess = process as ProcessWithBuiltinModule;
+    if (typeof nodeProcess.getBuiltinModule === "function") {
+      return (nodeProcess.getBuiltinModule("node:fs") as FsModule | undefined) ?? null;
     }
   } catch {
     /* ignore */
@@ -94,7 +104,7 @@ export function getServerEnv(key: string): string | undefined {
     return process.env[key];
   }
   try {
-    const cfEnv = (globalThis as any).__env__;
+    const cfEnv = (globalThis as { __env__?: Record<string, string | undefined> }).__env__;
     if (cfEnv && cfEnv[key]) return cfEnv[key];
   } catch {
     /* ignore */
